@@ -738,7 +738,8 @@ class Deck {
   phaseDiff(M) {
     const k = this.effBpm / M.effBpm;
     const kk = k > 1.5 ? 2 : k < 0.75 ? 0.5 : 1;
-    const bm = (M.pos - M.first) / M.B * kk, bs = (this.pos - this.first) / this.B;
+    // vpos is latency-compensated, so both decks are compared at the position the listener hears
+    const bm = (M.vpos - M.first) / M.B * kk, bs = (this.vpos - this.first) / this.B;
     let d = (bm - Math.floor(bm)) - (bs - Math.floor(bs));
     if (d > 0.5) d -= 1; else if (d < -0.5) d += 1;
     return d;
@@ -1024,8 +1025,9 @@ class Deck {
     let corr = 1;
     if (this.syncTempo != null && M.playing && this.playing && !this.scrActive && !this.jog && !this.slipTags.size) {
       const d = this.phaseDiff(M);
-      if (Math.abs(d) > 0.006) {
-        const tc = Math.abs(d) > 0.15 ? 0.35 : 1.4;
+      if (Math.abs(d) > 0.003) {
+        // pull back faster: lock within about a beat instead of one and a half
+        const tc = Math.abs(d) > 0.15 ? 0.25 : 0.7;
         corr = 1 + clamp(d * this.B / (tc * this.tempo), -0.06, 0.06);
       }
     }

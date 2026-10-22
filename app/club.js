@@ -21,12 +21,15 @@ const people = [];
 const flying = [];
 const texts = [];
 let beams = [], washes = [], ledMat, signMat, booth;
+// light show state, driven by the controls under the club view
+const light = { mode: 'auto', hue: 0.52, speed: 0.4, sfx: {} }; // sfx: name -> elapsed time it ends
+const SFX_LENGTH = { laser: 4, flame: 2, co2: 3 };
 
 const cc = () => window.__cc;
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ crowd brain
-const brain = { hype: 45, clash: 0, dead: 0, blend: 0, keyBad: 0, clip: 0, bassFast: 0, bassSlow: 0, lowSince: 0, lastDrop: -99, lastBra: -99, lastDrink: -99, lastFall: -99, lastMixCheer: -99, mood: 'Waiting for music', specBuf: null, timeBuf: null };
+const brain = { hype: 45, clash: 0, dead: 0, blend: 0, keyBad: 0, clip: 0, bassFast: 0, bassSlow: 0, lowSince: 0, lastDrop: -99, lastBra: -99, lastDrink: -99, lastFall: -99, lastMixCheer: -99, lastBoo: -99, wrecking: false, mood: 'Waiting for music', specBuf: null, timeBuf: null };
 
 function keyOk(a, b) {
   const x = CAMELOT[a], y = CAMELOT[b];
@@ -56,7 +59,7 @@ function think(dt, t) {
   const [a, b] = c.decks;
   const aud = c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
   const { bass, peak } = listen();
-  brain.bassFast += (bass - brain.bassFast) * Math.min(1, dt * 7);
+  brain.bassFast += (bass - brain.bassFast) * Math.min(1, dt * 12);
   brain.bassSlow += (bass - brain.bassSlow) * Math.min(1, dt * 0.35);
   // dead air
   if (peak < 0.015) brain.dead += dt; else brain.dead = Math.max(0, brain.dead - dt * 3);
@@ -76,7 +79,7 @@ function think(dt, t) {
   const playing = aud[0] > 0.05 || aud[1] > 0.05;
   // hype drifts toward the energy of the music, pushed by good blends and dragged by mistakes
   const target = playing ? 30 + 62 * brain.bassSlow : 15;
-  let d = (target - brain.hype) * 0.09;
+  let d = (target - brain.hype) * 0.18;
   if (brain.blend > 4) d += 2.5;
   d -= Math.min(brain.clash, 6) * 2.2;
   if (brain.dead > 1.5) d -= 9;
@@ -89,12 +92,21 @@ function think(dt, t) {
     if (brain.lowSince > 3.5 && t - brain.lastDrop > 8 && playing) { brain.lastDrop = t; brain.hype = Math.min(100, brain.hype + 22); everyone('cheer', 0.35, ['WOOO!', 'YESSS!', 'DROP!']); }
     brain.lowSince = 0;
   }
-  // a clean, long blend gets noticed
-  if (brain.blend > 8 && t - brain.lastMixCheer > 25) { brain.lastMixCheer = t; someone('point', ['TUNE!', 'SMOOTH!']); someone('cheer', ['YES DJ!']); }
+  // a clean blend gets noticed straight away; a sustained one gets a bigger reaction
+  if (brain.blend > 3 && t - brain.lastMixCheer > 12) { brain.lastMixCheer = t; someone('point', ['TUNE!', 'SMOOTH!']); }
+  if (brain.blend > 8 && t - brain.lastMixCheer > 12) { brain.lastMixCheer = t; someone('cheer', ['YES DJ!']); }
+  // the moment a mix goes wrong, the nearest people boo, without waiting for the clash to build
+  const wreckingNow = brain.clash > 0.6;
+  if (wreckingNow && !brain.wrecking && t - brain.lastBoo > 2) {
+    brain.lastBoo = t;
+    someone('boo', ['BOOO!', 'SYNC IT!']);
+    someone('boo', ['WHAT IS THAT?']);
+  }
+  brain.wrecking = wreckingNow;
   // perfect, in-key blend at high hype: very rarely a bra hits the booth
   if (brain.blend > 16 && keyOk(a.t && a.t.key, b.t && b.t.key) && brain.hype > 70 && t - brain.lastBra > 45 && Math.random() < dt * 0.15) { brain.lastBra = t; throwAt('bra'); }
   // train-wrecks, clashing keys, silence
-  if (brain.clash > 1.5) for (const p of people) if (Math.random() < dt * 0.55) react(p, 'boo', ['BOOO!', 'SYNC IT!', 'BOOO']);
+  if (brain.clash > 0.6) for (const p of people) if (Math.random() < dt * 0.9) react(p, 'boo', ['BOOO!', 'SYNC IT!', 'BOOO']);
   if (brain.keyBad > 8) for (const p of people) if (Math.random() < dt * 0.05) react(p, 'boo', ['OFF KEY!']);
   if (brain.dead > 3) for (const p of people) if (Math.random() < dt * 0.4) react(p, 'boo', ['HELLO??', 'BOOO!', 'MUSIC!']);
   if ((brain.clash > 5 || brain.dead > 5) && t - brain.lastDrink > 9 && Math.random() < dt * 0.35) { brain.lastDrink = t; throwAt('drink'); }
@@ -102,7 +114,7 @@ function think(dt, t) {
   if (brain.clip > 2) for (const p of people) if (Math.random() < dt * 0.06) say(p, 'TOO LOUD!');
 
   brain.mood = !playing ? (brain.dead > 3 ? 'Dead air! The crowd is turning' : 'Waiting for music')
-    : brain.clash > 1.5 ? 'Train-wreck! Fix the sync'
+    : brain.clash > 0.6 ? 'Train-wreck! Fix the sync'
     : brain.hype > 80 ? 'Going wild' : brain.hype > 62 ? 'Loving it' : brain.hype > 40 ? 'Dancing' : brain.hype > 22 ? 'Restless' : 'Bored';
 }
 
@@ -275,11 +287,13 @@ function buildScene() {
     const m = new THREE.MeshBasicMaterial({ color: [0x41e7ff, 0x6285ff, 0xff3da5, 0x41e7ff, 0x6285ff, 0xff3da5][i], transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const b = new THREE.Mesh(beamGeo, m);
     b.position.set(-5 + i * 2, 6.2, -6.5);
+    b.userData.base = m.color.clone();
     scene.add(b); beams.push(b);
   }
   for (let i = 0; i < 3; i++) {
     const l = new THREE.SpotLight([0x41e7ff, 0xff3da5, 0x6285ff][i], 30, 16, 0.5, 0.6, 1.2);
     l.position.set(-3 + i * 3, 6, -1); l.target.position.set(-1.2 + i * 1.2, 0, -3.2);
+    l.userData.base = l.color.clone();
     scene.add(l, l.target); washes.push(l);
   }
 }
@@ -318,14 +332,72 @@ function lights(t) {
   const beat = M ? ((M.vpos - M.first) / M.B) : t * 2;
   const pulse = M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
   const energy = brain.bassFast;
+  const on = (name) => (light.sfx[name] || 0) > t;
+  const laser = on('laser'), flame = on('flame'), co2 = on('co2');
+  const mode = light.mode;
+  const dark = mode === 'blackout';
+  const tint = mode === 'colour' || mode === 'strobe' ? new THREE.Color().setHSL(light.hue, 1, 0.5) : null;
+  const flashOn = ((beat * (1 + light.speed * 7)) % 1 + 1) % 1 < 0.2;
+  const level = dark ? 0 : mode === 'strobe' ? (flashOn ? 1 : 0.04) : 1;
   beams.forEach((b, i) => {
+    if (laser) {
+      b.rotation.z = Math.sin(t * 5 + i * 1.3) * 1.1;
+      b.rotation.x = Math.cos(t * 3.7 + i) * 0.5;
+      b.material.color.set(0x7dff7a);
+      b.material.opacity = dark ? 0 : 0.55;
+      return;
+    }
     b.rotation.z = Math.sin(beat * Math.PI / 4 + i) * 0.55;
     b.rotation.x = Math.cos(beat * Math.PI / 8 + i * 0.7) * 0.35 + 0.15;
-    b.material.opacity = 0.03 + (0.06 + 0.14 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
+    b.material.color.copy(tint || b.userData.base);
+    const auto = 0.03 + (0.06 + 0.14 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
+    b.material.opacity = mode === 'auto' ? auto : (0.03 + 0.2 * level) * (dark ? 0 : 1);
   });
-  washes.forEach((l, i) => { l.intensity = 12 + 40 * energy * (0.6 + 0.4 * pulse); l.target.position.x = Math.sin(beat * Math.PI / 4 + i * 2) * 1.6; });
-  ledMat.color.setHSL(((beat / 16) % 1 + 1) % 1 * 0.3 + 0.52, 1, 0.45 + 0.25 * pulse);
-  signMat.opacity = 0.75 + 0.25 * pulse;
+  washes.forEach((l, i) => {
+    l.target.position.x = Math.sin(beat * Math.PI / 4 + i * 2) * 1.6;
+    if (flame) {
+      l.color.set(0xff7a1a);
+      l.intensity = 40 + 30 * Math.sin(t * 31 + i * 2);
+    } else if (dark) {
+      l.intensity = 0;
+    } else if (tint) {
+      l.color.copy(tint);
+      l.intensity = (mode === 'strobe' ? 70 : 35) * level;
+    } else {
+      l.color.copy(l.userData.base);
+      l.intensity = 12 + 40 * energy * (0.6 + 0.4 * pulse);
+    }
+  });
+  if (laser) ledMat.color.set(0x7dff7a);
+  else if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
+  else if (tint) ledMat.color.copy(tint).multiplyScalar(0.4 + 0.6 * level);
+  else ledMat.color.setHSL(((beat / 16) % 1 + 1) % 1 * 0.3 + 0.52, 1, 0.45 + 0.25 * pulse);
+  signMat.opacity = dark ? 0.15 : 0.75 + 0.25 * pulse;
+  // CO2 blast: fog thickens, then clears over its length
+  const co2Left = Math.max(0, (light.sfx.co2 || 0) - t);
+  scene.fog.density = 0.075 + (co2 ? 0.25 * co2Left / SFX_LENGTH.co2 : 0);
+}
+
+function setLight(mode) {
+  light.mode = mode;
+  document.querySelectorAll('#lightbar [data-light]').forEach((b) => b.classList.toggle('on', b.dataset.light === mode));
+}
+
+function fireSfx(name) {
+  light.sfx[name] = (clock ? clock.elapsedTime : 0) + SFX_LENGTH[name];
+}
+
+const lightBar = document.getElementById('lightbar');
+if (lightBar) {
+  lightBar.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.light) setLight(b.dataset.light);
+    if (b.dataset.sfx) fireSfx(b.dataset.sfx);
+  });
+  lightBar.querySelector('#lightHue').addEventListener('input', (e) => { light.hue = e.target.value / 360; });
+  lightBar.querySelector('#lightSpeed').addEventListener('input', (e) => { light.speed = e.target.value / 100; });
+  setLight('auto');
 }
 
 function frame() {
@@ -365,4 +437,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
