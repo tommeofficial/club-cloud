@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Club Cloud</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6,6 +7,7 @@
 <style>
 /* Layout: one fixed app surface (rotated to landscape on portrait phones) holding the zoom tabs and the
    hardware stage, which is drawn in the reference photo's pixel space and scaled to fit. */
+html, body { touch-action: none; overscroll-behavior: none; }
 :root {
   --bg: #050506;
   --chrome: #0d0d0f;
@@ -270,6 +272,13 @@ canvas.cv { position: absolute; pointer-events: none; }
   <input id="filein" type="file" multiple accept="audio/*,.mp3,.wav,.aif,.aiff,.flac,.m4a,.aac,.ogg,.opus" hidden>
 </div>
 
+<script>
+// Block all browser zoom/pan — DJs use multi-touch simultaneously on deck controls
+document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+</script>
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
 <script src="app.js"></script>
