@@ -574,4 +574,6 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
+// Called by app.js when split ratio changes
+window.__clubResize = () => { if (renderer && mode !== 'off') resize(); };
 window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };

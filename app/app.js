@@ -307,6 +307,7 @@ function layout(animate) {
     splitDivEl.hidden = false;
     splitDivEl.style.left = (ins.l + cw - 9) + 'px'; splitDivEl.style.top = ins.t + 'px'; splitDivEl.style.height = (H - ins.t - ins.b) + 'px';
     px += cw; pw -= cw;
+    if (window.__clubResize) requestAnimationFrame(window.__clubResize);
   } else {
     splitDivEl.hidden = true;
   }
@@ -430,19 +431,28 @@ app.addEventListener('contextmenu', (e) => { if (!e.target.closest('input')) e.p
 
 // Split divider drag
 let splitDrag = null;
-splitDivEl.addEventListener('pointerdown', (e) => {
+// Use document-level capture so the canvas overlay can't steal the drag
+document.addEventListener('pointerdown', (e) => {
+  if (splitDivEl.hidden) return;
+  const r = splitDivEl.getBoundingClientRect();
+  // Expand hit area to 32px wide centred on divider
+  const cx = r.left + r.width / 2;
+  if (Math.abs((L.portrait ? e.clientY : e.clientX) - cx) > 16) return;
+  if (L.portrait ? (e.clientX < r.top || e.clientX > r.bottom) : (e.clientY < r.top || e.clientY > r.bottom)) return;
   splitDrag = { id: e.pointerId, x: L.portrait ? e.clientY : e.clientX, ratio: L.splitRatio };
-  splitDivEl.setPointerCapture(e.pointerId); e.preventDefault();
-});
-splitDivEl.addEventListener('pointermove', (e) => {
+  e.preventDefault(); e.stopPropagation();
+}, { capture: true });
+document.addEventListener('pointermove', (e) => {
   if (!splitDrag || splitDrag.id !== e.pointerId) return;
   const si = insets(), pw = L.W - si.l - si.r;
   const dx = (L.portrait ? e.clientY : e.clientX) - splitDrag.x;
   L.splitRatio = clamp(splitDrag.ratio + dx / pw, 0.22, 0.78);
   layout(false);
-});
-splitDivEl.addEventListener('pointerup', () => { splitDrag = null; });
-splitDivEl.addEventListener('pointercancel', () => { splitDrag = null; });
+  if (window.__clubResize) window.__clubResize();
+  e.preventDefault();
+}, { capture: true, passive: false });
+document.addEventListener('pointerup', (e) => { if (splitDrag && splitDrag.id === e.pointerId) splitDrag = null; }, { capture: true });
+document.addEventListener('pointercancel', (e) => { if (splitDrag && splitDrag.id === e.pointerId) splitDrag = null; }, { capture: true });
 
 tabs.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
