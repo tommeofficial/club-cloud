@@ -39,8 +39,9 @@ const fracLbl = (b) => (b >= 1 ? String(b) : '1/' + Math.round(1 / b));
 // ============================================================ DOM
 const app = $('#app'), tabs = $('#tabs'), view = $('#view'), stage = $('#stage');
 const modal = $('#modal'), veil = $('#veil'), toastEl = $('#toast'), fileIn = $('#filein');
+const splitDivEl = $('#splitdiv'), lightBarEl = $('#lightbar'), fxMenuCv = $('#fxmenu');
 
-const L = { mode: 'normal', portrait: false, vw: 0, vh: 0, W: 0, H: 0, vx: 0, vy: 0, aw: 0, ah: 0, s: 0.5, tx: 0, ty: 0, zoom: 'all', pan: { d1: 0.5, mix: 0.35, d2: 0.5 }, panRange: 0, panAxis: 'y' };
+const L = { mode: 'normal', portrait: false, vw: 0, vh: 0, W: 0, H: 0, vx: 0, vy: 0, aw: 0, ah: 0, s: 0.5, tx: 0, ty: 0, zoom: 'all', pan: { d1: 0.5, mix: 0.35, d2: 0.5 }, panRange: 0, panAxis: 'y', splitRatio: 0.5, lightsOn: false };
 
 let toastT = 0;
 function toast(msg, sec = 2.6) { toastEl.textContent = msg; toastEl.hidden = false; toastT = nowS() + sec; }
@@ -78,6 +79,7 @@ class Knob {
   constructor(o) {
     Object.assign(this, { def: 0.5, kind: '', steps: 0, angles: null, label: '', note: null, fmt: (v) => Math.round(v * 100) + '%', onChange: null, bip: false }, o);
     if (this.v === undefined) this.v = this.def;
+    this._resetTo = o.resetTo;
     const el = document.createElement('div');
     el.className = 'c k ' + this.kind;
     el.innerHTML = '<div class="body"></div><div class="rot"><div class="knurl"></div><div class="cap"></div><div class="ind"></div></div>';
@@ -105,7 +107,7 @@ class Knob {
   }
   up() { bubble.hide(this); }
   wheel(dy) { this.set(this.steps ? this.v + (dy > 0 ? -1 : 1) : this.v - dy / 1600); bubble.flash(this); }
-  reset() { if (!this.steps) this.set(this.def); }
+  reset() { if (!this.steps) this.set(this._resetTo !== undefined ? this._resetTo : this.def); }
   text() { return this.fmt(this.v); }
   frac() { return this.steps ? this.v / (this.steps - 1) : this.v; }
 }
@@ -138,6 +140,7 @@ class Fader {
   constructor(o) {
     Object.assign(this, { min: 0, max: 1, def: 0, invert: false, kind: '', label: '', fmt: (v) => v.toFixed(2), onChange: null, detent: 0, bip: false }, o);
     if (this.v === undefined) this.v = this.def;
+    this._resetTo = o.resetTo;
     const el = document.createElement('div');
     el.className = 'c f ' + o.axis + ' ' + this.kind;
     const vert = o.axis === 'v';
@@ -175,7 +178,7 @@ class Fader {
   }
   up() { bubble.hide(this); }
   wheel(dy) { this.set(this.v + (this.invert ? 1 : -1) * dy / 2400 * (this.max - this.min)); bubble.flash(this); }
-  reset() { this.set(this.def); }
+  reset() { this.set(this._resetTo !== undefined ? this._resetTo : this.def); }
   text() { return this.fmt(this.v); }
 }
 
@@ -235,9 +238,19 @@ const bubble = {
   show(c, p) { this.ctrl = c; this.until = 0; this.el.hidden = false; this.update(); this.move(p); },
   move(p) {
     if (!p) return;
-    let x = p.ax - L.vx * 0, y = p.ay - 58;
-    if (y < 100) y = p.ay + 150;
-    x = clamp(x, 80, L.W - 80);
+    const c = this.ctrl;
+    const stageX = c && c.x != null ? c.x : SW / 2;
+    const onLeft = stageX < SW / 2;
+    const y = clamp(p.ay, 60, L.H - 60);
+    let x;
+    if (onLeft) {
+      x = p.ax + 18;
+      this.el.style.transform = 'translate(0,-50%)';
+    } else {
+      x = p.ax - 18;
+      this.el.style.transform = 'translate(-100%,-50%)';
+    }
+    x = clamp(x, 10, L.W - 260);
     this.el.style.left = x + 'px'; this.el.style.top = y + 'px';
   },
   flash(c) {
@@ -288,10 +301,14 @@ function layout(animate) {
   const split = L.mode === 'split';
   let px = ins.l, pw = W - ins.l - ins.r;
   if (split) {
-    const cw = Math.round(pw / 2);
+    const cw = Math.round(pw * L.splitRatio);
     Object.assign(club.style, { left: ins.l + 4 + 'px', top: ins.t + 4 + 'px', width: cw - 8 + 'px', height: H - ins.t - ins.b - 8 + 'px' });
     club.hidden = false;
+    splitDivEl.hidden = false;
+    splitDivEl.style.left = (ins.l + cw - 4) + 'px'; splitDivEl.style.top = ins.t + 'px'; splitDivEl.style.height = (H - ins.t - ins.b) + 'px';
     px += cw; pw -= cw;
+  } else {
+    splitDivEl.hidden = true;
   }
   // horizontal tab bar on top, or a vertical rail on the left when that leaves the stage bigger
   const [, , rw, rh] = ZOOMS.all;
@@ -314,6 +331,18 @@ function layout(animate) {
   } else if (!split) club.hidden = true;
   Object.assign(view.style, { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
   placeStage(animate);
+  // Lightbar: show near the mixer/library area (below the centre screen in stage space)
+  if (L.mode !== 'club') {
+    const lbSX = 700, lbSY = 486, lbSW = 494;
+    const lbX = Math.round(L.vx + L.tx + (lbSX - X0) * L.s);
+    const lbY = Math.round(L.vy + L.ty + (lbSY - Y0) * L.s);
+    const lbW = Math.round(lbSW * L.s);
+    lightBarEl.style.left = lbX + 'px'; lightBarEl.style.top = lbY + 'px';
+    lightBarEl.style.width = lbW + 'px'; lightBarEl.style.right = '';
+    lightBarEl.hidden = !L.lightsOn;
+  } else {
+    lightBarEl.hidden = true;
+  }
   window.dispatchEvent(new CustomEvent('cc-view', { detail: { mode: L.mode === 'normal' ? 'off' : L.mode } }));
 }
 
@@ -399,11 +428,28 @@ view.addEventListener('wheel', (e) => {
 }, { passive: false });
 app.addEventListener('contextmenu', (e) => { if (!e.target.closest('input')) e.preventDefault(); });
 
+// Split divider drag
+let splitDrag = null;
+splitDivEl.addEventListener('pointerdown', (e) => {
+  splitDrag = { id: e.pointerId, x: L.portrait ? e.clientY : e.clientX, ratio: L.splitRatio };
+  splitDivEl.setPointerCapture(e.pointerId); e.preventDefault();
+});
+splitDivEl.addEventListener('pointermove', (e) => {
+  if (!splitDrag || splitDrag.id !== e.pointerId) return;
+  const si = insets(), pw = L.W - si.l - si.r;
+  const dx = (L.portrait ? e.clientY : e.clientX) - splitDrag.x;
+  L.splitRatio = clamp(splitDrag.ratio + dx / pw, 0.22, 0.78);
+  layout(false);
+});
+splitDivEl.addEventListener('pointerup', () => { splitDrag = null; });
+splitDivEl.addEventListener('pointercancel', () => { splitDrag = null; });
+
 tabs.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   unlockAudio();
   if (b.dataset.zoom) setZoom(b.dataset.zoom);
   else if (b.dataset.mode) setMode(b.dataset.mode);
+  else if (b.dataset.act === 'lights') { L.lightsOn = !L.lightsOn; b.classList.toggle('on', L.lightsOn); layout(false); }
   else if (b.dataset.act === 'lib') openLibrary(null);
   else if (b.dataset.act === 'help') openHelp();
   else if (b.dataset.act === 'fs') toggleFullscreen();
@@ -1025,10 +1071,9 @@ class Deck {
     let corr = 1;
     if (this.syncTempo != null && M.playing && this.playing && !this.scrActive && !this.jog && !this.slipTags.size) {
       const d = this.phaseDiff(M);
-      if (Math.abs(d) > 0.003) {
-        // pull back faster: lock within about a beat instead of one and a half
-        const tc = Math.abs(d) > 0.15 ? 0.25 : 0.7;
-        corr = 1 + clamp(d * this.B / (tc * this.tempo), -0.06, 0.06);
+      if (Math.abs(d) > 0.002) {
+        const tc = Math.abs(d) > 0.10 ? 0.12 : 0.45;
+        corr = 1 + clamp(d * this.B / (tc * this.tempo), -0.12, 0.12);
       }
     }
     if (t - this.lastJogMove > 0.05) this.bend *= Math.exp(-dt * 14);
@@ -1144,7 +1189,7 @@ function buildMixer() {
       onChange: (v) => { mix.color[i] = v; decks[i].sendStrip(); },
     });
     M['cue' + n] = new Btn({ id: `m:cue${n}`, x, y: 930, w: 47, h: 21, cls: 'mcue', text: 'CUE', onDown: () => { mix.cue[i] = !mix.cue[i]; } });
-    new Fader({ id: `m:fader${n}`, x, y: 1052, len: 110, axis: 'v', capW: 60, capH: 15, slotW: 6, min: 0, max: 1, def: 1, v: 1, label: `CH${n} fader`, fmt: (v) => (v * 10).toFixed(1), onChange: (v) => { mix.fader[i] = v; applyGains(); } });
+    new Fader({ id: `m:fader${n}`, x, y: 1052, len: 110, axis: 'v', capW: 60, capH: 15, slotW: 6, min: 0, max: 1, def: 1, v: 1, resetTo: 0, label: `CH${n} fader`, fmt: (v) => (v * 10).toFixed(1), onChange: (v) => { mix.fader[i] = v; applyGains(); } });
   }
   K({ id: 'm:master', x: 1000, y: 586, r: 18, dots: 11, def: 0.6, label: 'Master level', fmt: (v) => { const g = masterGain(v); return g <= 0.0001 ? '-∞ dB' : ((g >= 1 ? '+' : '') + (20 * Math.log10(g)).toFixed(1) + ' dB'); }, onChange: (v) => { mix.master = v; applyGains(); } });
   K({ id: 'm:auxtrim', x: 800, y: 724, r: 18, dots: 11, label: 'AUX trim', note: () => 'No AUX input in the browser' });
@@ -1181,8 +1226,14 @@ function buildMixer() {
   M.fxSel = K({ id: 'm:fxsel', x: 1199, y: 837, r: 18, steps: 14, angles: FX_ANG, v: FX_SEQ.indexOf(10), label: 'Beat FX', fmt: (v) => FX_NAMES[FX_SEQ[v]], onChange: (v) => { fx.type = FX_SEQ[v]; fx.manual = null; } });
   M.chSel = K({ id: 'm:chsel', x: 1201, y: 905, r: 16, steps: 7, angles: CH_ANG, v: 6, label: 'FX channel', fmt: (v) => ({ A: 'CROSSFADER A', B: 'CROSSFADER B', MIC: 'MIC', AUX: 'AUX', 1: 'CH 1', 2: 'CH 2', MASTER: 'MASTER' }[CH_SEQ[v]]), note: () => (fx.ch === 'MIC' || fx.ch === 'AUX' ? 'No signal on this input' : ''), onChange: (v) => { fx.ch = CH_SEQ[v]; routeFx(); } });
   M.time = new Encoder({ id: 'm:time', x: 1200, y: 985, r: 19, label: 'FX time', info: () => fxValueText(), onStep: (n) => fx.time(n) });
-  K({ id: 'm:depth', x: 1200, y: 1071, r: 18, dots: 11, def: 0.5, label: 'FX level / depth', onChange: (v) => { fx.depth = v; } });
+  K({ id: 'm:depth', x: 1200, y: 1071, r: 18, dots: 11, def: 0.5, resetTo: 0, label: 'FX level / depth', onChange: (v) => { fx.depth = v; } });
   M.fxOn = new Btn({ id: 'm:fxon', x: 1200, y: 1152, w: 48, h: 48, cls: 'fxon', onDown: () => { fx.on = !fx.on; } });
+  // FX pie menu: hold fxSel for radial picker
+  const fs = M.fxSel;
+  const origFsDown = fs.down.bind(fs), origFsMove = fs.move.bind(fs), origFsUp = fs.up.bind(fs);
+  fs.down = function(p) { this._pieP = p; this._pieActive = false; this._pieTimer = setTimeout(() => { this._pieActive = true; fxPieShow(p, this.v); }, 220); origFsDown(p); };
+  fs.move = function(p) { if (this._pieActive) { fxPieMove(p); return; } if (this._pieTimer && Math.hypot(p.ax - this._pieP.ax, p.ay - this._pieP.ay) > 8) { clearTimeout(this._pieTimer); this._pieTimer = null; } origFsMove(p); };
+  fs.up = function(p) { clearTimeout(this._pieTimer); if (this._pieActive) { this._pieActive = false; fxPieHide(true); return; } origFsUp(p); };
   // top-centre browse controls
   M.back = new Btn({ id: 'c:back', x: 1226, y: 350, w: 42, h: 19, cls: 'rect dark', text: 'BACK', onDown: () => { if (!modal.hidden) closeModal(); else { centerTab = 'all'; query = ''; renderCenter(); } } });
   M.tag = new Btn({ id: 'c:tag', x: 1280, y: 350, w: 42, h: 19, cls: 'rect dark', text: 'TAG', onDown: () => { const r = selected(); if (r) { r.tag = !r.tag; persist(r); renderCenter(); toast(r.tag ? 'Tagged: ' + r.title : 'Untagged: ' + r.title); } } });
@@ -1193,6 +1244,62 @@ function buildMixer() {
   M.meter = mkCanvas(958, 658, 84, 186);
 }
 function flashFx() { bubble.flash({ el: mixUI.fxSel.el, label: 'Beat FX ' + FX_NAMES[fx.type], text: () => fxValueText(), frac: () => -1 }); }
+
+// ============================================================ FX circular pie menu
+const FX_SHORT = ['DLY', 'ECH', 'PNG', 'SPR', 'REV', 'TRN', 'FLT', 'FLG', 'PHS', 'PCH', 'SLP', 'ROL', 'BRK', 'HLX'];
+const fxPie = { active: false, cx: 0, cy: 0, r: 88, sel: -1, vBefore: 0 };
+let fxPieCvCtx = null;
+
+function fxPieShow(p, v) {
+  fxPie.active = true; fxPie.cx = p.ax; fxPie.cy = p.ay; fxPie.sel = v; fxPie.vBefore = v;
+  fxMenuCv.hidden = false;
+  fxMenuCv.width = L.W; fxMenuCv.height = L.H;
+  fxPieCvCtx = fxMenuCv.getContext('2d');
+  fxPieDraw();
+}
+function fxPieMove(p) {
+  if (!fxPie.active) return;
+  const dx = p.ax - fxPie.cx, dy = p.ay - fxPie.cy;
+  if (Math.hypot(dx, dy) < 22) { fxPie.sel = fxPie.vBefore; fxPieDraw(); return; }
+  const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  let best = -1, bestD = 999;
+  for (let i = 0; i < 14; i++) {
+    const cAng = FX_ANG[i] - 90;
+    let da = ang - cAng; while (da > 180) da -= 360; while (da < -180) da += 360;
+    if (Math.abs(da) < bestD) { bestD = Math.abs(da); best = i; }
+  }
+  fxPie.sel = best; fxPieDraw();
+}
+function fxPieHide(confirm) {
+  fxPie.active = false; fxMenuCv.hidden = true;
+  if (confirm && fxPie.sel >= 0) mixUI.fxSel.set(fxPie.sel);
+}
+function fxPieDraw() {
+  const g = fxPieCvCtx; if (!g) return;
+  const { cx, cy, r, sel } = fxPie;
+  g.clearRect(0, 0, fxMenuCv.width, fxMenuCv.height);
+  g.save(); g.beginPath(); g.arc(cx, cy, r + 46, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(4,6,10,.72)'; g.fill(); g.restore();
+  g.save(); g.beginPath(); g.arc(cx, cy, r - 12, 0, Math.PI * 2);
+  g.strokeStyle = 'rgba(65,231,255,.18)'; g.lineWidth = 1; g.stroke(); g.restore();
+  for (let i = 0; i < 14; i++) {
+    const cRad = (FX_ANG[i] - 90) * Math.PI / 180;
+    const ix = cx + Math.cos(cRad) * r, iy = cy + Math.sin(cRad) * r;
+    const on = i === sel;
+    g.beginPath(); g.arc(ix, iy, 22, 0, Math.PI * 2);
+    g.fillStyle = on ? '#41e7ff' : 'rgba(14,18,26,.95)'; g.fill();
+    g.strokeStyle = on ? '#fff' : '#2a3858'; g.lineWidth = on ? 2 : 1; g.stroke();
+    g.fillStyle = on ? '#04090f' : '#9ab0cc';
+    g.font = `700 8.5px 'Barlow Semi Condensed',sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(FX_SHORT[i], ix, iy);
+  }
+  g.beginPath(); g.arc(cx, cy, 20, 0, Math.PI * 2);
+  g.fillStyle = '#070c14'; g.fill(); g.strokeStyle = '#2a3858'; g.lineWidth = 1.5; g.stroke();
+  const nm = sel >= 0 ? FX_SHORT[sel] : '';
+  g.fillStyle = '#41e7ff'; g.font = `700 8px 'Barlow Semi Condensed',sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(nm, cx, cy);
+}
+
 function fxValueText() {
   if (fx.type === 4 || fx.type === 5) return fx.beatText();
   return fx.manual != null ? Math.round(fx.timeSec() * 1000) + ' ms' : fx.beatText() + ' · ' + Math.round(fx.timeSec() * 1000) + ' ms';
@@ -1373,9 +1480,9 @@ function buildArt() {
   const Mark = (cx, cy, r) => o.push(`<g transform="translate(${cx - r} ${cy - r}) scale(${(r / 155).toFixed(4)})"><circle cx="155" cy="155" r="143" fill="#0D1B2D" stroke="url(#ccRing)" stroke-width="12"/><circle cx="155" cy="155" r="112" fill="none" stroke="#203854" stroke-width="3"/><path d="M138 73A88 88 0 1 0 138 237" fill="none" stroke="#F4FBFF" stroke-width="31"/><path d="M172 73A88 88 0 1 1 172 237" fill="none" stroke="url(#ccRing)" stroke-width="31"/><circle cx="155" cy="155" r="14" fill="#F4FBFF"/><circle cx="155" cy="155" r="5" fill="#0A1525"/></g>`);
   const WF = "'Avenir Next','Avenir','Barlow Semi Condensed','Helvetica Neue',sans-serif";
   const Word = (x, y, size) => {
-    o.push(`<text x="${x}" y="${y}" font-size="${size}" font-family="${WF}" font-weight="700" letter-spacing="${-size * 0.02}" fill="#F4FBFF" text-anchor="start">cloud</text>`);
+    o.push(`<text x="${x}" y="${y}" font-size="${size}" font-family="${WF}" font-weight="700" letter-spacing="${-size * 0.02}" fill="#F4FBFF" text-anchor="start">club cloud</text>`);
     o.push(`<line x1="${x + 1}" y1="${y + size * 0.25}" x2="${x + size * 2.55}" y2="${y + size * 0.25}" stroke="#25415E" stroke-width="${Math.max(1, size * 0.03)}"/>`);
-    o.push(`<text x="${x + 2}" y="${y + size * 0.78}" font-size="${size * 0.42}" font-family="${WF}" font-weight="700" letter-spacing="${size * 0.13}" fill="#41E7FF" text-anchor="start">CLUB</text>`);
+    o.push(`<text x="${x + 2}" y="${y + size * 0.78}" font-size="${size * 0.42}" font-family="${WF}" font-weight="700" letter-spacing="${size * 0.13}" fill="#41E7FF" text-anchor="start">DJ</text>`);
   };
   Mark(952, 1150, 24); Word(984, 1152, 30);
   T(1200, 1214, 'ALL-IN-ONE DJ SYSTEM', 7.8);
@@ -1413,8 +1520,8 @@ function jogLayers(o) {
   g.beginPath(); g.arc(0, 0, R - 47, 0, TAU); g.fillStyle = '#111113'; g.fill();
   for (let r = 84; r < R - 48; r += 2.6) { g.beginPath(); g.arc(0, 0, r, 0, TAU); g.strokeStyle = (r | 0) % 2 ? 'rgba(255,255,255,.022)' : 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.stroke(); }
   g.save(); g.fillStyle = 'rgba(244,251,255,.16)'; g.textAlign = 'center';
-  g.font = `700 17px 'Avenir Next','Barlow Semi Condensed',sans-serif`; g.fillText('cloud', 0, -112);
-  g.font = `700 7.5px 'Avenir Next','Barlow Semi Condensed',sans-serif`; g.fillStyle = 'rgba(65,231,255,.28)'; g.fillText('C L U B', 0, -101);
+  g.font = `700 17px 'Avenir Next','Barlow Semi Condensed',sans-serif`; g.fillText('club cloud', 0, -112);
+  g.font = `700 7.5px 'Avenir Next','Barlow Semi Condensed',sans-serif`; g.fillStyle = 'rgba(65,231,255,.28)'; g.fillText('D J', 0, -101);
   g.restore();
   o.rot = rc;
   // fixed lighting: sheen wedges

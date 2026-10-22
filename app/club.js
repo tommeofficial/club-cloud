@@ -40,7 +40,66 @@ function keyOk(a, b) {
   return lx === ly && (Math.abs(nx - ny) === 1 || Math.abs(nx - ny) === 11);
 }
 
+// ------------------------------------------------------------------ external input
+// Lets the crowd react to a microphone or a line-in (for example a USB audio interface
+// connected to real decks). Only loudness, dead air and clipping are measured here.
+// Beat sync and mix quality need the app's own decks, so the crowd doesn't judge those.
+let inputMode = false;
+const ext = { ctx: null, analyser: null, stream: null, bufT: null, specBuf: null };
+
+async function useInput(deviceId) {
+  stopInput();
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  });
+  const ctx = new AudioContext();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.55;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  Object.assign(ext, { ctx, analyser, stream, bufT: new Float32Array(analyser.fftSize), specBuf: new Float32Array(analyser.frequencyBinCount) });
+  inputMode = true;
+}
+
+function stopInput() {
+  if (ext.stream) ext.stream.getTracks().forEach((t) => t.stop());
+  if (ext.ctx) ext.ctx.close();
+  Object.assign(ext, { ctx: null, analyser: null, stream: null });
+  inputMode = false;
+}
+
+function listenInput() {
+  ext.analyser.getFloatFrequencyData(ext.specBuf);
+  const binHz = ext.ctx.sampleRate / ext.analyser.fftSize;
+  let s = 0, n = 0;
+  for (let i = Math.max(1, Math.floor(40 / binHz)); i <= Math.ceil(150 / binHz); i++) { s += ext.specBuf[i]; n++; }
+  const db = n ? s / n : -100;
+  ext.analyser.getFloatTimeDomainData(ext.bufT);
+  let pk = 0; for (const v of ext.bufT) { const a = Math.abs(v); if (a > pk) pk = a; }
+  return { bass: THREE.MathUtils.clamp((db + 62) / 42, 0, 1), peak: pk };
+}
+
+// the device picker: list the inputs, then start the one picked (or back to the app's own mix)
+async function openInputPicker() {
+  const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+  tmp.getTracks().forEach((t) => t.stop()); // asks for permission so device names are visible
+  const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+  inputSel.innerHTML = '<option value="">Club mix (app decks)</option>';
+  for (const d of inputs) inputSel.append(new Option(d.label || 'Audio input', d.deviceId));
+  inputSel.hidden = false;
+}
+
+const inputSel = document.getElementById('inputSel');
+document.getElementById('inputBtn')?.addEventListener('click', () => openInputPicker().catch((e) => console.warn('no input access', e)));
+if (inputSel) {
+  inputSel.addEventListener('change', async () => {
+    if (!inputSel.value) { stopInput(); return; }
+    try { await useInput(inputSel.value); } catch (e) { console.warn('input not started', e); inputSel.value = ''; stopInput(); }
+  });
+}
+
 function listen() {
+  if (inputMode) return listenInput();
   const m = cc().master;
   if (!m || !m.spec) return { bass: 0, peak: 0 };
   if (!brain.specBuf) { brain.specBuf = new Float32Array(m.spec.frequencyBinCount); brain.timeBuf = new Float32Array(m.spec.fftSize); }
@@ -57,14 +116,14 @@ function listen() {
 function think(dt, t) {
   const c = cc(); if (!c) return;
   const [a, b] = c.decks;
-  const aud = c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
+  const aud = inputMode ? [0, 0] : c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
   const { bass, peak } = listen();
   brain.bassFast += (bass - brain.bassFast) * Math.min(1, dt * 12);
   brain.bassSlow += (bass - brain.bassSlow) * Math.min(1, dt * 0.35);
   // dead air
   if (peak < 0.015) brain.dead += dt; else brain.dead = Math.max(0, brain.dead - dt * 3);
   // the mix: both decks audible at once
-  const both = aud[0] > 0.2 && aud[1] > 0.2;
+  const both = !inputMode && aud[0] > 0.2 && aud[1] > 0.2;
   let wreck = false, inSync = false;
   if (both) {
     let r = a.effBpm / b.effBpm; while (r > 1.42) r /= 2; while (r < 0.7) r *= 2;
@@ -76,7 +135,8 @@ function think(dt, t) {
     if (!keyOk(a.t.key, b.t.key)) brain.keyBad += dt; else brain.keyBad = Math.max(0, brain.keyBad - dt);
   } else { brain.clash = Math.max(0, brain.clash - dt * 2); brain.blend = Math.max(0, brain.blend - dt * 1.5); brain.keyBad = Math.max(0, brain.keyBad - dt); }
   if (peak > 0.97) brain.clip += dt; else brain.clip = Math.max(0, brain.clip - dt * 2);
-  const playing = aud[0] > 0.05 || aud[1] > 0.05;
+  // external input counts as playing when it is loud enough to hear over the room
+  const playing = inputMode ? peak > 0.02 : aud[0] > 0.05 || aud[1] > 0.05;
   // hype drifts toward the energy of the music, pushed by good blends and dragged by mistakes
   const target = playing ? 30 + 62 * brain.bassSlow : 15;
   let d = (target - brain.hype) * 0.18;
@@ -400,11 +460,56 @@ if (lightBar) {
   setLight('auto');
 }
 
+// ------------------------------------------------------------------ online room
+// The backend loads on demand, so the crowd and mixer still work if Supabase is down.
+let room = null; // { name, author, backend, lastPush, unsub }
+const chatLog = document.getElementById('chatlog');
+const chatIn = document.getElementById('chatin');
+
+function showChat(m) {
+  if (!chatLog) return;
+  const line = document.createElement('div');
+  const who = document.createElement('b');
+  who.textContent = m.author + ': ';
+  line.append(who, document.createTextNode(m.body));
+  chatLog.append(line);
+  while (chatLog.childElementCount > 60) chatLog.firstElementChild.remove();
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+// roomName: the room to publish to and chat in. author: the signed-in user's profile username.
+async function connectRoom(roomName, author) {
+  const backend = await import('./backend.js').catch((e) => { console.warn('backend unavailable', e); return null; });
+  if (!backend || !backend.supabase) return false;
+  await backend.ensureSession();
+  if (room) room.unsub();
+  for (const m of await backend.loadRecentChat(roomName)) showChat(m);
+  room = { name: roomName, author, backend, lastPush: -99, unsub: backend.subscribeChat(roomName, showChat) };
+  return true;
+}
+
+function pushRoomState(t) {
+  if (!room || t - room.lastPush < 2) return;
+  room.lastPush = t;
+  room.backend.publishRoomState(room.name, { state: 'LIVE-PUBLIC', hype: brain.hype, mood: brain.mood })
+    .catch((e) => console.warn('room state not saved', e));
+}
+
+if (chatIn) {
+  chatIn.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter' || !room) return;
+    const body = chatIn.value;
+    chatIn.value = '';
+    await room.backend.sendChat(room.name, room.author, body).catch((err) => console.warn('chat not sent', err));
+  });
+}
+
 function frame() {
   if (!running) return;
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
   think(dt, t);
+  pushRoomState(t);
   updatePeople(dt);
   updateFlying(dt);
   updateTexts(dt);
@@ -437,4 +542,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };

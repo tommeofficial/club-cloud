@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Cloud Club DJ</title>
+<title>Club Cloud</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap">
@@ -220,11 +220,18 @@ canvas.cv { position: absolute; pointer-events: none; }
 #clubhud .bar { height: 6px; border-radius: 3px; background: #1a2232; margin: 6px 0 5px; overflow: hidden; }
 #clubhud .bar i { display: block; height: 100%; width: 50%; border-radius: 3px; background: linear-gradient(90deg, #ff3b3b, #ffb21c 45%, #41e7ff 75%, #6285ff); background-size: 300px 100%; transition: width .3s; }
 #clubhud .mood { font: 600 13px/1.2 var(--ui); color: #fff; }
-#lightbar { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; background: rgba(5,8,14,.6); border: 1px solid #22304a; border-radius: 10px; padding: 7px 10px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); font: 600 11px var(--label); letter-spacing: 1px; color: #7fd0ff; }
+#lightbar { position: absolute; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; background: rgba(5,8,14,.88); border: 1px solid #22304a; border-radius: 10px; padding: 7px 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font: 600 11px var(--label); letter-spacing: 1px; color: #7fd0ff; z-index: 6; }
+#splitdiv { position: absolute; width: 8px; z-index: 8; cursor: col-resize; background: #181a1e; touch-action: none; }
+#splitdiv::after { content: ''; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); width: 4px; height: 36px; background: #3a3d46; border-radius: 2px; }
+#fxmenu { position: absolute; inset: 0; z-index: 35; pointer-events: none; }
 #lightbar button { font: 700 10px var(--label); letter-spacing: 1px; color: #c9d6ea; background: #141c2b; border: 1px solid #2a3850; border-radius: 6px; padding: 6px 9px; cursor: pointer; }
 #lightbar button.on, #lightbar button:active { background: #41e7ff; border-color: #41e7ff; color: #04121a; }
 #lightbar label { display: flex; align-items: center; gap: 6px; }
 #lightbar input[type=range] { width: 90px; accent-color: #41e7ff; }
+#chatpanel { position: absolute; right: 12px; top: 10px; width: 240px; max-height: 45%; display: flex; flex-direction: column; gap: 6px; background: rgba(5,8,14,.6); border: 1px solid #22304a; border-radius: 10px; padding: 7px 8px; font: 500 12px var(--ui); color: #dfe8f6; }
+#chatlog { overflow-y: auto; min-height: 40px; max-height: 240px; }
+#chatlog b { color: #7fd0ff; }
+#chatin { font: inherit; background: #0c1220; color: #fff; border: 1px solid #2a3850; border-radius: 6px; padding: 5px 7px; }
 #clubload { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 14px var(--ui); color: #8a94a6; pointer-events: none; }
 #splash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle at var(--sx,50%) var(--sy,40%), rgba(255,214,120,.0) 0, rgba(255,196,80,.35) 18%, rgba(255,170,40,.18) 35%, transparent 60%); transition: opacity .9s; }
 #splash.hit { opacity: 1; transition: none; }
@@ -234,7 +241,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <div id="app">
   <div id="tabs" class="h">
-    <div class="brand"><svg width="22" height="22" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#0D1B2D"/><path d="M472 315A210 210 0 1 0 472 709" fill="none" stroke="#F5FCFF" stroke-width="72"/><path d="M552 315A210 210 0 1 1 552 709" fill="none" stroke="#4CEBFF" stroke-width="72"/><circle cx="512" cy="512" r="52" fill="#F5FCFF"/></svg><span>CLOUD CLUB</span></div>
+    <div class="brand"><svg width="22" height="22" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#0D1B2D"/><path d="M472 315A210 210 0 1 0 472 709" fill="none" stroke="#F5FCFF" stroke-width="72"/><path d="M552 315A210 210 0 1 1 552 709" fill="none" stroke="#4CEBFF" stroke-width="72"/><circle cx="512" cy="512" r="52" fill="#F5FCFF"/></svg><span>CLUB CLOUD</span></div>
     <div class="grp" role="tablist" aria-label="Zoom">
       <button data-zoom="all" class="on">ALL</button>
       <button data-zoom="d1">DECK 1</button>
@@ -244,12 +251,16 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-mode="split">SPLIT</button>
     </div>
     <div class="tools grp">
+      <button data-act="lights" title="Light controls">LIGHTS</button>
       <button data-act="lib" title="Library">LIBRARY</button>
       <button data-act="help" title="How to use">HELP</button>
       <button data-act="fs" title="Full screen">⛶</button>
     </div>
   </div>
-  <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="mood">Waiting for music</div></div><div id="lightbar"><button data-light="auto">AUTO</button><button data-light="colour">COLOUR</button><button data-light="strobe">STROBE</button><button data-light="blackout">BLACKOUT</button><label>HUE <input type="range" id="lightHue" min="0" max="360" value="187"></label><label>SPEED <input type="range" id="lightSpeed" min="0" max="100" value="40"></label><button data-sfx="laser">LASER</button><button data-sfx="flame">FLAME</button><button data-sfx="co2">CO2</button></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
+  <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="mood">Waiting for music</div></div><div id="chatpanel"><div id="chatlog"></div><input id="chatin" maxlength="300" placeholder="Say something (Enter to send)" autocomplete="off"></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
+  <div id="lightbar" hidden><button data-light="auto">AUTO</button><button data-light="colour">COLOUR</button><button data-light="strobe">STROBE</button><button data-light="blackout">BLACKOUT</button><label>HUE <input type="range" id="lightHue" min="0" max="360" value="187"></label><label>SPEED <input type="range" id="lightSpeed" min="0" max="100" value="40"></label><button id="inputBtn">INPUT</button><select id="inputSel" hidden></select><button data-sfx="laser">LASER</button><button data-sfx="flame">FLAME</button><button data-sfx="co2">CO2</button></div>
+  <div id="splitdiv" hidden></div>
+  <canvas id="fxmenu" hidden></canvas>
   <div id="view"><div id="stage"></div></div>
   <div id="bubble" hidden><div class="bl"></div><div class="bv"></div><div class="bn"></div><div class="bar"><b></b><i></i></div></div>
   <div id="modal" hidden></div>
