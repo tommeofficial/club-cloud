@@ -459,7 +459,6 @@ tabs.addEventListener('click', (e) => {
   unlockAudio();
   if (b.dataset.zoom) setZoom(b.dataset.zoom);
   else if (b.dataset.mode) setMode(b.dataset.mode);
-  else if (b.dataset.act === 'daynight') { const night = !b.classList.contains('on'); b.classList.toggle('on', night); b.textContent = night ? 'NIGHT' : 'DAY'; if (window.__club) window.__club.setDayNight(night); }
   else if (b.dataset.act === 'lights') { const lm = document.getElementById('lightmenu'); lm.classList.toggle('open'); b.classList.toggle('on', lm.classList.contains('open')); }
   else if (b.dataset.act === 'lib') openLibrary(null);
   else if (b.dataset.act === 'help') openHelp();

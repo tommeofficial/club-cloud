@@ -12,10 +12,7 @@ const splash = document.getElementById('splash');
 
 const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // where the crowd stands (x, z) — the DJ looks down -Z from the booth at z = 0
-const SPOTS = [
-  [-3, -3], [0, -3.2], [3, -3], [-5, -5], [-1.5, -5.2], [1.5, -5], [4.5, -5.3],
-  [-4, -7], [-1, -7.2], [2, -7], [5, -6.8], [-6, -9], [0, -9.3], [4, -9], [-2.5, -11]
-];
+const SPOTS = [[-1.25, -3.1], [0.15, -2.7], [1.45, -3.35]];
 const CAMELOT = { Abm: '1A', Ebm: '2A', Bbm: '3A', Fm: '4A', Cm: '5A', Gm: '6A', Dm: '7A', Am: '8A', Em: '9A', Bm: '10A', 'F#m': '11A', Dbm: '12A',
   B: '1B', 'F#': '2B', Db: '3B', Ab: '4B', Eb: '5B', Bb: '6B', F: '7B', C: '8B', G: '9B', D: '10B', A: '11B', E: '12B' };
 
@@ -308,115 +305,50 @@ function updatePeople(dt) {
 }
 
 // ------------------------------------------------------------------ scene
-let venueModel = null, cubeGlowMat = null, sunLight = null, skyHemi = null;
-let isNight = false;
-const DAY_BG = new THREE.Color(0x87b4d4), NIGHT_BG = new THREE.Color(0x04060b);
-const DAY_FOG = new THREE.Color(0x9cc5db), NIGHT_FOG = new THREE.Color(0x070a14);
-
-function setDayNight(night) {
-  isNight = night;
-  const t = night ? 0 : 1;
-  scene.background = night ? NIGHT_BG : DAY_BG;
-  scene.fog.color = night ? NIGHT_FOG : DAY_FOG;
-  scene.fog.density = night ? 0.06 : 0.018;
-  if (sunLight) { sunLight.intensity = night ? 0.05 : 2.2; sunLight.color.set(night ? 0x3a4a7a : 0xfff4d0); }
-  if (skyHemi) { skyHemi.intensity = night ? 0.15 : 1.1; }
-  // Cube glow: emissive at night
-  if (cubeGlowMat) { cubeGlowMat.emissiveIntensity = night ? 2.5 : 0; }
-  document.querySelector('[data-act="daynight"]')?.classList.toggle('on', night);
-}
-
 function buildScene() {
   scene = new THREE.Scene();
-  scene.background = DAY_BG.clone();
-  scene.fog = new THREE.FogExp2(DAY_FOG, 0.018);
-  camera = new THREE.PerspectiveCamera(58, 1, 0.05, 300);
-  camera.position.set(0, 2.5, 8);
-  camera.lookAt(0, 1.5, 0);
-
-  // Lighting — day mode by default
-  skyHemi = new THREE.HemisphereLight(0x87ceeb, 0x7caa6c, 1.1); scene.add(skyHemi);
-  sunLight = new THREE.DirectionalLight(0xfff4d0, 2.2); sunLight.position.set(8, 20, 10); scene.add(sunLight);
-  // Night fill lights (always present, intensity overridden by setDayNight)
-  const nightFill = new THREE.HemisphereLight(0x1a2a5a, 0x050810, 0.3); scene.add(nightFill);
-
-  // Ocean plane behind venue
-  const oceanM = new THREE.MeshStandardMaterial({ color: 0x1a6080, roughness: 0.05, metalness: 0.3 });
-  const ocean = new THREE.Mesh(new THREE.PlaneGeometry(400, 200), oceanM);
-  ocean.rotation.x = -Math.PI / 2; ocean.position.set(0, -3, -80); scene.add(ocean);
-
-  // Sky gradient backdrop
-  const skyGeo = new THREE.SphereGeometry(200, 16, 8);
-  const skyM = new THREE.MeshBasicMaterial({ color: 0x87b4d4, side: THREE.BackSide });
-  scene.add(new THREE.Mesh(skyGeo, skyM));
-
-  // Neon sign (kept for brand — floating above venue)
+  scene.background = new THREE.Color(0x04060b);
+  scene.fog = new THREE.FogExp2(0x070a14, 0.075);
+  camera = new THREE.PerspectiveCamera(58, 1, 0.05, 80);
+  camera.position.set(0, 1.78, 0.35);
+  camera.lookAt(0, 1.15, -4);
+  scene.add(new THREE.HemisphereLight(0x5a6aa8, 0x0a0a12, 0.55));
+  const key = new THREE.DirectionalLight(0xbfd6ff, 0.9); key.position.set(1, 4, 2); scene.add(key);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: 0x0b0d14, roughness: 0.35, metalness: 0.3 }));
+  floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const wallM = new THREE.MeshStandardMaterial({ color: 0x0a0c16, roughness: 0.9 });
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), wallM); back.position.set(0, 5, -11); scene.add(back);
+  for (const x of [-7, 7]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), wallM); w.position.set(x, 5, -2); w.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(w); }
   const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256;
   const g = cv.getContext('2d');
   g.shadowColor = '#41e7ff'; g.shadowBlur = 30; g.fillStyle = '#e9fbff';
-  g.font = "700 150px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.textAlign = 'center'; g.fillText('club cloud', 512, 180);
+  g.font = "700 150px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.textAlign = 'center'; g.fillText('cloud', 560, 150);
+  g.fillStyle = '#41e7ff'; g.font = "700 64px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.fillText('C L U B', 560, 226);
+  g.lineWidth = 22; g.strokeStyle = '#e9fbff'; g.beginPath(); g.arc(170, 128, 70, Math.PI * 0.6, Math.PI * 1.4); g.stroke();
+  g.strokeStyle = '#41e7ff'; g.beginPath(); g.arc(196, 128, 70, -Math.PI * 0.4, Math.PI * 0.4); g.stroke();
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  signMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 }); // hidden in day
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 2), signMat); sign.position.set(0, 14, -8); scene.add(sign);
-
-  // LED strip
+  signMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.5), signMat); sign.position.set(0, 4.3, -10.9); scene.add(sign);
   ledMat = new THREE.MeshBasicMaterial({ color: 0x2f8cff });
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(4, 0.08, 0.05), ledMat); strip.position.set(0, 1.05, -0.5); scene.add(strip);
-
-  // DJ booth
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(22, 0.08, 0.05), ledMat); strip.position.set(0, 2.6, -10.85); scene.add(strip);
   booth = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 0.9), new THREE.MeshStandardMaterial({ color: 0x2a1f0e, roughness: 0.6 }));
+  const top = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 0.9), new THREE.MeshStandardMaterial({ color: 0x0e0f13, roughness: 0.6 }));
   top.position.set(0, 0.97, 0.05); booth.add(top);
-  const front = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.95, 0.06), new THREE.MeshStandardMaterial({ color: 0x221a0c, roughness: 0.5, metalness: 0.4 }));
+  const front = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.95, 0.06), new THREE.MeshStandardMaterial({ color: 0x0b0c10, roughness: 0.5, metalness: 0.4 }));
   front.position.set(0, 0.5, -0.4); booth.add(front);
   const lip = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.02, 0.02), ledMat); lip.position.set(0, 1.0, -0.42); booth.add(lip);
   scene.add(booth);
-
-  // Beam lights
   const beamGeo = new THREE.ConeGeometry(0.55, 7, 24, 1, true); beamGeo.translate(0, -3.5, 0);
   for (let i = 0; i < 6; i++) {
     const m = new THREE.MeshBasicMaterial({ color: [0x41e7ff, 0x6285ff, 0xff3da5, 0x41e7ff, 0x6285ff, 0xff3da5][i], transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const b = new THREE.Mesh(beamGeo, m); b.position.set(-5 + i * 2, 9, -4);
+    const b = new THREE.Mesh(beamGeo, m); b.position.set(-5 + i * 2, 6.2, -6.5);
     b.userData.base = m.color.clone(); scene.add(b); beams.push(b);
   }
-  for (let i = 0; i < 4; i++) {
-    const l = new THREE.SpotLight([0x41e7ff, 0xff3da5, 0x6285ff, 0xffaa00][i], 30, 30, 0.5, 0.6, 1.2);
-    l.position.set(-4 + i * 2.7, 9, 0); l.target.position.set(-2 + i * 1.3, 0, -5);
+  for (let i = 0; i < 3; i++) {
+    const l = new THREE.SpotLight([0x41e7ff, 0xff3da5, 0x6285ff][i], 30, 16, 0.5, 0.6, 1.2);
+    l.position.set(-3 + i * 3, 6, -1); l.target.position.set(-1.2 + i * 1.2, 0, -3.2);
     l.userData.base = l.color.clone(); scene.add(l, l.target); washes.push(l);
   }
-
-  // Load Rodin venue model
-  const loader = new GLTFLoader();
-  loader.loadAsync('models/venue.glb').then((gltf) => {
-    venueModel = gltf.scene;
-    // Auto-scale and centre the model
-    const box = new THREE.Box3().setFromObject(venueModel);
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 18 / maxDim;
-    venueModel.scale.setScalar(scale);
-    const centre = box.getCenter(new THREE.Vector3()).multiplyScalar(scale);
-    venueModel.position.set(-centre.x, -centre.y * scale + 0.1, -centre.z - 4);
-    venueModel.traverse((o) => {
-      if (!o.isMesh) return;
-      o.frustumCulled = false;
-      // Identify the woven cube by its emissive texture — give it a glow mat for night
-      if (o.material && o.material.emissiveMap) {
-        cubeGlowMat = o.material;
-        cubeGlowMat.emissive = new THREE.Color(0x00ff44);
-        cubeGlowMat.emissiveIntensity = 0;
-      }
-    });
-    scene.add(venueModel);
-    // Default to day
-    setDayNight(false);
-  }).catch((e) => {
-    console.warn('Venue model failed to load, using fallback scene', e);
-    // Fallback floor if model missing
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x5a4a32, roughness: 0.8 }));
-    floor.rotation.x = -Math.PI / 2; scene.add(floor);
-    setDayNight(false);
-  });
 }
 
 async function loadCrowd() {
@@ -530,7 +462,7 @@ function lights(t) {
   signMat.opacity = blackout ? 0.1 : 0.3 + drive * 0.65;
 
   const co2Left = Math.max(0, (light.sfx.co2 || 0) - t);
-  scene.fog.density = 0.06 + (co2On ? 0.25 * co2Left / SFX_LENGTH.co2 : 0) + light.dropEnergy * 0.03;
+  scene.fog.density = 0.075 + (co2On ? 0.25 * co2Left / SFX_LENGTH.co2 : 0) + light.dropEnergy * 0.03;
 }
 
 function fireSfx(name) {
@@ -662,4 +594,4 @@ window.addEventListener('cc-view', (e) => {
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
 // Called by app.js when split ratio changes
 window.__clubResize = () => { if (renderer && mode !== 'off') resize(); };
-window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt, setDayNight };
+window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, fireSfx, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
