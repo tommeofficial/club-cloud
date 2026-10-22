@@ -23,7 +23,8 @@ const texts = [];
 let beams = [], washes = [], ledMat, signMat, booth;
 // light show state, driven by the controls under the club view
 const SFX_LENGTH = { laser: 4, flame: 2, co2: 3 };
-const light = { mode: 'colour', hue: 0.52, speed: 0.4, intensity: 0.75, autoHue: true, sfx: {}, dropEnergy: 0, prevBass: 0 };
+// effects: independent toggles. colours: array of hue 0-1, empty = all random.
+const light = { effects: new Set(['colour']), colours: [], sensitivity: 0.6, sfx: {}, dropEnergy: 0, prevBass: 0, nextColourSwap: 0, curHue: 0.52 };
 
 const cc = () => window.__cc;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -390,78 +391,86 @@ function resize() {
 function lights(t) {
   const c = cc(); const M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
   const beat = M ? ((M.vpos - M.first) / M.B) : t * 2;
-  const pulse = M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
-  const energy = brain.bassFast;
+  const pulse = M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0;
+  const energy = brain.bassFast; // 0–1, zero when no music
 
-  // Drop detection: bass drops back in after a quiet stretch → spike dropEnergy
-  const bassNow = energy;
-  const bassDelta = bassNow - light.prevBass;
-  if (bassDelta > 0.18 && brain.lowSince > 1.0) light.dropEnergy = 1.0; // sudden bass hit after quiet
-  else light.dropEnergy = Math.max(0, light.dropEnergy - 0.016); // decay
-  light.prevBass = bassNow;
+  // Drop detection: bass slams back after quiet → spike
+  const bassDelta = energy - light.prevBass;
+  if (bassDelta > 0.18 && brain.lowSince > 0.8) light.dropEnergy = 1.0;
+  else light.dropEnergy = Math.max(0, light.dropEnergy - 0.02);
+  light.prevBass = energy;
 
-  // Reactive intensity: base from user slider, boosted by drop spikes and bass energy
-  const reactMult = light.intensity * (1 + light.dropEnergy * 1.8 + energy * 0.6);
-  const clampedMult = Math.min(reactMult, 2.2);
+  // Sensitivity slider controls how much music drives things (0.2–1.5 multiplier)
+  const sens = 0.2 + light.sensitivity * 1.3;
+  // Drive: 0 when no music, peaks on drops. Everything scales from this.
+  const drive = Math.min(energy * sens + light.dropEnergy * sens * 0.8, 1.0);
+  const swingAmt = 0.05 + drive * 0.95; // beam swing 0 when silent
+  const swingSpeed = 1 + drive * 2 + light.dropEnergy * 1.5;
 
-  const on = (name) => (light.sfx[name] || 0) > t;
-  const laser = on('laser'), flame = on('flame'), co2 = on('co2');
-  const mode = light.mode;
-  const dark = mode === 'blackout';
-  // Auto-cycling hue when no palette colour locked
-  const hue = light.autoHue ? (((beat / 16) % 1 + 1) % 1 * 0.3 + 0.52) : light.hue;
-  const tint = !dark ? new THREE.Color().setHSL(hue, 1, 0.5) : null;
-  const flashRate = 1 + light.speed * 7 + light.dropEnergy * 4;
-  const flashOn = ((beat * flashRate) % 1 + 1) % 1 < (0.2 + light.dropEnergy * 0.3);
-  const level = dark ? 0 : mode === 'strobe' ? (flashOn ? 1 : 0.03) : 1;
+  // Colour: cycle through selected hues, or random if none selected (all)
+  if (t > light.nextColourSwap || light.dropEnergy > 0.9) {
+    if (light.colours.length > 0) {
+      const idx = Math.floor(Math.random() * light.colours.length);
+      light.curHue = light.colours[idx];
+    } else {
+      light.curHue = Math.random();
+    }
+    // Swap faster when more energetic
+    light.nextColourSwap = t + Math.max(0.3, 2.5 - drive * 2.2);
+  }
+
+  const fx = light.effects;
+  const blackout = fx.has('blackout');
+  const strobe = fx.has('strobe') && !blackout;
+  const colourOn = fx.has('colour') && !blackout;
+  const laserOn = fx.has('laser') && !blackout;
+  const flameOn = (light.sfx.flame || 0) > t && !blackout;
+  const co2On = (light.sfx.co2 || 0) > t;
+
+  const flashRate = 2 + drive * 6 + light.dropEnergy * 3;
+  const flashOn = strobe && ((beat * flashRate) % 1 + 1) % 1 < (0.15 + drive * 0.2);
+  const strobeLevel = flashOn ? 1 : 0;
+
+  const tint = new THREE.Color().setHSL(light.curHue, 1, 0.5);
 
   beams.forEach((b, i) => {
-    if (laser) {
-      const lspeed = 1 + light.dropEnergy * 3;
-      b.rotation.z = Math.sin(t * 5 * lspeed + i * 1.3) * 1.1;
-      b.rotation.x = Math.cos(t * 3.7 * lspeed + i) * 0.5;
+    if (laserOn) {
+      b.rotation.z = Math.sin(t * 5 * swingSpeed + i * 1.3) * (0.5 + swingAmt * 0.6);
+      b.rotation.x = Math.cos(t * 3.7 * swingSpeed + i) * 0.4 * swingAmt;
       b.material.color.set(0x7dff7a);
-      b.material.opacity = dark ? 0 : 0.55 + light.dropEnergy * 0.35;
+      b.material.opacity = 0.08 + drive * 0.55;
       return;
     }
-    const swingSpeed = 1 + light.dropEnergy * 2 + energy * 0.5;
-    b.rotation.z = Math.sin(beat * Math.PI / 4 * swingSpeed + i) * (0.55 + light.dropEnergy * 0.5);
-    b.rotation.x = Math.cos(beat * Math.PI / 8 * swingSpeed + i * 0.7) * 0.35 + 0.15;
-    b.material.color.copy(tint || b.userData.base);
-    b.material.opacity = (0.03 + 0.22 * level * clampedMult) * (dark ? 0 : 1);
+    b.rotation.z = Math.sin(beat * Math.PI / 4 * swingSpeed + i) * swingAmt * 0.6;
+    b.rotation.x = Math.cos(beat * Math.PI / 8 * swingSpeed + i * 0.7) * swingAmt * 0.4 + 0.05;
+    if (blackout) { b.material.opacity = 0; return; }
+    if (strobe) { b.material.color.copy(tint); b.material.opacity = strobeLevel * (0.1 + drive * 0.3); return; }
+    if (colourOn) { b.material.color.copy(tint); b.material.opacity = 0.02 + drive * 0.22; }
+    else { b.material.color.copy(b.userData.base); b.material.opacity = 0.01 + drive * 0.12; }
   });
 
   washes.forEach((l, i) => {
-    const swingSpeed = 1 + light.dropEnergy * 2 + energy * 0.5;
-    l.target.position.x = Math.sin(beat * Math.PI / 4 * swingSpeed + i * 2) * (1.6 + light.dropEnergy * 0.8);
-    if (flame) {
-      l.color.set(0xff7a1a);
-      l.intensity = (40 + 30 * Math.sin(t * 31 + i * 2)) * clampedMult;
-    } else if (dark) {
-      l.intensity = 0;
-    } else if (tint) {
-      l.color.copy(tint);
-      const baseInt = mode === 'strobe' ? 70 : 35;
-      l.intensity = baseInt * level * clampedMult;
-    } else {
-      l.color.copy(l.userData.base);
-      l.intensity = (12 + 50 * energy * (0.6 + 0.4 * pulse)) * clampedMult;
-    }
+    l.target.position.x = Math.sin(beat * Math.PI / 4 * swingSpeed + i * 2) * (0.3 + swingAmt * 1.4);
+    if (blackout) { l.intensity = 0; return; }
+    if (flameOn) { l.color.set(0xff7a1a); l.intensity = drive * (30 + 20 * Math.sin(t * 31 + i * 2)); return; }
+    if (strobe) { l.color.copy(tint); l.intensity = strobeLevel * drive * 60; return; }
+    if (colourOn) { l.color.copy(tint); l.intensity = drive * 40 * (0.6 + 0.4 * pulse); }
+    else { l.color.copy(l.userData.base); l.intensity = drive * 20 * (0.6 + 0.4 * pulse); }
   });
 
-  if (laser) ledMat.color.set(0x7dff7a);
-  else if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
-  else if (tint) ledMat.color.copy(tint).multiplyScalar((0.4 + 0.6 * level) * Math.min(clampedMult, 1.5));
-  else ledMat.color.setHSL(hue, 1, 0.45 + 0.25 * pulse);
-  signMat.opacity = dark ? 0.15 : Math.min(1, 0.75 + 0.25 * pulse + light.dropEnergy * 0.25);
+  if (blackout) {
+    ledMat.color.setRGB(0.02, 0.02, 0.02);
+  } else if (laserOn) {
+    ledMat.color.set(0x7dff7a);
+  } else if (strobe) {
+    ledMat.color.copy(tint).multiplyScalar(strobeLevel * drive);
+  } else {
+    ledMat.color.copy(tint).multiplyScalar(0.1 + drive * 0.6);
+  }
+  signMat.opacity = blackout ? 0.1 : 0.3 + drive * 0.65;
 
   const co2Left = Math.max(0, (light.sfx.co2 || 0) - t);
-  scene.fog.density = 0.075 + (co2 ? 0.25 * co2Left / SFX_LENGTH.co2 : 0) + light.dropEnergy * 0.04;
-}
-
-function setLight(mode) {
-  light.mode = mode;
-  document.querySelectorAll('#lightmenu [data-light]').forEach((b) => b.classList.toggle('on', b.dataset.light === mode));
+  scene.fog.density = 0.06 + (co2On ? 0.25 * co2Left / SFX_LENGTH.co2 : 0) + light.dropEnergy * 0.03;
 }
 
 function fireSfx(name) {
@@ -471,25 +480,42 @@ function fireSfx(name) {
 const lightMenu = document.getElementById('lightmenu');
 if (lightMenu) {
   lightMenu.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
+    const b = e.target.closest('button[data-light]');
     if (!b) return;
-    if (b.dataset.light) { setLight(b.classList.contains('on') ? '' : b.dataset.light); }
-    if (b.dataset.sfx) fireSfx(b.dataset.sfx);
+    const name = b.dataset.light;
+    if (light.effects.has(name)) light.effects.delete(name); else light.effects.add(name);
+    b.classList.toggle('on', light.effects.has(name));
   });
-  // Intensity slider
-  const intSlider = lightMenu.querySelector('#lmIntensity');
-  if (intSlider) intSlider.addEventListener('input', (e) => { light.intensity = e.target.value / 100; });
-  // Palette swatches
+  lightMenu.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-sfx]');
+    if (b) fireSfx(b.dataset.sfx);
+  });
+  // Sensitivity slider
+  const sensSlider = lightMenu.querySelector('#lmIntensity');
+  if (sensSlider) sensSlider.addEventListener('input', (e) => { light.sensitivity = e.target.value / 100; });
+  // Palette: multi-select swatches, ALL clears to random
   lightMenu.querySelector('#lmPalette')?.addEventListener('click', (e) => {
     const sw = e.target.closest('span[data-hue]');
     if (!sw) return;
-    lightMenu.querySelectorAll('.palette span').forEach((s) => s.classList.remove('sel'));
-    sw.classList.add('sel');
     const h = parseInt(sw.dataset.hue, 10);
-    if (h < 0) { light.autoHue = true; }
-    else { light.autoHue = false; light.hue = h / 360; }
+    if (h < 0) {
+      // ALL — clear selection
+      light.colours = [];
+      lightMenu.querySelectorAll('.palette span').forEach((s) => s.classList.remove('sel'));
+      sw.classList.add('sel');
+    } else {
+      // Toggle this colour; deselect ALL swatch
+      lightMenu.querySelector('.palette span[data-hue="-1"]')?.classList.remove('sel');
+      sw.classList.toggle('sel');
+      const hueVal = h / 360;
+      if (sw.classList.contains('sel')) { if (!light.colours.includes(hueVal)) light.colours.push(hueVal); }
+      else { light.colours = light.colours.filter((v) => v !== hueVal); }
+      // If nothing selected, revert to ALL
+      if (light.colours.length === 0) lightMenu.querySelector('.palette span[data-hue="-1"]')?.classList.add('sel');
+    }
   });
-  setLight('colour');
+  // Default: colour on
+  lightMenu.querySelector('[data-light="colour"]')?.classList.add('on');
 }
 
 // ------------------------------------------------------------------ online room
