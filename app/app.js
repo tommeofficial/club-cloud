@@ -305,7 +305,7 @@ function layout(animate) {
     Object.assign(club.style, { left: ins.l + 4 + 'px', top: ins.t + 4 + 'px', width: cw - 8 + 'px', height: H - ins.t - ins.b - 8 + 'px' });
     club.hidden = false;
     splitDivEl.hidden = false;
-    splitDivEl.style.left = (ins.l + cw - 4) + 'px'; splitDivEl.style.top = ins.t + 'px'; splitDivEl.style.height = (H - ins.t - ins.b) + 'px';
+    splitDivEl.style.left = (ins.l + cw - 9) + 'px'; splitDivEl.style.top = ins.t + 'px'; splitDivEl.style.height = (H - ins.t - ins.b) + 'px';
     px += cw; pw -= cw;
   } else {
     splitDivEl.hidden = true;
