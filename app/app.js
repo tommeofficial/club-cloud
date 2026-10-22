@@ -449,7 +449,7 @@ tabs.addEventListener('click', (e) => {
   unlockAudio();
   if (b.dataset.zoom) setZoom(b.dataset.zoom);
   else if (b.dataset.mode) setMode(b.dataset.mode);
-  else if (b.dataset.act === 'lights') { L.lightsOn = !L.lightsOn; b.classList.toggle('on', L.lightsOn); layout(false); }
+  else if (b.dataset.act === 'lights') { const lm = document.getElementById('lightmenu'); lm.classList.toggle('open'); b.classList.toggle('on', lm.classList.contains('open')); }
   else if (b.dataset.act === 'lib') openLibrary(null);
   else if (b.dataset.act === 'help') openHelp();
   else if (b.dataset.act === 'fs') toggleFullscreen();
@@ -461,6 +461,13 @@ function toggleFullscreen() {
   if (!fn) { toast('Full screen is not available here. On iPhone, add the page to your Home Screen.'); return; }
   try { const r = fn.call(el); if (r && r.catch) r.catch(() => toast('Full screen was blocked by the browser.')); } catch (_) { toast('Full screen was blocked by the browser.'); }
 }
+document.addEventListener('pointerdown', (e) => {
+  const lm = document.getElementById('lightmenu');
+  if (lm && lm.classList.contains('open') && !lm.contains(e.target) && !e.target.closest('[data-act="lights"]')) {
+    lm.classList.remove('open');
+    document.querySelector('[data-act="lights"]')?.classList.remove('on');
+  }
+}, true);
 window.addEventListener('resize', () => layout(false));
 if (window.ResizeObserver) new ResizeObserver(() => layout(false)).observe(document.documentElement);
 if (window.visualViewport) window.visualViewport.addEventListener('resize', () => layout(false));

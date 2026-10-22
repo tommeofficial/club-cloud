@@ -22,8 +22,8 @@ const flying = [];
 const texts = [];
 let beams = [], washes = [], ledMat, signMat, booth;
 // light show state, driven by the controls under the club view
-const light = { mode: 'auto', hue: 0.52, speed: 0.4, sfx: {} }; // sfx: name -> elapsed time it ends
 const SFX_LENGTH = { laser: 4, flame: 2, co2: 3 };
+const light = { mode: 'colour', hue: 0.52, speed: 0.4, intensity: 0.75, autoHue: true, sfx: {}, dropEnergy: 0, prevBass: 0 };
 
 const cc = () => window.__cc;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -392,72 +392,104 @@ function lights(t) {
   const beat = M ? ((M.vpos - M.first) / M.B) : t * 2;
   const pulse = M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
   const energy = brain.bassFast;
+
+  // Drop detection: bass drops back in after a quiet stretch → spike dropEnergy
+  const bassNow = energy;
+  const bassDelta = bassNow - light.prevBass;
+  if (bassDelta > 0.18 && brain.lowSince > 1.0) light.dropEnergy = 1.0; // sudden bass hit after quiet
+  else light.dropEnergy = Math.max(0, light.dropEnergy - 0.016); // decay
+  light.prevBass = bassNow;
+
+  // Reactive intensity: base from user slider, boosted by drop spikes and bass energy
+  const reactMult = light.intensity * (1 + light.dropEnergy * 1.8 + energy * 0.6);
+  const clampedMult = Math.min(reactMult, 2.2);
+
   const on = (name) => (light.sfx[name] || 0) > t;
   const laser = on('laser'), flame = on('flame'), co2 = on('co2');
   const mode = light.mode;
   const dark = mode === 'blackout';
-  const tint = mode === 'colour' || mode === 'strobe' ? new THREE.Color().setHSL(light.hue, 1, 0.5) : null;
-  const flashOn = ((beat * (1 + light.speed * 7)) % 1 + 1) % 1 < 0.2;
-  const level = dark ? 0 : mode === 'strobe' ? (flashOn ? 1 : 0.04) : 1;
+  // Auto-cycling hue when no palette colour locked
+  const hue = light.autoHue ? (((beat / 16) % 1 + 1) % 1 * 0.3 + 0.52) : light.hue;
+  const tint = !dark ? new THREE.Color().setHSL(hue, 1, 0.5) : null;
+  const flashRate = 1 + light.speed * 7 + light.dropEnergy * 4;
+  const flashOn = ((beat * flashRate) % 1 + 1) % 1 < (0.2 + light.dropEnergy * 0.3);
+  const level = dark ? 0 : mode === 'strobe' ? (flashOn ? 1 : 0.03) : 1;
+
   beams.forEach((b, i) => {
     if (laser) {
-      b.rotation.z = Math.sin(t * 5 + i * 1.3) * 1.1;
-      b.rotation.x = Math.cos(t * 3.7 + i) * 0.5;
+      const lspeed = 1 + light.dropEnergy * 3;
+      b.rotation.z = Math.sin(t * 5 * lspeed + i * 1.3) * 1.1;
+      b.rotation.x = Math.cos(t * 3.7 * lspeed + i) * 0.5;
       b.material.color.set(0x7dff7a);
-      b.material.opacity = dark ? 0 : 0.55;
+      b.material.opacity = dark ? 0 : 0.55 + light.dropEnergy * 0.35;
       return;
     }
-    b.rotation.z = Math.sin(beat * Math.PI / 4 + i) * 0.55;
-    b.rotation.x = Math.cos(beat * Math.PI / 8 + i * 0.7) * 0.35 + 0.15;
+    const swingSpeed = 1 + light.dropEnergy * 2 + energy * 0.5;
+    b.rotation.z = Math.sin(beat * Math.PI / 4 * swingSpeed + i) * (0.55 + light.dropEnergy * 0.5);
+    b.rotation.x = Math.cos(beat * Math.PI / 8 * swingSpeed + i * 0.7) * 0.35 + 0.15;
     b.material.color.copy(tint || b.userData.base);
-    const auto = 0.03 + (0.06 + 0.14 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
-    b.material.opacity = mode === 'auto' ? auto : (0.03 + 0.2 * level) * (dark ? 0 : 1);
+    b.material.opacity = (0.03 + 0.22 * level * clampedMult) * (dark ? 0 : 1);
   });
+
   washes.forEach((l, i) => {
-    l.target.position.x = Math.sin(beat * Math.PI / 4 + i * 2) * 1.6;
+    const swingSpeed = 1 + light.dropEnergy * 2 + energy * 0.5;
+    l.target.position.x = Math.sin(beat * Math.PI / 4 * swingSpeed + i * 2) * (1.6 + light.dropEnergy * 0.8);
     if (flame) {
       l.color.set(0xff7a1a);
-      l.intensity = 40 + 30 * Math.sin(t * 31 + i * 2);
+      l.intensity = (40 + 30 * Math.sin(t * 31 + i * 2)) * clampedMult;
     } else if (dark) {
       l.intensity = 0;
     } else if (tint) {
       l.color.copy(tint);
-      l.intensity = (mode === 'strobe' ? 70 : 35) * level;
+      const baseInt = mode === 'strobe' ? 70 : 35;
+      l.intensity = baseInt * level * clampedMult;
     } else {
       l.color.copy(l.userData.base);
-      l.intensity = 12 + 40 * energy * (0.6 + 0.4 * pulse);
+      l.intensity = (12 + 50 * energy * (0.6 + 0.4 * pulse)) * clampedMult;
     }
   });
+
   if (laser) ledMat.color.set(0x7dff7a);
   else if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
-  else if (tint) ledMat.color.copy(tint).multiplyScalar(0.4 + 0.6 * level);
-  else ledMat.color.setHSL(((beat / 16) % 1 + 1) % 1 * 0.3 + 0.52, 1, 0.45 + 0.25 * pulse);
-  signMat.opacity = dark ? 0.15 : 0.75 + 0.25 * pulse;
-  // CO2 blast: fog thickens, then clears over its length
+  else if (tint) ledMat.color.copy(tint).multiplyScalar((0.4 + 0.6 * level) * Math.min(clampedMult, 1.5));
+  else ledMat.color.setHSL(hue, 1, 0.45 + 0.25 * pulse);
+  signMat.opacity = dark ? 0.15 : Math.min(1, 0.75 + 0.25 * pulse + light.dropEnergy * 0.25);
+
   const co2Left = Math.max(0, (light.sfx.co2 || 0) - t);
-  scene.fog.density = 0.075 + (co2 ? 0.25 * co2Left / SFX_LENGTH.co2 : 0);
+  scene.fog.density = 0.075 + (co2 ? 0.25 * co2Left / SFX_LENGTH.co2 : 0) + light.dropEnergy * 0.04;
 }
 
 function setLight(mode) {
   light.mode = mode;
-  document.querySelectorAll('#lightbar [data-light]').forEach((b) => b.classList.toggle('on', b.dataset.light === mode));
+  document.querySelectorAll('#lightmenu [data-light]').forEach((b) => b.classList.toggle('on', b.dataset.light === mode));
 }
 
 function fireSfx(name) {
   light.sfx[name] = (clock ? clock.elapsedTime : 0) + SFX_LENGTH[name];
 }
 
-const lightBar = document.getElementById('lightbar');
-if (lightBar) {
-  lightBar.addEventListener('click', (e) => {
+const lightMenu = document.getElementById('lightmenu');
+if (lightMenu) {
+  lightMenu.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.light) setLight(b.dataset.light);
+    if (b.dataset.light) { setLight(b.classList.contains('on') ? '' : b.dataset.light); }
     if (b.dataset.sfx) fireSfx(b.dataset.sfx);
   });
-  lightBar.querySelector('#lightHue').addEventListener('input', (e) => { light.hue = e.target.value / 360; });
-  lightBar.querySelector('#lightSpeed').addEventListener('input', (e) => { light.speed = e.target.value / 100; });
-  setLight('auto');
+  // Intensity slider
+  const intSlider = lightMenu.querySelector('#lmIntensity');
+  if (intSlider) intSlider.addEventListener('input', (e) => { light.intensity = e.target.value / 100; });
+  // Palette swatches
+  lightMenu.querySelector('#lmPalette')?.addEventListener('click', (e) => {
+    const sw = e.target.closest('span[data-hue]');
+    if (!sw) return;
+    lightMenu.querySelectorAll('.palette span').forEach((s) => s.classList.remove('sel'));
+    sw.classList.add('sel');
+    const h = parseInt(sw.dataset.hue, 10);
+    if (h < 0) { light.autoHue = true; }
+    else { light.autoHue = false; light.hue = h / 360; }
+  });
+  setLight('colour');
 }
 
 // ------------------------------------------------------------------ online room
