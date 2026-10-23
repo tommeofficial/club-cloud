@@ -1453,7 +1453,6 @@ function buildArt() {
     o.push(`<line x1="${x + 1}" y1="${y + size * 0.25}" x2="${x + size * 2.55}" y2="${y + size * 0.25}" stroke="#25415E" stroke-width="${Math.max(1, size * 0.03)}"/>`);
     o.push(`<text x="${x + 2}" y="${y + size * 0.78}" font-size="${size * 0.42}" font-family="${WF}" font-weight="700" letter-spacing="${size * 0.13}" fill="#41E7FF" text-anchor="start">CLOUD</text>`);
   };
-  Mark(952, 1150, 24); Word(984, 1152, 30);
   T(1200, 1214, 'ALL-IN-ONE DJ SYSTEM', 7.8);
   Mark(1158, 1236, 13); Word(1178, 1239, 17);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2003,7 +2002,7 @@ function buildCenter() {
   Object.assign(cscreen.style, { left: CSCR.x - X0 + 'px', top: CSCR.y - Y0 + 'px', width: CSCR.w + 'px', height: CSCR.h + 'px' });
   cscreen.innerHTML = `<div class="hd"><button data-tab="all">LIBRARY</button><button data-tab="tag">TAG LIST</button><button data-tab="search">SEARCH</button><button data-tab="add">+ ADD</button><button data-tab="big">⤢</button><span class="cnt"></span></div><div class="bd"><div id="cslist"></div><div id="csfx"></div></div>`;
   stage.appendChild(cscreen);
-  const br = document.getElementById('brand'); if (br) Object.assign(br.style, { left: '920px', top: CSCR.y - Y0 + CSCR.h + 38 + 'px' });
+  const br = document.getElementById('brand'); if (br) Object.assign(br.style, { left: 1000 - X0 + 'px', top: CSCR.y - Y0 + CSCR.h + 38 + 'px' });
   cslist = cscreen.querySelector('#cslist'); csfx = cscreen.querySelector('#csfx');
   cscreen.querySelector('.hd').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
