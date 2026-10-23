@@ -12,10 +12,10 @@ const CUE = {
 };
 // scene 2: lines over the push, two to a card so they read on a phone; the last sits in the breakdown
 const LINES = [
-  { t0: 7.0, t1: 9.5, html: "WORLD'S FIRST<br>VIRTUAL DJ CLUB" },
-  { t0: 9.8, t1: 12.0, html: 'HAVING A<br>HOUSE PARTY?' },
-  { t0: 12.3, t1: 14.5, html: 'JUMP IN AS ONE<br>OF THE CROWD' },
-  { t0: 14.8, t1: 16.72, html: 'WANT TO BE<br>THE DJ?' },
+  { t0: 7.0, t1: 9.5, html: "WORLD'S <b>FIRST</b><br>VIRTUAL DJ CLUB" },
+  { t0: 9.8, t1: 12.0, html: 'HAVING A<br><b>HOUSE PARTY?</b>' },
+  { t0: 12.3, t1: 14.5, html: 'JUMP IN AS ONE<br>OF THE <b>CROWD</b>' },
+  { t0: 14.8, t1: 16.72, html: 'WANT TO BE<br>THE <b>DJ?</b>' },
 ];
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
@@ -65,7 +65,7 @@ window.__ad = { go(t) { gate.remove(); deck.pause(); fired.clear(); ad.classList
 
 // camera: starts on the back wall square on to the backdrop, lens set so the backdrop fills the glow's circle;
 // from the CO2 it glides over the crowd's heads toward the booth, easing in and out, and tilts down onto the DJ
-const BACK_Z = -13.1;
+const BACK_Z = -13.1, FADE = 1.4;
 const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const lerp = (a, b, k) => a + (b - a) * k;
 window.__adFrame = (cam) => {
@@ -76,8 +76,12 @@ window.__adFrame = (cam) => {
   cam.lookAt(0, lerp(B.y, 1.9, k), lerp(B.z, 0.5, k));
   cam.fov = lerp(f0, 54, k);
   cam.updateProjectionMatrix();
-  CL().setVeil(t < CUE.co2 ? 1 : 1 - ease((t - CUE.co2) / 2.6));
+  // after the CO2 the room, the rig, the smoke and the crowd sound all come up together on one quick, smooth curve
+  const f = ease((t - CUE.co2) / FADE);
+  CL().setVeil(1 - f);
   CL().light.adDark = t < CUE.co2;
+  CL().light.adFade = f;
+  CL().sfx.volume = 0.7 * f;
   CL().screen.show = -1; // no random logo flash on the LED screen during the advert
   showLine(t);
 };
@@ -104,7 +108,7 @@ function tick() {
   at('to', () => say([{ t: 'TO', c: W, y: 280 }]));
   at('club', () => say([{ t: 'CLUB', c: W, y: 236 }])); // already where it sits once CLOUD joins it
   at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
-  at('co2', () => { CL().sfx.volume = 0.7; CL().co2(); });
+  at('co2', () => CL().co2());
   at('logoOff', () => { CL().screen.ad = null; });
   requestAnimationFrame(tick);
 }

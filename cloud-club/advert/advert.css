@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap');
 /* The advert overlay sits over the real app. --s scales the real 76px play button up; the club camera
    frames the stage backdrop to the same circle as the button's green glow (94px * s). */
 body.advert #tabs, body.advert #clubhud, body.advert #chatpanel, body.advert #lightbar, body.advert #clubload, body.advert #toast { display: none !important; }
@@ -14,8 +15,9 @@ body.advert #tabs, body.advert #clubhud, body.advert #chatpanel, body.advert #li
   background: #41E7FF; border: 0; border-radius: 10px; padding: 16px 34px; cursor: pointer; }
 .adgate button:disabled { background: #1a2a33; color: #6f8a99; cursor: default; }
 
-/* scene 2 lines: big caps low on the frame, over the crowd */
-.adline { position: absolute; left: 6%; right: 6%; top: 71%; text-align: center; opacity: 0; transition: opacity .35s;
-  font: 700 clamp(28px, 8.4vw, 92px)/1.02 'Avenir Next','Avenir','Barlow Semi Condensed','Helvetica Neue',sans-serif;
-  letter-spacing: .01em; color: #fff; text-shadow: 0 2px 18px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.6); }
+/* scene 2 lines: wide club-poster caps, a little see-through, key words in the logo blue */
+.adline { position: absolute; left: 5%; right: 5%; top: 72%; text-align: center; opacity: 0; transition: opacity .3s;
+  font: 800 clamp(22px, 6.4vw, 70px)/1.1 'Unbounded','Avenir Next','Helvetica Neue',sans-serif; text-transform: uppercase;
+  letter-spacing: .02em; color: rgba(255,255,255,.8); text-shadow: 0 2px 16px rgba(0,0,0,.55); }
+.adline b { font-weight: 800; color: rgba(76,235,255,.88); }
 .adline.on { opacity: 1; }

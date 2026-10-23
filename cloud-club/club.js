@@ -1149,6 +1149,7 @@ function lights(t, dt) {
   const hitOn = light.fx.blinders && beat < auto.blindUntil;            // a blinder hit on a drop
   const scrDark = !light.on || cut || hitOn;
   const dark = scrDark || !!light.adDark; // the advert can hold the rig dark while the screen still plays
+  const F = light.adFade ?? 1; // the advert fades the whole rig in
   const pal = PALETTE.filter((_, i) => light.colours[i]);
   const colours = pal.length ? pal : PALETTE;
   const step = Math.floor(beat / Math.max(1, Math.round(8 - 6 * k))); // colour changes every 8 beats at low intensity, every 2 at high
@@ -1176,20 +1177,20 @@ function lights(t, dt) {
     b.position.set(u.x, u.y, u.z); b.rotation.set(T, P, 0, 'YXZ');
     b.material.color.setHex(colours[(look.name === 'sweep' ? i + step : step) % colours.length]);
     if (strobe) b.material.color.lerp(WHITE, 0.6);
-    b.material.opacity = lvl + (strobe ? 0.5 : 0);
+    b.material.opacity = (lvl + (strobe ? 0.5 : 0)) * F;
     u.lens.material.color.copy(b.material.color).multiplyScalar(0.4 + b.material.opacity);
   });
   washes.forEach((l, i) => {
     l.target.position.x = Math.sin(beat * Math.PI / 4 * speed + i * 2) * 1.6;
     if (dark) { l.intensity = 0; return; }
     l.color.setHex(colours[(i * 2 + step) % colours.length]);
-    l.intensity = 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0);
+    l.intensity = (12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * F;
   });
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
   // the haze picks up whatever colour the rig is throwing
   haze.forEach((h, i) => {
-    h.material.color.setHex(colours[(i + step) % colours.length]).multiplyScalar(dark ? 0 : 0.05 + 0.08 * energy + (strobe ? 0.08 : 0));
+    h.material.color.setHex(colours[(i + step) % colours.length]).multiplyScalar(dark ? 0 : (0.05 + 0.08 * energy + (strobe ? 0.08 : 0)) * F);
     h.position.x = Math.sin(t * 0.05 + i * 2) * 0.8;
   });
   // the giant C's double as blinders: they blast white on a hit, strobe on a drop, and stay glowing through a blackout
@@ -1253,7 +1254,7 @@ function updateLasers(t, beat, dark) {
   const hit = Math.pow(1 - (((beat % 1) + 1) % 1), 3);
   let k = 0;
   // each beam is brightest at the source and thins out into the haze towards the far end
-  const seg = (a, b, col, lvl, fade = 0.2) => { a.toArray(P, k * 6); b.toArray(P, k * 6 + 3); c.setHex(col).multiplyScalar(lvl); c.toArray(C, k * 6); c.multiplyScalar(fade).toArray(C, k * 6 + 3); k++; };
+  const seg = (a, b, col, lvl, fade = 0.2) => { a.toArray(P, k * 6); b.toArray(P, k * 6 + 3); c.setHex(col).multiplyScalar(lvl * (light.adFade ?? 1)); c.toArray(C, k * 6); c.multiplyScalar(fade).toArray(C, k * 6 + 3); k++; };
   const sheetMode = mode === 'sheet', coneMode = mode === 'cone';
   // fan: emitters spaced round the circle, firing horizontally out over the crowd towards the back wall
   for (let i = 0; i < FAN; i++) {
@@ -1413,7 +1414,7 @@ function updateCo2(dt, t) {
     co2.vel[j + 2] = co2.vel[j + 2] * drag + rnd(-1, 1) * 2.2 * dt;
     co2.pos[j] += co2.vel[j] * dt; co2.pos[j + 1] = Math.max(0.1, co2.pos[j + 1] + co2.vel[j + 1] * dt); co2.pos[j + 2] += co2.vel[j + 2] * dt;
     co2.size[i] = Math.min(1.3, 0.18 + 1.4 * Math.pow(age, 0.6));
-    co2.alpha[i] = Math.min(1, age * 10) * Math.pow(1 - age, 1.2) * 0.32;
+    co2.alpha[i] = Math.min(1, age * 10) * Math.pow(1 - age, 1.2) * 0.32 * (light.adFade ?? 1);
   }
   for (const k of ['position', 'size', 'alpha']) co2.pts.geometry.attributes[k].needsUpdate = true;
 }
