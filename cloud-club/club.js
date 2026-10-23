@@ -21,15 +21,15 @@ const splash = document.getElementById('splash');
 const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // a scanned, rigged dancer who takes one spot at the front of the crowd
 // scanned, rigged people who take spots at the front; they have the full set of moves
-const FEATURED = [{ model: 'models/crowd_mia.glb', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
+const FEATURED = [{ model: 'models/crowd_mia.glb', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_26064435.glb', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
 // friends stand together and turn to each other to talk, hug and high-five
-const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7]]; // spot 0 and 5 are a pair
+const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3'];
 const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'hype']); // 2-beat clips locked to the music
 // where the crowd stands (x, z) — the DJ looks down -Z from the booth at z = 0
 // kept on the open floor: clear of the counter between the columns (z < -4.3) and the side tables (|x| > 2.2)
-const SPOTS = [[-1.2, -2.6], [0.1, -2.4], [1.25, -2.7], [-0.55, -3.3], [0.7, -3.35], [-2.1, -4.4], [1.9, -4.6], [-0.9, -5.4], [0.8, -5.9]];
+const SPOTS = [[-1.2, -2.6], [0.1, -2.4], [1.25, -2.7], [-0.55, -3.3], [0.7, -3.35], [-2.1, -4.4], [1.9, -4.6], [-0.9, -5.4], [0.8, -5.9], [-2.0, -6.0]];
 // the venue is a gaussian splat; it is scaled to metres and placed so the floor is y = 0
 // the scanned venue is kept behind a switch; the built room below lets the light show actually light the space
 const USE_SPLAT = false;
