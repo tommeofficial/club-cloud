@@ -6,7 +6,17 @@ const CUE = {
   to: 2.40,                   // the "t" of "to"
   club: 3.00,                 // "club"
   cloud: 3.25,                // "cloud"; the bass lands at 3.70
+  co2: 5.00,                  // the bass hits again after the dip: CO2, the room fades in, the push begins
+  logoOff: 5.45,              // the CLUB CLOUD words leave the LED screen once the CO2 is going
+  drop: 16.72,                // the drop: scene 3 cuts to the decks here
 };
+// scene 2: lines over the push, two to a card so they read on a phone; the last sits in the breakdown
+const LINES = [
+  { t0: 7.0, t1: 9.5, html: "WORLD'S FIRST<br>VIRTUAL DJ CLUB" },
+  { t0: 9.8, t1: 12.0, html: 'HAVING A<br>HOUSE PARTY?' },
+  { t0: 12.3, t1: 14.5, html: 'JUMP IN AS ONE<br>OF THE CROWD' },
+  { t0: 14.8, t1: 16.72, html: 'WANT TO BE<br>THE DJ?' },
+];
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
 document.body.classList.add('advert');
@@ -16,6 +26,7 @@ const stage = el('div', 'adstage', ad);
 const playWrap = el('div', 'adplay', stage);
 playWrap.innerHTML = '<div class="b big play" data-led="0"><div class="lamp"></div><span>▶/❚❚</span></div>';
 const playBtn = playWrap.firstElementChild;
+const line = el('div', 'adline', ad);
 
 // the green glow's diameter on screen; the backdrop is framed to the same circle
 const glowPx = () => Math.min(innerHeight * 0.40, innerWidth * 0.68);
@@ -34,11 +45,13 @@ async function prepare() {
   await wait(() => CC() && CL() && CC().ctx);
   CC().setMode('club');                     // the club starts loading behind the black
   CL().light.adDark = true;                 // rig held dark until the reveal
+  CL().light.intensity = 0.85;              // a busy show for the push
+  CL().sfx.volume = 0;                      // no crowd murmur over the black opening
   const buf = await CC().ctx.decodeAudioData(await (await fetch('advert/track.m4a')).arrayBuffer());
   const an = await CC().analyzeBuffer(buf);
   deck = CC().decks[0];
   await wait(() => deck.loaded); // the app puts its demo on deck 1 first; replace it
-  deck.load({ id: 'advert', title: 'Club Cloud', artist: '', dur: buf.duration, ...an }, buf, { pos: 0, cue: 0 });
+  deck.load({ id: 'advert', title: '', artist: '', dur: buf.duration, ...an }, buf, { pos: 0, cue: 0 });
   await wait(() => CL().ready);
   CL().setVeil(1);
   gateBtn.disabled = false; gateBtn.textContent = 'PLAY ADVERT';
@@ -50,15 +63,32 @@ gateBtn.onclick = () => { CC().unlock(); gate.remove(); deck.play(); };
 // scrub for checking frames: __ad.go(2.8) jumps there paused and replays every cue up to it
 window.__ad = { go(t) { gate.remove(); deck.pause(); fired.clear(); ad.classList.remove('reveal'); CL().screen.ad = null; deck.seek(t); } };
 
-// camera: on the back wall, square on to the backdrop, with the lens set so the backdrop fills the glow's circle
+// camera: starts on the back wall square on to the backdrop, lens set so the backdrop fills the glow's circle;
+// from the CO2 it glides over the crowd's heads toward the booth, easing in and out, and tilts down onto the DJ
 const BACK_Z = -13.1;
+const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+const lerp = (a, b, k) => a + (b - a) * k;
 window.__adFrame = (cam) => {
-  const B = CL().BACKDROP, D = B.z - BACK_Z, H = innerHeight;
-  cam.position.set(0, B.y, BACK_Z);
-  cam.lookAt(0, B.y, B.z);
-  cam.fov = 2 * Math.atan((2 * B.r) * H / (2 * D * glowPx())) * 180 / Math.PI;
+  const t = deck ? deck.vpos : 0, B = CL().BACKDROP, D = B.z - BACK_Z;
+  const f0 = 2 * Math.atan((2 * B.r) * innerHeight / (2 * D * glowPx())) * 180 / Math.PI;
+  const k = ease((t - CUE.co2) / (CUE.drop - CUE.co2));
+  cam.position.set(lerp(0, 0.3, k), lerp(B.y, 2.4, k), lerp(BACK_Z, -4.8, k));
+  cam.lookAt(0, lerp(B.y, 1.9, k), lerp(B.z, 0.5, k));
+  cam.fov = lerp(f0, 54, k);
   cam.updateProjectionMatrix();
+  CL().setVeil(t < CUE.co2 ? 1 : 1 - ease((t - CUE.co2) / 2.6));
+  CL().light.adDark = t < CUE.co2;
+  CL().screen.show = -1; // no random logo flash on the LED screen during the advert
+  showLine(t);
 };
+let lineOn = null;
+function showLine(t) {
+  const L = LINES.find((l) => t >= l.t0 && t < l.t1) || null;
+  if (L === lineOn) return;
+  lineOn = L;
+  line.classList.remove('on');
+  if (L) { line.innerHTML = L.html; void line.offsetWidth; line.classList.add('on'); }
+}
 
 const say = (lines) => { CL().screen.ad = { dim: 1, lines: lines.map((l) => ({ glow: 0, px: 66, ...l })) }; };
 const W = '#c9d3dc', BL = '#2fb8cc'; // the screen blooms, so the words are drawn below white
@@ -74,5 +104,7 @@ function tick() {
   at('to', () => say([{ t: 'TO', c: W, y: 280 }]));
   at('club', () => say([{ t: 'CLUB', c: W, y: 236 }])); // already where it sits once CLOUD joins it
   at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
+  at('co2', () => { CL().sfx.volume = 0.7; CL().co2(); });
+  at('logoOff', () => { CL().screen.ad = null; });
   requestAnimationFrame(tick);
 }
