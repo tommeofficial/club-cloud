@@ -60,7 +60,7 @@ window.__adFrame = (cam) => {
   cam.updateProjectionMatrix();
 };
 
-const say = (lines) => { CL().screen.ad = { dim: 1, lines: lines.map((l) => ({ glow: 0, ...l })) }; };
+const say = (lines) => { CL().screen.ad = { dim: 1, lines: lines.map((l) => ({ glow: 0, px: 66, ...l })) }; };
 const W = '#c9d3dc', BL = '#2fb8cc'; // the screen blooms, so the words are drawn below white
 let fired = new Set();
 function at(key, fn) { if (deck.vpos >= CUE[key] && !fired.has(key)) { fired.add(key); fn(); } }
@@ -69,9 +69,10 @@ function flash(ms) { playBtn.dataset.led = '1'; setTimeout(() => { playBtn.datas
 function tick() {
   at('beep1', () => flash(170));
   at('beep2', () => flash(170));
-  at('welcome', () => { ad.classList.add('reveal'); say([{ t: 'welcome', c: W, px: 104, y: 290 }]); });
-  at('to', () => say([{ t: 'welcome', c: W, px: 104, y: 250 }, { t: 'to', c: W, px: 104, y: 352 }]));
-  at('club', () => say([{ t: 'club', c: W, px: 150, y: 300 }]));
-  at('cloud', () => say([{ t: 'club', c: W, px: 150, y: 262 }, { t: 'C L O U D', c: BL, px: 62, y: 342 }]));
+  // one word size throughout, all caps; WELCOME is the widest word so it sets the size
+  at('welcome', () => { ad.classList.add('reveal'); say([{ t: 'WELCOME', c: W, y: 280 }]); });
+  at('to', () => say([{ t: 'TO', c: W, y: 280 }]));
+  at('club', () => say([{ t: 'CLUB', c: W, y: 280 }]));
+  at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
   requestAnimationFrame(tick);
 }
