@@ -1,11 +1,11 @@
 // The advert: the real app, filmed full-bleed in portrait, with the advert track playing on deck 1.
 // Cue times are measured from the track. Scene 1: the play button, then the real stage backdrop.
 const CUE = {
-  beep1: 0.22, beep2: 0.72,   // the play button flashes on the two beeps
-  welcome: 2.57,              // "welcome": the black lifts off the real backdrop, sized to the button's glow
-  to: 3.16,                   // "to"
-  club: 3.69,                 // "club", on the first bass hit
-  cloud: 4.05,                // "cloud"
+  beep1: 0.25, beep2: 0.70,   // the two beeps (pure tones): the play button flashes
+  welcome: 1.10,              // "welcome" starts: the black lifts off the real backdrop, sized to the button's glow
+  to: 2.55,                   // the "t" of "to"
+  club: 3.15,                 // "club"
+  cloud: 3.40,                // "cloud"; the bass lands at 3.70
 };
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
