@@ -103,7 +103,10 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 .b.shift .lamp { border-radius: 4px; box-shadow: inset 0 0 10px rgba(255,255,255,.5); }
 .b.big { border-radius: 50%; background: radial-gradient(circle at 50% 40%, #b7b8bc 0, #77787d 36%, #3b3c40 70%, #222326 100%); box-shadow: 0 0 0 6px #121214, 0 0 0 9px var(--ring-off), 0 6px 12px 7px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,255,255,.35); font-size: 15px; color: #161616; }
 .b.big::after { content: ''; position: absolute; inset: 8%; border-radius: 50%; background: repeating-conic-gradient(rgba(255,255,255,.07) 0 2deg, rgba(0,0,0,.05) 2deg 4deg); pointer-events: none; }
-.b.big .lamp { inset: -9px; border: 5px solid var(--ring); box-shadow: 0 0 14px 2px var(--ring), inset 0 0 8px var(--ring); background: none; border-radius: 50%; }
+.b.big .lamp { inset: -9px; border-radius: 50%;
+  background: radial-gradient(closest-side, transparent calc(100% - 6.5px), color-mix(in srgb, var(--ring) 55%, transparent) calc(100% - 5.5px), color-mix(in srgb, var(--ring) 45%, #fff) calc(100% - 3px), var(--ring) calc(100% - 1.5px), color-mix(in srgb, var(--ring) 60%, transparent) 100%);
+  box-shadow: 0 0 4px 1px var(--ring), 0 0 16px 4px color-mix(in srgb, var(--ring) 55%, transparent), 0 0 42px 12px color-mix(in srgb, var(--ring) 20%, transparent), inset 0 0 14px 3px color-mix(in srgb, var(--ring) 40%, transparent); }
+.b.big .lamp::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 300deg, rgba(255,255,255,.55), transparent 18%, transparent 82%, rgba(255,255,255,.55)); -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px), #000 calc(100% - 2px), transparent calc(100% - 1px)); mask: radial-gradient(closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px), #000 calc(100% - 2px), transparent calc(100% - 1px)); }
 .b.big.cue { --ring: #ff8a14; --ring-off: #4b2a08; }
 .b.big.play { --ring: #2ee04a; --ring-off: #0d3a16; }
 .b.big span { color: #1e1e1e; font-size: 15px; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
