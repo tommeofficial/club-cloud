@@ -3,9 +3,9 @@
 const CUE = {
   beep1: 0.25, beep2: 0.70,   // the two beeps (pure tones): the play button flashes
   welcome: 1.10,              // "welcome" starts: the black lifts off the real backdrop, sized to the button's glow
-  to: 2.55,                   // the "t" of "to"
-  club: 3.15,                 // "club"
-  cloud: 3.40,                // "cloud"; the bass lands at 3.70
+  to: 2.40,                   // the "t" of "to"
+  club: 3.00,                 // "club"
+  cloud: 3.25,                // "cloud"; the bass lands at 3.70
 };
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
