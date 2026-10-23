@@ -313,9 +313,10 @@ function insets() {
   return r;
 }
 
+const ADVERT = new URLSearchParams(location.search).has('advert'); // the advert films the app full-bleed in portrait
 function layout(animate) {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const portrait = vh > vw * 1.05;
+  const portrait = !ADVERT && vh > vw * 1.05;
   L.portrait = portrait; L.vw = vw; L.vh = vh;
   const W = portrait ? vh : vw, H = portrait ? vw : vh;
   L.W = W; L.H = H;
@@ -355,7 +356,7 @@ function layout(animate) {
   L.aw = px + pw - L.vx - 4; L.ah = H - L.vy - ins.b - 3;
   // CLUB: one 3D view from behind the DJ; the club fills the screen
   if (L.mode === 'club') {
-    Object.assign(club.style, { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
+    Object.assign(club.style, ADVERT ? { left: '0px', top: '0px', width: W + 'px', height: H + 'px', borderRadius: '0' } : { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
     club.hidden = false;
     // the real controller is laid onto the booth table in 3D: club.js perspective-maps this box onto it
     L.aw = 920; L.ah = Math.round(920 * ZOOMS.all[3] / ZOOMS.all[2]);
@@ -2289,6 +2290,6 @@ async function boot() {
   renderCenter();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const d of decks) d.ovl = null; });
 }
-window.__cc = { engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; } };
+window.__cc = { engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout };
 boot();
 })();

@@ -58,6 +58,13 @@ const MURMUR = ['sounds/murmur.m4a', 'sounds/murmur2.m4a'][Math.floor(Math.rando
 const auto = { blindUntil: -99, blind: 0, drop: -99, phrase: -1, laser: null, laserEnd: -1, lastPlay: -99 }; // laser: 'drop' | 'slow' | 'kick'
 const PALETTE = [0x41e7ff, 0x6285ff, 0x9b5cff, 0xff3da5, 0xffb03d, 0x3dff8a];
 const WHITE = new THREE.Color(0xffffff);
+let veil;
+function setVeil(v) {
+  const on = v > 0.001;
+  veil.visible = on; veil.material.opacity = Math.min(1, v);
+  const solid = v >= 0.999; // fully black: nothing in the room exists yet, so the backdrop draws through the crowd and DJ
+  for (const m of screen.parts) { m.renderOrder = on ? 1000 : 0; m.material.depthTest = !solid; if (m.material.transparent !== on) { m.material.transparent = on; m.material.needsUpdate = true; } }
+}
 let fx; // beams and CO2, drawn after the venue splat so they sit on top of it
 
 const cc = () => window.__cc;
@@ -467,6 +474,9 @@ function buildScene() {
   camera = new THREE.PerspectiveCamera(46, 1, 0.05, 80);
   camera.position.set(0, 1.5, 0.35);
   camera.lookAt(0, 0.75, -5);
+  // the advert's black veil: hides the room while the backdrop (drawn after it) stays lit
+  veil = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 1, depthTest: false, depthWrite: false, fog: false }));
+  veil.position.z = -0.1; veil.renderOrder = 999; veil.visible = false; camera.add(veil); scene.add(camera);
   scene.add(new THREE.HemisphereLight(0x2a2f45, 0x050508, 0.35));
   const front = new THREE.DirectionalLight(0x8a96c8, 0.7); front.position.set(0, 3, 4); scene.add(front); // spill from the booth onto the crowd's faces
   if (USE_SPLAT) buildSplatVenue(); else buildRoom();
@@ -551,13 +561,13 @@ function buildRoom() {
 
 // the stage backdrop: the logo's two C's, about 4.4 m tall, standing behind the DJ, with a round LED screen inside them.
 // It sits behind the booth camera, so it only shows from the crowd.
-const screen = { cv: null, g: null, tex: null, show: -1, lastPhrase: -1 };
+const screen = { cv: null, g: null, tex: null, show: -1, lastPhrase: -1, parts: [] };
 function buildBackdrop() {
   const grp = new THREE.Group(); grp.position.set(0, 0, 1.75); grp.rotation.y = Math.PI; // faces the crowd
   const R = 1.95, tube = 0.13, cy = 2.32, gap = 0.1;
   const white = screen.white = new THREE.MeshStandardMaterial({ color: 0xf2fcff, emissive: 0xdff6ff, emissiveIntensity: 0.9, roughness: 0.3, fog: false });
   const blue = screen.blue = new THREE.MeshStandardMaterial({ color: 0x4cebff, emissive: 0x2fd8ff, emissiveIntensity: 1.0, roughness: 0.3, fog: false });
-  const arc = (mat, start) => { const m = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 18, 120, Math.PI - 2 * gap), mat); m.rotation.z = start; m.position.y = cy; grp.add(m); };
+  const arc = (mat, start) => { const m = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 18, 120, Math.PI - 2 * gap), mat); m.rotation.z = start; m.position.y = cy; grp.add(m); screen.parts.push(m); };
   arc(white, Math.PI / 2 + gap);   // left C, opening to the right
   arc(blue, -Math.PI / 2 + gap);   // right C, opening to the left
   // round LED screen inside the C's
@@ -566,10 +576,10 @@ function buildBackdrop() {
   screen.spec = new THREE.DataTexture(new Uint8Array(64), 64, 1, THREE.RedFormat); screen.spec.needsUpdate = true;
   screen.mat = screenMaterial(screen.tex, screen.spec);
   const disc = new THREE.Mesh(new THREE.CircleGeometry(R - 0.32, 96), screen.mat);
-  disc.position.set(0, cy, -0.05); grp.add(disc);
+  disc.position.set(0, cy, -0.05); grp.add(disc); screen.parts.push(disc);
   // a dark rim around the screen and glow spilling onto the stage
   const rim = new THREE.Mesh(new THREE.RingGeometry(R - 0.32, R - 0.22, 64), new THREE.MeshStandardMaterial({ color: 0x0a0b0e, roughness: 0.4 }));
-  rim.position.set(0, cy, -0.04); grp.add(rim);
+  rim.position.set(0, cy, -0.04); grp.add(rim); screen.parts.push(rim);
   screen.light = new THREE.PointLight(0x41e7ff, 6, 7, 1.6); screen.light.position.set(0, cy, 0.8); grp.add(screen.light);
   scene.add(grp);
 }
@@ -614,7 +624,10 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   let dim = 0;
   if (!dark) {
     g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    if (msg) {
+    if (screen.ad) {
+      dim = screen.ad.dim ?? 0.92;
+      for (const l of screen.ad.lines) { g.shadowBlur = l.glow ?? 26; g.shadowColor = l.c; g.fillStyle = l.c; fit(l.t, l.px, S * 0.72); g.fillText(l.t, S / 2, l.y); }
+    } else if (msg) {
       dim = 0.75;
       g.shadowBlur = 26; g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(50); g.fillText(msg.top, S / 2, S / 2 - 44);
       g.shadowColor = '#ffffff'; g.fillStyle = '#ffffff'; fit(msg.name, 96, S * 0.8); g.fillText(msg.name, S / 2, S / 2 + 48);
@@ -1134,7 +1147,8 @@ function lights(t, dt) {
   // blackout: the music cut out mid-set, so the rig goes dark until it comes back
   const cut = light.fx.blackout && !brain.playing && t - auto.lastPlay < 30; // the music cut out mid-set
   const hitOn = light.fx.blinders && beat < auto.blindUntil;            // a blinder hit on a drop
-  const dark = !light.on || cut || hitOn;
+  const scrDark = !light.on || cut || hitOn;
+  const dark = scrDark || !!light.adDark; // the advert can hold the rig dark while the screen still plays
   const pal = PALETTE.filter((_, i) => light.colours[i]);
   const colours = pal.length ? pal : PALETTE;
   const step = Math.floor(beat / Math.max(1, Math.round(8 - 6 * k))); // colour changes every 8 beats at low intensity, every 2 at high
@@ -1183,7 +1197,7 @@ function lights(t, dt) {
   const want = !light.on || !light.fx.blinders ? 0 : hitOn ? 1 : cut ? 0.25 : drop ? 0.8 * flick : 0;
   auto.blind = want > auto.blind ? want : Math.max(want, auto.blind - dt * 3);
   updateCs(auto.blind);
-  updateScreen(t, beat, pulse, colours, step, dark);
+  updateScreen(t, beat, pulse, colours, step, scrDark);
   updateLasers(t, beat, dark);
   updateCo2(dt, t);
 }
@@ -1647,7 +1661,7 @@ function frame() {
   updateTexts(dt);
   lights(t, dt);
   sfx.bed(brain.playing, brain.hype);
-  // a little camera sway with the beat
+  if (window.__adFrame) window.__adFrame(camera, dt, t);
   composer.render();
   updateDj(dt, t);
   // two-sided meter: grows left from the middle when angry, right when happy
@@ -1740,4 +1754,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { setVeil, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
