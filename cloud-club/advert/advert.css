@@ -1,0 +1,24 @@
+/* The advert overlay. --s scales the real 76px play button up; the backdrop's outer edge is sized
+   from the same --s so it lands on exactly the circle the button's green glow occupied (94px * s). */
+#ad { position: fixed; inset: 0; z-index: 100; background: #000; overflow: hidden; --s: 5; --rd: calc(94px * var(--s)); }
+.adstage { position: absolute; left: 50%; top: 50%; width: var(--rd); height: var(--rd); translate: -50% -50%; }
+
+.adplay { position: absolute; left: 50%; top: 50%; translate: -50% -50%; transition: opacity .25s; }
+.adplay .b.big.play { position: relative; width: 76px; height: 76px; transform: scale(var(--s)); }
+.adstage.toring .adplay { opacity: 0; }
+
+/* the stage backdrop: white C, blue C, round LED screen; viewBox edge 2.1 vs tube outer edge 2.08 */
+.adring { position: absolute; inset: 0; opacity: 0; scale: .9; transition: opacity .3s, scale .45s cubic-bezier(.2,.8,.2,1); }
+.adring svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.adstage.toring .adring { opacity: 1; scale: 1; }
+
+.adwords { position: absolute; left: 50%; top: 50%; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; line-height: 1.02; white-space: nowrap;
+  font-family: 'Avenir Next','Avenir','Barlow Semi Condensed','Helvetica Neue',sans-serif; font-weight: 700; color: #F4FBFF; }
+.adwords b { font-size: calc(13px * var(--s)); letter-spacing: .02em; animation: adin .28s both; }
+.adwords .cc { font-size: calc(10.5px * var(--s)); letter-spacing: .01em; }
+.adwords .cc i { color: #41E7FF; font-style: normal; }
+@keyframes adin { from { opacity: 0; transform: translateY(calc(2px * var(--s))); } to { opacity: 1; transform: none; } }
+
+.adgate { position: absolute; inset: 0; display: grid; place-items: center; background: #000; }
+.adgate button { font: 700 15px/1 'Barlow Condensed',sans-serif; letter-spacing: 3px; color: #04121a;
+  background: #41E7FF; border: 0; border-radius: 10px; padding: 16px 34px; cursor: pointer; }
