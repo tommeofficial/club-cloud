@@ -1453,9 +1453,9 @@ function buildArt() {
     o.push(`<line x1="${x + 1}" y1="${y + size * 0.25}" x2="${x + size * 2.55}" y2="${y + size * 0.25}" stroke="#25415E" stroke-width="${Math.max(1, size * 0.03)}"/>`);
     o.push(`<text x="${x + 2}" y="${y + size * 0.78}" font-size="${size * 0.42}" font-family="${WF}" font-weight="700" letter-spacing="${size * 0.13}" fill="#41E7FF" text-anchor="start">CLOUD</text>`);
   };
-  Mark(1000, 514, 14);
-  o.push(`<text x="980" y="522" font-size="22" font-family="${WF}" font-weight="700" letter-spacing="2.5" fill="#F4FBFF" text-anchor="end">CLUB</text>`);
-  o.push(`<text x="1022" y="522" font-size="22" font-family="${WF}" font-weight="700" letter-spacing="2.5" fill="#41E7FF" text-anchor="start">CLOUD</text>`);
+  Mark(1000, 512, 19);
+  o.push(`<text x="972" y="522.5" font-size="29" font-family="${WF}" font-weight="700" letter-spacing="3" fill="#F4FBFF" text-anchor="end">CLUB</text>`);
+  o.push(`<text x="1028" y="522.5" font-size="29" font-family="${WF}" font-weight="700" letter-spacing="3" fill="#41E7FF" text-anchor="start">CLOUD</text>`);
   T(1200, 1214, 'ALL-IN-ONE DJ SYSTEM', 7.8);
   Mark(1158, 1236, 13); Word(1178, 1239, 17);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
