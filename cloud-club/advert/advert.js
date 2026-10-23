@@ -72,7 +72,7 @@ function tick() {
   // one word size throughout, all caps; WELCOME is the widest word so it sets the size
   at('welcome', () => { ad.classList.add('reveal'); say([{ t: 'WELCOME', c: W, y: 280 }]); });
   at('to', () => say([{ t: 'TO', c: W, y: 280 }]));
-  at('club', () => say([{ t: 'CLUB', c: W, y: 280 }]));
+  at('club', () => say([{ t: 'CLUB', c: W, y: 236 }])); // already where it sits once CLOUD joins it
   at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
   requestAnimationFrame(tick);
 }
