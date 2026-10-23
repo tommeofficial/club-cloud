@@ -57,8 +57,8 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #stage.anim { transition: transform .28s cubic-bezier(.2,.7,.2,1); }
 #stage > svg { position: absolute; left: 0; top: 0; }
 #stage text { font-family: var(--label); font-weight: 600; letter-spacing: .3px; }
-#brand { position: absolute; left: 50%; top: 73%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; font: 700 18px/1 var(--label); letter-spacing: 2px; color: #e9eaec; white-space: nowrap; z-index: 2; pointer-events: none; }
-#brand svg { width: 28px; height: 28px; flex-shrink: 0; }
+#brand { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 10px; font: 700 26px/1 var(--label); letter-spacing: 2px; color: #e9eaec; white-space: nowrap; z-index: 2; pointer-events: none; }
+#brand svg { width: 34px; height: 34px; flex-shrink: 0; }
 .c { position: absolute; touch-action: none; cursor: pointer; }
 
 /* ---------- knobs */
@@ -352,7 +352,7 @@ canvas.cv { position: absolute; pointer-events: none; }
   <div id="lightmenu" hidden><div class="row"><span>LIGHTS</span><button data-lm="power" class="on">ON</button><div class="swatches"><button data-lm="all" title="All colours" aria-label="All colours"></button></div></div><div class="row"><span>INTENSITY</span><input type="range" id="lightIntensity" min="0" max="100" value="50" title="How fast the lights move and how hard they react to drops"></div><div class="row"><span>AUTO FX</span><button data-fx="laser" title="Lasers come in at random on drops, breakdowns and the kick">LASER</button><button data-fx="co2" title="CO2 cannons fire on big drops">CO2</button><button data-fx="blackout" title="Lights go dark when the music cuts out">BLACKOUT</button><button data-fx="blinders" title="The big C's blast white like blinders on some drops, strobe on drops and glow through a blackout">STROBE</button></div><hr><div class="row"><span>CROWD</span><button data-lm="mute" class="icon" title="Mute crowd sound" aria-label="Mute crowd sound"></button><input type="range" id="crowdVol" min="0" max="100" value="70" title="Crowd sound volume: cheers, chatter, shouts, whistles, CO2"></div><hr><div class="row"><span>CHAT</span><button id="chatAuto" class="on" title="Open the chat in the club views and tuck it away in DECKS and SPLIT. Turn off to keep it however you leave it.">AUTO HIDE ON</button></div><hr><div class="row"><span>AUDIO IN</span><button id="inputBtn" title="Listen to an outside audio input instead of the app's decks">CHOOSE</button><select id="inputSel" hidden></select></div></div>
   <div id="splitbar" hidden></div>
   <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="ends"><span>ANGRY</span><span>BORED</span><span>HAPPY</span></div><div class="mood">Waiting for music</div></div><div id="lightbar" hidden></div><div id="chatpanel"><div class="chead"><span class="clive"><i></i>LIVE</span><span class="ccount"></span><span class="cstatus"></span><span class="cunread"></span><button class="cmin" title="Minimise or open the chat" aria-label="Minimise chat">–</button></div><div class="cme"><span class="cav"></span><div class="cmeinfo"><span class="cmename">Pick a name to chat</span><span class="cmeroom"></span></div></div><div class="cname" hidden><input maxlength="30" placeholder="Your username"><button>JOIN</button></div><div class="cquick"><button data-q="shout"><b>📣</b>Shout-out<i>£5</i></button><button data-q="song"><b>🎵</b>Song<i>£5</i></button><button data-q="tip"><b>💸</b>Tip<i>any</i></button><button data-q="meet"><b>🎥</b>Meet<i>£30</i></button></div><div class="cdj" hidden><button disabled>START MEET &amp; GREETS (0)</button></div><div id="chatlog"></div><div class="csend"><input id="chatin" maxlength="200" placeholder="Say something…" autocomplete="off"><button class="cgo" aria-label="Send">➤</button></div></div><div id="chatmodal" hidden></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
-  <div id="view"><div id="stage"></div><div id="brand"><svg width="28" height="28" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#0D1B2D"/><path d="M94 40A60 60 0 0 0 94 160" fill="none" stroke="#F5FCFF" stroke-width="20"/><path d="M106 40A60 60 0 0 1 106 160" fill="none" stroke="#4CEBFF" stroke-width="20"/><circle cx="100" cy="100" r="30" fill="none" stroke="#25415E" stroke-width="3"/><circle cx="100" cy="100" r="10" fill="#4CEBFF"/></svg><span>CLUB CLOUD</span></div></div>
+  <div id="view"><div id="stage"><div id="brand"><svg width="28" height="28" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#0D1B2D"/><path d="M94 40A60 60 0 0 0 94 160" fill="none" stroke="#F5FCFF" stroke-width="20"/><path d="M106 40A60 60 0 0 1 106 160" fill="none" stroke="#4CEBFF" stroke-width="20"/><circle cx="100" cy="100" r="30" fill="none" stroke="#25415E" stroke-width="3"/><circle cx="100" cy="100" r="10" fill="#4CEBFF"/></svg><span>CLUB CLOUD</span></div></div></div>
   <div id="bubble" hidden><div class="bl"></div><div class="bv"></div><div class="bn"></div><div class="bar"><b></b><i></i></div></div>
   <div id="modal" hidden></div>
   <div id="veil" hidden>DROP TO LOAD</div>
@@ -362,7 +362,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=92"></script>
+<script src="app.js?v=93"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
-<script type="module" src="club.js?v=92"></script>
-<script type="module" src="chat.js?v=92"></script>
+<script type="module" src="club.js?v=93"></script>
+<script type="module" src="chat.js?v=93"></script>

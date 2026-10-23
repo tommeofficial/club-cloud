@@ -2003,6 +2003,7 @@ function buildCenter() {
   Object.assign(cscreen.style, { left: CSCR.x - X0 + 'px', top: CSCR.y - Y0 + 'px', width: CSCR.w + 'px', height: CSCR.h + 'px' });
   cscreen.innerHTML = `<div class="hd"><button data-tab="all">LIBRARY</button><button data-tab="tag">TAG LIST</button><button data-tab="search">SEARCH</button><button data-tab="add">+ ADD</button><button data-tab="big">⤢</button><span class="cnt"></span></div><div class="bd"><div id="cslist"></div><div id="csfx"></div></div>`;
   stage.appendChild(cscreen);
+  const br = document.getElementById('brand'); if (br) Object.assign(br.style, { left: CSCR.x - X0 + CSCR.w / 2 + 'px', top: CSCR.y - Y0 + CSCR.h + 34 + 'px' });
   cslist = cscreen.querySelector('#cslist'); csfx = cscreen.querySelector('#csfx');
   cscreen.querySelector('.hd').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
