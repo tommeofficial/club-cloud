@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Club Cloud Stream Test</title>
+  <style>
+    :root { --bg: #f5f5f7; --fg: #1d1d1f; --card: #ffffff; --accent: #0a84ff; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #000000; --fg: #f5f5f7; --card: #1c1c1e; --accent: #0a84ff; }
+    }
+    :root[data-theme="dark"] { --bg: #000000; --fg: #f5f5f7; --card: #1c1c1e; --accent: #0a84ff; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; }
+    .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    video { width: 100%; background: #000; border-radius: 8px; }
+    button { font: inherit; padding: 10px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+    input[type="text"] { font: inherit; padding: 8px; width: 100%; box-sizing: border-box; }
+    .status { font-family: ui-monospace, monospace; font-size: 13px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h2>Club Cloud stream test</h2>
+    <p>Open this page twice: one tab as DJ, one as Fan. Both use the same room name.</p>
+    <label>Room <input type="text" id="room" value="test-room"></label>
+    <p>
+      <button id="asDj">Start as DJ</button>
+      <button id="asFan">Join as Fan</button>
+    </p>
+    <label><input type="checkbox" id="useWebcam"> DJ uses webcam (otherwise a test tone)</label>
+  </div>
+
+  <div class="card">
+    <video id="video" autoplay playsinline controls></video>
+  </div>
+
+  <div class="card">
+    <div class="status" id="status">idle</div>
+  </div>
+</main>
+
+<script src="client.js"></script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+--- a/app/club.js
++++ b/app/club.js
+@@ -40,7 +40,66 @@
+   return lx === ly && (Math.abs(nx - ny) === 1 || Math.abs(nx - ny) === 11);
+ }
+ 
++// ------------------------------------------------------------------ external input
++// Lets the crowd react to a microphone or a line-in (for example a USB audio interface
++// connected to real decks). Only loudness, dead air and clipping are measured here.
++// Beat sync and mix quality need the app's own decks, so the crowd doesn't judge those.
++let inputMode = false;
++const ext = { ctx: null, analyser: null, stream: null, bufT: null, specBuf: null };
++
++async function useInput(deviceId) {
++  stopInput();
++  const stream = await navigator.mediaDevices.getUserMedia({
++    audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
++  });
++  const ctx = new AudioContext();
++  const analyser = ctx.createAnalyser();
++  analyser.fftSize = 2048;
++  analyser.smoothingTimeConstant = 0.55;
++  ctx.createMediaStreamSource(stream).connect(analyser);
++  Object.assign(ext, { ctx, analyser, stream, bufT: new Float32Array(analyser.fftSize), specBuf: new Float32Array(analyser.frequencyBinCount) });
++  inputMode = true;
++}
++
++function stopInput() {
++  if (ext.stream) ext.stream.getTracks().forEach((t) => t.stop());
++  if (ext.ctx) ext.ctx.close();
++  Object.assign(ext, { ctx: null, analyser: null, stream: null });
++  inputMode = false;
++}
++
++function listenInput() {
++  ext.analyser.getFloatFrequencyData(ext.specBuf);
++  const binHz = ext.ctx.sampleRate / ext.analyser.fftSize;
++  let s = 0, n = 0;
++  for (let i = Math.max(1, Math.floor(40 / binHz)); i <= Math.ceil(150 / binHz); i++) { s += ext.specBuf[i]; n++; }
++  const db = n ? s / n : -100;
++  ext.analyser.getFloatTimeDomainData(ext.bufT);
++  let pk = 0; for (const v of ext.bufT) { const a = Math.abs(v); if (a > pk) pk = a; }
++  return { bass: THREE.MathUtils.clamp((db + 62) / 42, 0, 1), peak: pk };
++}
++
++// the device picker: list the inputs, then start the one picked (or back to the app's own mix)
++async function openInputPicker() {
++  const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
++  tmp.getTracks().forEach((t) => t.stop()); // asks for permission so device names are visible
++  const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
++  inputSel.innerHTML = '<option value="">Club mix (app decks)</option>';
++  for (const d of inputs) inputSel.append(new Option(d.label || 'Audio input', d.deviceId));
++  inputSel.hidden = false;
++}
++
++const inputSel = document.getElementById('inputSel');
++document.getElementById('inputBtn')?.addEventListener('click', () => openInputPicker().catch((e) => console.warn('no input access', e)));
++if (inputSel) {
++  inputSel.addEventListener('change', async () => {
++    if (!inputSel.value) { stopInput(); return; }
++    try { await useInput(inputSel.value); } catch (e) { console.warn('input not started', e); inputSel.value = ''; stopInput(); }
++  });
++}
++
+ function listen() {
++  if (inputMode) return listenInput();
+   const m = cc().master;
+   if (!m || !m.spec) return { bass: 0, peak: 0 };
+   if (!brain.specBuf) { brain.specBuf = new Float32Array(m.spec.frequencyBinCount); brain.timeBuf = new Float32Array(m.spec.fftSize); }
+@@ -57,14 +116,14 @@
+ function think(dt, t) {
+   const c = cc(); if (!c) return;
+   const [a, b] = c.decks;
+-  const aud = c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
++  const aud = inputMode ? [0, 0] : c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
+   const { bass, peak } = listen();
+   brain.bassFast += (bass - brain.bassFast) * Math.min(1, dt * 12);
+   brain.bassSlow += (bass - brain.bassSlow) * Math.min(1, dt * 0.35);
+   // dead air
+   if (peak < 0.015) brain.dead += dt; else brain.dead = Math.max(0, brain.dead - dt * 3);
+   // the mix: both decks audible at once
+-  const both = aud[0] > 0.2 && aud[1] > 0.2;
++  const both = !inputMode && aud[0] > 0.2 && aud[1] > 0.2;
+   let wreck = false, inSync = false;
+   if (both) {
+     let r = a.effBpm / b.effBpm; while (r > 1.42) r /= 2; while (r < 0.7) r *= 2;
+@@ -76,7 +135,8 @@
+     if (!keyOk(a.t.key, b.t.key)) brain.keyBad += dt; else brain.keyBad = Math.max(0, brain.keyBad - dt);
+   } else { brain.clash = Math.max(0, brain.clash - dt * 2); brain.blend = Math.max(0, brain.blend - dt * 1.5); brain.keyBad = Math.max(0, brain.keyBad - dt); }
+   if (peak > 0.97) brain.clip += dt; else brain.clip = Math.max(0, brain.clip - dt * 2);
+-  const playing = aud[0] > 0.05 || aud[1] > 0.05;
++  // external input counts as playing when it is loud enough to hear over the room
++  const playing = inputMode ? peak > 0.02 : aud[0] > 0.05 || aud[1] > 0.05;
+   // hype drifts toward the energy of the music, pushed by good blends and dragged by mistakes
+   const target = playing ? 30 + 62 * brain.bassSlow : 15;
+   let d = (target - brain.hype) * 0.18;
+@@ -398,13 +458,58 @@
+   lightBar.querySelector('#lightHue').addEventListener('input', (e) => { light.hue = e.target.value / 360; });
+   lightBar.querySelector('#lightSpeed').addEventListener('input', (e) => { light.speed = e.target.value / 100; });
+   setLight('auto');
++}
++
++// ------------------------------------------------------------------ online room
++// The backend loads on demand, so the crowd and mixer still work if Supabase is down.
++let room = null; // { name, author, backend, lastPush, unsub }
++const chatLog = document.getElementById('chatlog');
++const chatIn = document.getElementById('chatin');
++
++function showChat(m) {
++  if (!chatLog) return;
++  const line = document.createElement('div');
++  const who = document.createElement('b');
++  who.textContent = m.author + ': ';
++  line.append(who, document.createTextNode(m.body));
++  chatLog.append(line);
++  while (chatLog.childElementCount > 60) chatLog.firstElementChild.remove();
++  chatLog.scrollTop = chatLog.scrollHeight;
++}
++
++// roomName: the room to publish to and chat in. author: the signed-in user's profile username.
++async function connectRoom(roomName, author) {
++  const backend = await import('./backend.js').catch((e) => { console.warn('backend unavailable', e); return null; });
++  if (!backend || !backend.supabase) return false;
++  await backend.ensureSession();
++  if (room) room.unsub();
++  for (const m of await backend.loadRecentChat(roomName)) showChat(m);
++  room = { name: roomName, author, backend, lastPush: -99, unsub: backend.subscribeChat(roomName, showChat) };
++  return true;
+ }
+ 
++function pushRoomState(t) {
++  if (!room || t - room.lastPush < 2) return;
++  room.lastPush = t;
++  room.backend.publishRoomState(room.name, { state: 'LIVE-PUBLIC', hype: brain.hype, mood: brain.mood })
++    .catch((e) => console.warn('room state not saved', e));
++}
++
++if (chatIn) {
++  chatIn.addEventListener('keydown', async (e) => {
++    if (e.key !== 'Enter' || !room) return;
++    const body = chatIn.value;
++    chatIn.value = '';
++    await room.backend.sendChat(room.name, room.author, body).catch((err) => console.warn('chat not sent', err));
++  });
++}
++
+ function frame() {
+   if (!running) return;
+   requestAnimationFrame(frame);
+   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
+   think(dt, t);
++  pushRoomState(t);
+   updatePeople(dt);
+   updateFlying(dt);
+   updateTexts(dt);
+@@ -437,4 +542,4 @@
+   requestAnimationFrame(() => renderer && resize());
+ });
+ window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
+-window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
++window.__club = { tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, fireSfx, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+--- a/app/index.html
++++ b/app/index.html
+@@ -225,6 +225,10 @@
+ #lightbar button.on, #lightbar button:active { background: #41e7ff; border-color: #41e7ff; color: #04121a; }
+ #lightbar label { display: flex; align-items: center; gap: 6px; }
+ #lightbar input[type=range] { width: 90px; accent-color: #41e7ff; }
++#chatpanel { position: absolute; right: 12px; top: 10px; width: 240px; max-height: 45%; display: flex; flex-direction: column; gap: 6px; background: rgba(5,8,14,.6); border: 1px solid #22304a; border-radius: 10px; padding: 7px 8px; font: 500 12px var(--ui); color: #dfe8f6; }
++#chatlog { overflow-y: auto; min-height: 40px; max-height: 240px; }
++#chatlog b { color: #7fd0ff; }
++#chatin { font: inherit; background: #0c1220; color: #fff; border: 1px solid #2a3850; border-radius: 6px; padding: 5px 7px; }
+ #clubload { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 14px var(--ui); color: #8a94a6; pointer-events: none; }
+ #splash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle at var(--sx,50%) var(--sy,40%), rgba(255,214,120,.0) 0, rgba(255,196,80,.35) 18%, rgba(255,170,40,.18) 35%, transparent 60%); transition: opacity .9s; }
+ #splash.hit { opacity: 1; transition: none; }
+@@ -249,7 +253,7 @@
+       <button data-act="fs" title="Full screen">⛶</button>
+     </div>
+   </div>
+-  <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="mood">Waiting for music</div></div><div id="lightbar"><button data-light="auto">AUTO</button><button data-light="colour">COLOUR</button><button data-light="strobe">STROBE</button><button data-light="blackout">BLACKOUT</button><label>HUE <input type="range" id="lightHue" min="0" max="360" value="187"></label><label>SPEED <input type="range" id="lightSpeed" min="0" max="100" value="40"></label><button data-sfx="laser">LASER</button><button data-sfx="flame">FLAME</button><button data-sfx="co2">CO2</button></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
++  <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="mood">Waiting for music</div></div><div id="lightbar"><button data-light="auto">AUTO</button><button data-light="colour">COLOUR</button><button data-light="strobe">STROBE</button><button data-light="blackout">BLACKOUT</button><label>HUE <input type="range" id="lightHue" min="0" max="360" value="187"></label><label>SPEED <input type="range" id="lightSpeed" min="0" max="100" value="40"></label><button id="inputBtn">INPUT</button><select id="inputSel" hidden></select><button data-sfx="laser">LASER</button><button data-sfx="flame">FLAME</button><button data-sfx="co2">CO2</button></div><div id="chatpanel"><div id="chatlog"></div><input id="chatin" maxlength="300" placeholder="Say something (Enter to send)" autocomplete="off"></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
+   <div id="view"><div id="stage"></div></div>
+   <div id="bubble" hidden><div class="bl"></div><div class="bv"></div><div class="bn"></div><div class="bar"><b></b><i></i></div></div>
+   <div id="modal" hidden></div>
+--- /dev/null
++++ b/app/backend.js
+@@ -0,0 +1,91 @@
++// Club backend: profiles, room state and chat, on Supabase.
++// The browser never touches the database directly except through these functions.
++import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
++import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
++
++const configured = !SUPABASE_URL.includes('YOUR-PROJECT-REF');
++export const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
++
++function requireBackend() {
++  if (!supabase) throw new Error('Supabase is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js.');
++  return supabase;
++}
++
++// Sign in once per browser. Writes need a session, so the first call creates an anonymous one.
++export async function ensureSession() {
++  const db = requireBackend();
++  const { data } = await db.auth.getSession();
++  if (data.session) return data.session.user;
++  const { data: anon, error } = await db.auth.signInAnonymously();
++  if (error) throw error;
++  return anon.user;
++}
++
++// Claim a unique username for this user. Returns the profile row, or throws if taken.
++export async function claimUsername(username, displayName) {
++  const db = requireBackend();
++  const user = await ensureSession();
++  const name = username.trim().toLowerCase();
++  const { data, error } = await db
++    .from('profiles')
++    .upsert({ id: user.id, username: name, display_name: displayName || name }, { onConflict: 'id' })
++    .select()
++    .single();
++  if (error) throw error;
++  await db.from('rooms').upsert({ username: name }, { onConflict: 'username', ignoreDuplicates: true });
++  return data;
++}
++
++// Publish the room's state (OFFLINE, LIVE-PUBLIC or LIVE-PRIVATE) plus the crowd meter.
++export async function publishRoomState(username, { state, hype, mood }) {
++  const db = requireBackend();
++  const { error } = await db
++    .from('rooms')
++    .update({ state, hype: Math.round(hype), mood: mood ? mood.slice(0, 60) : null, updated_at: new Date().toISOString() })
++    .eq('username', username);
++  if (error) throw error;
++}
++
++export async function loadRoom(username) {
++  const { data, error } = await requireBackend().from('rooms').select('*').eq('username', username).maybeSingle();
++  if (error) throw error;
++  return data;
++}
++
++export async function loadRecentChat(room, limit = 50) {
++  const { data, error } = await requireBackend()
++    .from('messages')
++    .select('*')
++    .eq('room', room)
++    .order('created_at', { ascending: false })
++    .limit(limit);
++  if (error) throw error;
++  return data.reverse();
++}
++
++export async function sendChat(room, author, body) {
++  const text = body.trim().slice(0, 300);
++  if (!text) return;
++  const { error } = await requireBackend().from('messages').insert({ room, author, body: text });
++  if (error) throw error;
++}
++
++// Call onMessage for every new chat line in a room. Returns an unsubscribe function.
++export function subscribeChat(room, onMessage) {
++  const db = requireBackend();
++  const channel = db
++    .channel(`chat:${room}`)
++    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${room}` }, (payload) => onMessage(payload.new))
++    .subscribe();
++  return () => db.removeChannel(channel);
++}
++
++// Call onRoom whenever this room's state row changes.
++export function subscribeRoom(room, onRoom) {
++  const db = requireBackend();
++  const channel = db
++    .channel(`room:${room}`)
++    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `username=eq.${room}` }, (payload) => onRoom(payload.new))
++    .subscribe();
++  return () => db.removeChannel(channel);
++}
+--- /dev/null
++++ b/supabase/schema.sql
+@@ -0,0 +1,53 @@
++-- Cloud Club backend: profiles, room state and chat.
++-- Run in the Supabase SQL editor. Writes need a signed-in user (Supabase Auth);
++-- enable anonymous sign-ins in Auth settings, or use email sign-in.
++
++create table if not exists profiles (
++  id uuid primary key references auth.users(id) on delete cascade,
++  username text unique not null check (char_length(username) between 3 and 30 and username ~ '^[a-z0-9_]+$'),
++  display_name text check (char_length(display_name) <= 60),
++  created_at timestamptz not null default now()
++);
++
++create table if not exists rooms (
++  username text primary key references profiles(username) on delete cascade,
++  state text not null default 'OFFLINE' check (state in ('OFFLINE', 'LIVE-PUBLIC', 'LIVE-PRIVATE')),
++  hype integer not null default 0 check (hype between 0 and 100),
++  mood text check (char_length(mood) <= 60),
++  updated_at timestamptz not null default now()
++);
++
++create table if not exists messages (
++  id bigserial primary key,
++  room text not null references rooms(username) on delete cascade,
++  author text not null check (char_length(author) between 1 and 30),
++  body text not null check (char_length(body) between 1 and 300),
++  created_at timestamptz not null default now()
++);
++
++create index if not exists messages_room_time on messages (room, created_at desc);
++
++alter table profiles enable row level security;
++alter table rooms enable row level security;
++alter table messages enable row level security;
++
++-- Anyone can read profiles, rooms and chat. Only the owner can change their own rows.
++create policy "profiles readable" on profiles for select using (true);
++create policy "profiles insert own" on profiles for insert with check (id = auth.uid());
++create policy "profiles update own" on profiles for update using (id = auth.uid()) with check (id = auth.uid());
++
++create policy "rooms readable" on rooms for select using (true);
++create policy "rooms write own" on rooms for all
++  using (username in (select username from profiles where id = auth.uid()))
++  with check (username in (select username from profiles where id = auth.uid()));
++
++create policy "messages readable" on messages for select using (true);
++create policy "messages insert as own profile" on messages for insert
++  with check (
++    auth.uid() is not null
++    and author in (select username from profiles where id = auth.uid())
++  );
++
++-- Live updates to the club view.
++alter publication supabase_realtime add table rooms;
++alter publication supabase_realtime add table messages;
