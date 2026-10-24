@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap">
+<style>
+  /* Same rules as the advert's captions, at a fixed 1080 x 1920 frame so each PNG drops straight onto the video. */
+  html, body { margin: 0; width: 1080px; height: 1920px; background: transparent; }
+  .adline { position: absolute; left: 4%; right: 4%; top: 73%; text-align: center;
+    font: 800 60.5px/1.5 'Unbounded','Avenir Next','Helvetica Neue',sans-serif; text-transform: uppercase; letter-spacing: .01em; }
+  .adline > span { background: rgba(255,255,255,.95); color: #0b0f17; padding: .1em .42em; border-radius: .22em;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  .adline b { font-weight: 800; color: #0a8fc4; }
+  .adline.small { top: 86%; font-size: 40px; }
+</style>
+</head>
+<body>
+<div class="adline" id="line"></div>
+<script>
+const LINES = [
+  ["WORLD'S <b>FIRST</b><br>VIRTUAL DJ CLUB", 0],
+  ['HAVING A<br><b>HOUSE PARTY?</b>', 0],
+  ['JUMP IN AS ONE<br>OF THE <b>CROWD</b>', 0],
+  ['WANT TO BE<br>THE <b>DJ?</b>', 0],
+  ['USE OUR <b>FULLY<br>FUNCTIONAL</b><br>VIRTUAL DECKS', 0],
+  ['OR CONNECT<br>YOUR <b>REAL ONES</b>', 0],
+  ['MILLION DOLLAR<br><b>LIGHT SHOW</b>,<br>IN YOUR <b>LOUNGE</b>', 0],
+  ['THE CROWD REACTS<br>TO YOUR <b>REAL MIXING</b>', 0],
+  ['IN <b>REAL TIME</b>', 0],
+  ['ANYONE CAN<br>WATCH YOU <b>LIVE</b>', 0],
+  ['REQUEST <b>SONGS</b><br>& <b>SHOUT OUTS</b>', 0],
+  ['SIGN UP NOW', 1],
+];
+const i = +(new URLSearchParams(location.search).get('i') || 0);
+const [html, small] = LINES[i];
+const el = document.getElementById('line');
+el.innerHTML = html.split('<br>').map((s) => `<span>${s}</span>`).join('<br>');
+if (small) el.classList.add('small');
+</script>
+</body>
+</html>
