@@ -30,7 +30,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); 
 body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #app { position: fixed; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #16171a 0%, #060607 70%); }
 #tabs { position: absolute; display: flex; gap: 4px; z-index: 5; align-items: center; }
-#tabs.h { left: 0; right: 0; top: 0; height: 36px; padding: 0 10px; display: grid; grid-template-columns: 1fr auto 1fr; }
+#tabs.h { left: 0; right: 0; top: 0; height: 44px; padding: 0 10px; display: grid; grid-template-columns: 1fr auto 1fr; }
 #tabs.h > .grp:not(.zooms):not(.tools) { grid-column: 2; } /* the view tabs centre on the screen, whatever the tools weigh */
 #tabs.h .tools { grid-column: 3; justify-self: end; margin: 0; }
 #tabs.v { left: 0; top: 0; bottom: 0; width: 64px; flex-direction: column; justify-content: center; padding: 8px 0; }
@@ -38,14 +38,15 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #tabs.v .brand { margin: 0 0 auto; font-size: 10px; letter-spacing: 1px; flex-direction: column; text-align: center; gap: 2px; }
 #tabs .grp { display: flex; gap: 3px; background: #121315; border: 1px solid #24262a; border-radius: 8px; padding: 3px; }
 #tabs.v .grp { flex-direction: column; }
-#tabs button { font: 600 12px/1 var(--label); letter-spacing: 1px; color: #9da1aa; background: transparent; border: 0; border-radius: 6px; padding: 7px 12px; cursor: pointer; white-space: nowrap; min-height: 28px; }
+#tabs button { font: 600 14px/1 var(--label); letter-spacing: 1.2px; color: #9da1aa; background: transparent; border: 0; border-radius: 6px; padding: 9px 15px; cursor: pointer; white-space: nowrap; min-height: 34px; }
+#tabs .zooms button { font-size: 12px; letter-spacing: 1px; padding: 6px 11px; min-height: 26px; }
 #tabs.v button { padding: 8px 4px; font-size: 11px; width: 54px; }
 #tabs button.on { background: #2b2e34; color: #fff; }
 #tabs button[data-mode].on { background: #163a5c; color: #8fe9ff; }
 #splitbar { position: absolute; z-index: 6; width: 12px; cursor: col-resize; touch-action: none; }
 #splitbar::after { content: ''; position: absolute; top: 50%; left: 4px; width: 4px; height: 56px; margin-top: -28px; border-radius: 2px; background: #2a3550; }
 #splitbar:hover::after { background: #41e7ff; }
-#tabs.h.sub .zooms { position: absolute; top: 38px; }
+#tabs.h.sub .zooms { position: absolute; top: 46px; }
 #tabs.h.sub .zooms button { flex: 1; }
 #tabs.h.compact { display: flex; justify-content: flex-start; padding: 0 4px; gap: 4px; } /* SPLIT is too narrow to centre */
 #tabs.h.compact .tools { margin-left: auto; }
@@ -113,6 +114,7 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 .b.big.cue { --ring: #ff8a14; --ring-off: #4b2a08; }
 .b.big.play { --ring: #2ee04a; --ring-off: #0d3a16; }
 .b.big span { color: #1e1e1e; font-size: 15px; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
+.b.big .pp { display: block; height: 12px; width: auto; filter: drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
 .b.pm { border-radius: 3px; background: #0b0b0c; box-shadow: 0 0 0 1px #000; }
 .b.pm .lamp { border-radius: 3px; border: 2px solid var(--lc); box-shadow: 0 0 6px var(--lc); }
 .b.pm span { font-size: 10px; color: var(--lc); }
@@ -347,12 +349,12 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-act="lib" title="Library">LIBRARY</button>
       <button data-act="lights" title="Lights, effects and sound">SETTINGS</button>
       <button data-act="help" title="How to use">HELP</button>
-      <button data-act="fs" title="Full screen">⛶</button>
+      <button data-act="fs" title="Full screen">⛶︎</button>
     </div>
   </div>
   <div id="lightmenu" hidden><div class="row"><span>LIGHTS</span><button data-lm="power" class="on">ON</button><div class="swatches"><button data-lm="all" title="All colours" aria-label="All colours"></button></div></div><div class="row"><span>INTENSITY</span><input type="range" id="lightIntensity" min="0" max="100" value="50" title="How fast the lights move and how hard they react to drops"></div><div class="row"><span>AUTO FX</span><button data-fx="laser" title="Lasers come in at random on drops, breakdowns and the kick">LASER</button><button data-fx="co2" title="CO2 cannons fire on big drops">CO2</button><button data-fx="blackout" title="Lights go dark when the music cuts out">BLACKOUT</button><button data-fx="blinders" title="The big C's blast white like blinders on some drops, strobe on drops and glow through a blackout">STROBE</button></div><hr><div class="row"><span>CROWD</span><button data-lm="mute" class="icon" title="Mute crowd sound" aria-label="Mute crowd sound"></button><input type="range" id="crowdVol" min="0" max="100" value="70" title="Crowd sound volume: cheers, chatter, shouts, whistles, CO2"></div><hr><div class="row"><span>CHAT</span><button id="chatAuto" class="on" title="Open the chat in the club views and tuck it away in DECKS and SPLIT. Turn off to keep it however you leave it.">AUTO HIDE ON</button></div><hr><div class="row"><span>AUDIO IN</span><button id="inputBtn" title="Listen to an outside audio input instead of the app's decks">CHOOSE</button><select id="inputSel" hidden></select></div><hr><div class="row"><span>ACCESS</span><button id="signOut" title="Sign out and go back to the Club Cloud website">SIGN OUT</button></div></div>
   <div id="splitbar" hidden></div>
-  <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="ends"><span>ANGRY</span><span>BORED</span><span>HAPPY</span></div><div class="mood">Waiting for music</div></div><div id="lightbar" hidden></div><div id="chatpanel"><div class="chead"><span class="clive"><i></i>LIVE</span><span class="ccount"></span><span class="cstatus"></span><span class="cunread"></span><button class="cmin" title="Minimise or open the chat" aria-label="Minimise chat">–</button></div><div class="cme"><span class="cav"></span><div class="cmeinfo"><span class="cmename">Pick a name to chat</span><span class="cmeroom"></span></div></div><div class="cname" hidden><input maxlength="30" placeholder="Your username"><button>JOIN</button></div><div class="cquick"><button data-q="shout"><b>📣</b>Shout-out<i>£5</i></button><button data-q="song"><b>🎵</b>Song<i>£5</i></button><button data-q="tip"><b>💸</b>Tip<i>any</i></button><button data-q="meet"><b>🎥</b>Meet<i>£30</i></button></div><div class="cdj" hidden><button disabled>START MEET &amp; GREETS (0)</button></div><div id="chatlog"></div><div class="csend"><input id="chatin" maxlength="200" placeholder="Say something…" autocomplete="off"><button class="cgo" aria-label="Send">➤</button></div></div><div id="chatmodal" hidden></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
+  <div id="club" hidden><canvas id="clubcv"></canvas><div id="clubhud"><div class="lbl">CROWD</div><div class="bar"><i></i></div><div class="ends"><span>ANGRY</span><span>BORED</span><span>HAPPY</span></div><div class="mood">Waiting for music</div></div><div id="lightbar" hidden></div><div id="chatpanel"><div class="chead"><span class="clive"><i></i>LIVE</span><span class="ccount"></span><span class="cstatus"></span><span class="cunread"></span><button class="cmin" title="Minimise or open the chat" aria-label="Minimise chat">–</button></div><div class="cme"><span class="cav"></span><div class="cmeinfo"><span class="cmename">Pick a name to chat</span><span class="cmeroom"></span></div></div><div class="cname" hidden><input maxlength="30" placeholder="Your username"><button>JOIN</button></div><div class="cquick"><button data-q="shout"><b>📣</b>Shout-out<i>£5</i></button><button data-q="song"><b>🎵</b>Song<i>£5</i></button><button data-q="tip"><b>💸</b>Tip<i>any</i></button><button data-q="meet"><b>🎥</b>Meet<i>£30</i></button></div><div class="cdj" hidden><button disabled>START MEET &amp; GREETS (0)</button></div><div id="chatlog"></div><div class="csend"><input id="chatin" maxlength="200" placeholder="Say something…" autocomplete="off"><button class="cgo" aria-label="Send">➤︎</button></div></div><div id="chatmodal" hidden></div><div id="clubload">Loading the club…</div><div id="splash"></div></div>
   <div id="view"><div id="stage"></div></div>
   <div id="bubble" hidden><div class="bl"></div><div class="bv"></div><div class="bn"></div><div class="bar"><b></b><i></i></div></div>
   <div id="modal" hidden></div>
@@ -363,7 +365,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=103"></script>
+<script src="app.js?v=104"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=104"></script>
 <script type="module" src="chat.js?v=98"></script>

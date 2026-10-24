@@ -10,6 +10,11 @@ const JOG = { x: 417, y: 811, R: 201 };
 const SCR = { x: 104, y: 334, w: 580, h: 146 };
 const CSCR = { x: 700, y: 334, w: 494, h: 146 };
 
+// drawn, not typed: iOS turns ▶ into a colour emoji whatever font you ask for
+const PLAY_GLYPH = '<svg class="pp" viewBox="0 0 34 12" fill="currentColor" aria-hidden="true">'
+  + '<path d="M0 0l10 6-10 6z"/><path d="M15.6 12.4L19.6-.4l1.7.5-4 12.8z"/>'
+  + '<rect x="24" width="4" height="12" rx="1"/><rect x="30" width="4" height="12" rx="1"/></svg>';
+
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const $ = (s, r = document) => r.querySelector(s);
@@ -342,7 +347,7 @@ function layout(animate) {
   tabs.querySelector('.zooms').hidden = L.mode === 'club';
   // horizontal tab bar on top, or a vertical rail on the left when that leaves the stage bigger
   const [, , rw, rh] = ZOOMS.all;
-  const availH = { w: pw - 8, h: H - ins.t - ins.b - 36 - 6 };
+  const availH = { w: pw - 8, h: H - ins.t - ins.b - 44 - 6 };
   const availV = { w: pw - 64 - 6, h: H - ins.t - ins.b - 8 };
   const sH = Math.min(availH.w / rw, availH.h / rh), sV = Math.min(availV.w / rw, availV.h / rh);
   const vert = !split && sV > sH * 1.04;
@@ -353,7 +358,7 @@ function layout(animate) {
   // in DECKS and SPLIT the zoom buttons sit on a second row under the view buttons
   const sub = !vert && L.mode !== 'club' ? 34 : 0;
   tabs.classList.toggle('sub', sub > 0);
-  L.vx = px + (vert ? 64 + 3 : 4); L.vy = ins.t + (vert ? 4 : 36 + 3) + sub;
+  L.vx = px + (vert ? 64 + 3 : 4); L.vy = ins.t + (vert ? 4 : 44 + 3) + sub;
   L.aw = px + pw - L.vx - 4; L.ah = H - L.vy - ins.b - 3;
   if (ADVERT) { L.vx = 0; L.vy = 0; L.aw = W; L.ah = H; } // the advert films the stage edge to edge
   // CLUB: one 3D view from behind the DJ; the club fills the screen
@@ -1157,8 +1162,8 @@ function buildDeck(d) {
   ui.in = B({ k: 'in', x: 212, y: 535, w: 42, h: 42, cls: 'inout', onDown: () => d.inDown(), onUp: () => d.inUp() });
   ui.out = B({ k: 'out', x: 277, y: 535, w: 42, h: 42, cls: 'inout', onDown: () => d.outDown() });
   ui.reloop = B({ k: 'reloop', x: 352, y: 535, w: 26, h: 26, cls: 'round', lc: '#ff9a14', onDown: () => d.reloop() });
-  ui.callP = B({ k: 'callp', x: 462, y: 535, w: 22, h: 22, cls: 'round plain arrow', text: '◀', onDown: () => d.call(-1) });
-  ui.callN = B({ k: 'calln', x: 515, y: 535, w: 22, h: 22, cls: 'round plain arrow', text: '▶', onDown: () => d.call(1) });
+  ui.callP = B({ k: 'callp', x: 462, y: 535, w: 22, h: 22, cls: 'round plain arrow', text: '◀︎', onDown: () => d.call(-1) });
+  ui.callN = B({ k: 'calln', x: 515, y: 535, w: 22, h: 22, cls: 'round plain arrow', text: '▶︎', onDown: () => d.call(1) });
   ui.del = B({ k: 'del', x: 574, y: 535, w: 28, h: 28, cls: 'round plain', onDown: () => d.memDel() });
   ui.mem = B({ k: 'mem', x: 623, y: 535, w: 22, h: 22, cls: 'round plain', onDown: () => d.memAdd() });
   ui.slip = B({ k: 'slip', x: 159, y: 616, w: 26, h: 26, cls: 'round', lc: '#ff2b2b', onDown: () => d.toggleSlip() });
@@ -1177,7 +1182,7 @@ function buildDeck(d) {
   ui.mt = B({ k: 'mt', x: 669, y: 884, w: 24, h: 24, cls: 'round', lc: '#ff2b2b', onDown: () => d.keylockToggle() });
   ui.shift = B({ k: 'shift', x: 159, y: 937, w: 50, h: 30, cls: 'rect shift', text: 'SHIFT', onDown: () => d.shiftDown(), onUp: () => d.shiftUp() });
   ui.cue = B({ k: 'cue', x: 177, y: 1062, w: 76, h: 76, cls: 'big cue', text: 'CUE', onDown: () => d.cueDown(), onUp: () => d.cueUp() });
-  ui.play = B({ k: 'play', x: 177, y: 1178, w: 76, h: 76, cls: 'big play', text: '▶/❚❚', onDown: () => d.playPress() });
+  ui.play = B({ k: 'play', x: 177, y: 1178, w: 76, h: 76, cls: 'big play', text: PLAY_GLYPH, onDown: () => d.playPress() });
   ui.pm = ['HOT CUE', 'BEAT LOOP', 'SLIP LOOP', 'BEAT JUMP'].map((t, k) => B({ k: 'pm' + k, x: 302 + k * 75, y: 1058, w: 62, h: 17, cls: 'pm', text: t, lc: ['#f2f2f2', '#ff9a14', '#3a72ff', '#ff2b3a'][k], onDown: () => d.padModePress(k) }));
   ui.pads = [];
   for (let k = 0; k < 8; k++) ui.pads.push(B({ k: 'pad' + k, x: 302 + (k % 4) * 75, y: k < 4 ? 1125 : 1200, w: 60, h: 58, cls: 'pad', onDown: () => d.padDown(k), onUp: () => d.padUp(k) }));
@@ -1241,8 +1246,8 @@ function buildMixer() {
   new Switch({ id: 'm:curve', x: 1000, y: 1052, w: 60, h: 30, n: 3, v: 1, names: ['THRU (no fade)', 'SMOOTH', 'SHARP CUT'], label: 'Crossfader curve', onChange: (v) => { mix.curve = v; applyGains(); } });
   new Fader({ id: 'm:xf', x: 1000, y: 1208, len: 120, axis: 'h', capW: 26, capH: 54, slotW: 6, min: 0, max: 1, def: 0.5, v: 0.5, detent: 0.012, bip: true, label: 'Crossfader', fmt: (v) => (Math.abs(v - 0.5) < 0.01 ? 'CENTRE' : v < 0.5 ? 'A ' + Math.round((0.5 - v) * 200) + '%' : 'B ' + Math.round((v - 0.5) * 200) + '%'), onChange: (v) => { mix.xf = v; applyGains(); } });
   // Beat FX
-  M.beatL = new Btn({ id: 'm:beatl', x: 1181, y: 718, w: 29, h: 19, cls: 'rect beat', text: '◀', onDown: () => { fx.step(-1); flashFx(); } });
-  M.beatR = new Btn({ id: 'm:beatr', x: 1221, y: 718, w: 29, h: 19, cls: 'rect beat', text: '▶', onDown: () => { fx.step(1); flashFx(); } });
+  M.beatL = new Btn({ id: 'm:beatl', x: 1181, y: 718, w: 29, h: 19, cls: 'rect beat', text: '◀︎', onDown: () => { fx.step(-1); flashFx(); } });
+  M.beatR = new Btn({ id: 'm:beatr', x: 1221, y: 718, w: 29, h: 19, cls: 'rect beat', text: '▶︎', onDown: () => { fx.step(1); flashFx(); } });
   M.tap = new Btn({
     id: 'm:tap', x: 1201, y: 766, w: 38, h: 38, cls: 'tap', text: 'TAP',
     onDown: () => {
@@ -2006,7 +2011,7 @@ function buildCenter() {
   cscreen = document.createElement('div');
   cscreen.id = 'cscreen'; cscreen.className = 'scr native';
   Object.assign(cscreen.style, { left: CSCR.x - X0 + 'px', top: CSCR.y - Y0 + 'px', width: CSCR.w + 'px', height: CSCR.h + 'px' });
-  cscreen.innerHTML = `<div class="hd"><button data-tab="all">LIBRARY</button><button data-tab="tag">TAG LIST</button><button data-tab="search">SEARCH</button><button data-tab="add">+ ADD</button><button data-tab="big">⤢</button><span class="cnt"></span></div><div class="bd"><div id="cslist"></div><div id="csfx"></div></div>`;
+  cscreen.innerHTML = `<div class="hd"><button data-tab="all">LIBRARY</button><button data-tab="tag">TAG LIST</button><button data-tab="search">SEARCH</button><button data-tab="add">+ ADD</button><button data-tab="big">⤢︎</button><span class="cnt"></span></div><div class="bd"><div id="cslist"></div><div id="csfx"></div></div>`;
   stage.appendChild(cscreen);
   cslist = cscreen.querySelector('#cslist'); csfx = cscreen.querySelector('#csfx');
   cscreen.querySelector('.hd').addEventListener('click', (e) => {
