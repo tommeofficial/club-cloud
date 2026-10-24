@@ -12,7 +12,12 @@ const CUE = {
   closeup: 18.0,              // cut in close on deck 1, then an even slide across the mixer to deck 2
   settings: 23.4,             // the SETTINGS panel pops up over the slide
   djview: 25.0,               // scene 4: DJ view, orbiting right to left round the middle of the crowd
-  djEnd: 28.26,               // where the DJ view's orbit is timed to finish
+  chat: 28.04,                // beat 64: back to the crowd camera, the live chat floods in, slow push toward the DJ
+  request: 28.9,              // a song request is bought: the gold flash
+  zoomFast: 30.0,             // faster push onto the LED screen, the room fades back to black
+  stopAt: 31.0,               // the push stops with the backdrop back at its opening size
+  endMsg: 30.6,               // AGA BORYN / LIVE SET / COMING SOON on the LED screen
+  signup: 31.0,               // SIGN UP NOW under it
 };
 // scene 2: lines over the push, two to a card so they read on a phone; the last sits in the breakdown
 const LINES = [
@@ -26,7 +31,12 @@ const LINES = [
   { t0: 23.4, t1: 25.0, html: 'MILLION DOLLAR<br><b>LIGHT SHOW</b>,<br>IN YOUR <b>LOUNGE</b>' },
   // scene 4, DJ view
   { t0: 25.0, t1: 26.6, html: 'THE CROWD REACTS<br>TO YOUR <b>REAL MIXING</b>' },
-  { t0: 26.6, t1: 28.26, html: 'IN <b>REAL TIME</b>' },
+  { t0: 26.6, t1: 28.04, html: 'IN <b>REAL TIME</b>' },
+  // scene 5, the live chat
+  { t0: 28.04, t1: 28.9, html: 'ANYONE CAN<br>WATCH YOU <b>LIVE</b>' },
+  { t0: 28.9, t1: 30.0, html: 'REQUEST <b>SONGS</b><br>& <b>SHOUT OUTS</b>' },
+  // the end
+  { t0: 31.0, t1: 99, html: 'SIGN UP NOW', small: true },
 ];
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
@@ -96,7 +106,7 @@ function stop() { if (src) { off0 = now(); src.onended = null; src.stop(); src =
 gateBtn.onclick = () => { CC().unlock(); gate.remove(); play(0); };
 // for checking frames: __ad.go(2.8) jumps there paused and replays every cue up to it; __ad.play() runs on from there
 window.__ad = {
-  go(t) { gate.remove(); if (t < CUE.closeup && view === 'normal') view = ''; stop(); off0 = t; deck.seek(VIP_FROM + t); fired.clear(); CL().screen.ad = null; },
+  go(t) { gate.remove(); if ((t < CUE.closeup && view === 'normal') || (t < CUE.chat && view === 'club' && t >= CUE.drop)) view = ''; stop(); off0 = t; deck.seek(VIP_FROM + t); fired.clear(); CL().screen.ad = null; },
   play() { CC().unlock(); play(off0); }, pause: stop,
 };
 
@@ -109,22 +119,36 @@ const lerp = (a, b, k) => a + (b - a) * k;
 // of the crowd; the real controller is re-laid onto the booth table every frame so it stays stuck to it
 const CROWD = { x: 0, y: 1.1, z: -3.6 }, ORBIT = { r: 4.9, h: 2.3, from: 0.42, to: -0.42 };
 function djOrbit(cam, t) {
-  const u = Math.min(1, Math.max(0, (t - CUE.djview) / (CUE.djEnd - CUE.djview)));
+  const u = Math.min(1, Math.max(0, (t - CUE.djview) / (CUE.chat - CUE.djview)));
   const a = lerp(ORBIT.from, ORBIT.to, u);
   cam.position.set(CROWD.x + Math.sin(a) * ORBIT.r, ORBIT.h, CROWD.z + Math.cos(a) * ORBIT.r);
   cam.lookAt(CROWD.x, CROWD.y, CROWD.z);
   cam.fov = 60; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
   dispatchEvent(new Event('cc-deckplace'));
 }
+// scene 5 and the end: from the crowd camera on the back wall, a slow push toward the DJ, then a faster one onto the
+// LED screen that eases to a stop with the backdrop exactly the size of the play button's glow again
+function endPush(cam, t) {
+  const B = CL().BACKDROP, ZF = -9.0, D = B.z - ZF;
+  const fF = 2 * Math.atan((2 * B.r) * innerHeight / (2 * D * glowPx())) * 180 / Math.PI;
+  const P0 = [0, 3.35, BACK_Z + 0.4, 0, 1.5, -1.4, 36], P1 = [0, 3.0, -11.2, 0, 1.6, -0.4, 36], P2 = [0, B.y, ZF, 0, B.y, B.z, fF];
+  const slow = Math.min(1, (t - CUE.chat) / (CUE.zoomFast - CUE.chat));
+  const fast = 1 - Math.pow(1 - Math.min(1, Math.max(0, (t - CUE.zoomFast) / (CUE.stopAt - CUE.zoomFast))), 3); // eases to a stop
+  const p = t < CUE.zoomFast ? P0.map((v, i) => lerp(v, P1[i], slow)) : P1.map((v, i) => lerp(v, P2[i], fast));
+  cam.position.set(p[0], p[1], p[2]); cam.lookAt(p[3], p[4], p[5]); cam.fov = p[6]; cam.updateProjectionMatrix();
+}
+
 window.__adFrame = (cam) => {
   const t = now(), B = CL().BACKDROP, D = B.z - BACK_Z;
   // after the CO2 the room, the rig, the smoke and the crowd sound all come up together on one quick, smooth curve
-  const f = ease((t - CUE.co2) / FADE);
+  // ...and at the end they all go back down together, leaving only the backdrop
+  const f = ease((t - CUE.co2) / FADE) * (1 - ease((t - CUE.zoomFast) / (CUE.stopAt - CUE.zoomFast)));
   CL().setVeil(1 - f);
-  CL().light.adDark = t < CUE.co2;
+  CL().light.adDark = t < CUE.co2 || t >= CUE.stopAt;
   CL().light.adFade = f;
   CL().sfx.volume = 0.7 * f;
   CL().screen.show = -1; // no random logo flash on the LED screen during the advert
+  if (t >= CUE.chat) { endPush(cam, t); return; }
   if (t >= CUE.djview) { djOrbit(cam, t); return; }
   const f0 = 2 * Math.atan((2 * B.r) * innerHeight / (2 * D * glowPx())) * 180 / Math.PI;
   const k = ease((t - CUE.co2) / (CUE.drop - CUE.co2));
@@ -139,7 +163,7 @@ function showLine(t) {
   if (L === lineOn) return;
   lineOn = L;
   line.classList.remove('on');
-  if (L) { line.innerHTML = L.html; void line.offsetWidth; line.classList.add('on'); }
+  if (L) { line.innerHTML = L.html.split('<br>').map((s) => `<span>${s}</span>`).join('<br>'); line.classList.toggle('small', !!L.small); void line.offsetWidth; line.classList.add('on'); }
 }
 
 const say = (lines) => { CL().screen.ad = { dim: 1, lines: lines.map((l) => ({ glow: 0, px: 66, ...l })) }; };
@@ -193,12 +217,46 @@ const lm = document.getElementById('lightmenu');
 let lmOn = false;
 function settingsPanel(on) { if (on === lmOn) return; lmOn = on; lm.hidden = !on; lm.classList.toggle('adshow', on); }
 
+// scene 5: the app's live chat panel, big in the middle; comments arrive faster than anyone could read, then a song request
+const CHAT = [['bassbaby', 'THIS DROP 🔥🔥'], ['lou.mix', 'who is this DJ?? 😍'], ['dj_kev', 'tune!!'], ['saffy', 'hiya from Manchester 👋'],
+  ['nightowl', 'HOUSE PARTY VIBES'], ['jess', '🙌🙌🙌'], ['tunde', 'wheel it up!!'], ['ella.b', 'omg the lights'], ['ravekid', 'LETS GOOO'],
+  ['kat', 'shout out to my girls 💕'], ['danny', 'been waiting all week for this'], ['priya', '🔥'], ['leo', 'this is unreal'],
+  ['sam_k', '👏👏'], ['zoe', 'vibes are immaculate'], ['finn', 'REWIND'], ['amira', 'hallo from Berlin 🇩🇪'], ['josh', 'sending this to the group chat'],
+  ['mia', '🎶🎶'], ['ollie', 'best night in'], ['nina', "DJ you're a legend"], ['marco', 'turn it uppp'], ['bex', 'cant stop dancing'], ['ash', '💯']];
+const REQ = { at: 11, who: 'mo_beats', song: 'Girls Like Me (Extended Mix)' }; // the request lands among the comments
+const cp = document.getElementById('chatpanel'), clog = document.getElementById('chatlog');
+const hue = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7); // chat.js's name colours
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const flashEl = el('div', 'adbuyflash', ad); flashEl.textContent = '🎵 SONG REQUEST · £5';
+let chatOn = false, chatN = 0, buyShown = false;
+function liveChat(t) {
+  const on = t >= CUE.chat && t < CUE.zoomFast + 0.25;
+  if (on !== chatOn) { chatOn = on; cp.classList.toggle('adshow', on); cp.classList.remove('min'); clog.innerHTML = ''; chatN = 0; cp.querySelector('.cmename').textContent = 'Live from Club Cloud'; }
+  const want = on ? Math.min(CHAT.length + 1, Math.floor((t - CUE.chat) / 0.075) + 1) : 0;
+  if (want < chatN) { clog.innerHTML = ''; chatN = 0; }
+  while (chatN < want) {
+    const d = document.createElement('div');
+    if (chatN === REQ.at) {
+      d.className = 'cl req adin adbuy';
+      d.innerHTML = `<span class="creq">🎵 Song request from <b style="color:hsl(${hue(REQ.who)} 85% 70%)">${REQ.who}</b>: ${esc(REQ.song)} · £5</span>`;
+    } else {
+      const [who, msg] = CHAT[chatN > REQ.at ? chatN - 1 : chatN];
+      d.className = 'cl adin';
+      d.innerHTML = `<b style="color:hsl(${hue(who)} 85% 70%)">${esc(who)}</b> ${esc(msg)}`;
+    }
+    clog.append(d); chatN++; clog.scrollTop = clog.scrollHeight;
+  }
+  const buy = t >= CUE.request && t < CUE.request + 1.4;
+  if (buy !== buyShown) { buyShown = buy; flashEl.classList.toggle('on', buy); }
+}
+
 function tick() {
   const t = now();
   if (adBuf) CL().light.adBeat = (t - beatGrid.first) / beatGrid.B;
   ad.classList.toggle('reveal', t >= CUE.welcome);
   if (deck) {
-    setView(t < CUE.drop ? 'club' : t < CUE.djview ? 'normal' : 'djview');
+    setView(t < CUE.drop ? 'club' : t < CUE.djview ? 'normal' : t < CUE.chat ? 'djview' : 'club');
+    liveChat(t);
     settingsPanel(t >= CUE.settings && t < CUE.djview);
     if (view === 'normal' && t >= CUE.closeup) deckGlide(t);
     if (t >= CUE.drop && t < CUE.djview) hands(t);
@@ -213,5 +271,6 @@ function tick() {
   at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
   at('co2', () => CL().co2());
   at('logoOff', () => { CL().screen.ad = null; });
+  at('endMsg', () => say([{ t: 'AGA BORYN', c: W, y: 196, px: 46 }, { t: 'LIVE SET', c: BL, y: 276, px: 46 }, { t: 'COMING SOON', c: W, y: 356, px: 46 }]));
   requestAnimationFrame(tick);
 }
