@@ -313,7 +313,8 @@ function insets() {
   return r;
 }
 
-const ADVERT = new URLSearchParams(location.search).has('advert'); // the advert films the app full-bleed in portrait
+const Q = new URLSearchParams(location.search);
+const ADVERT = Q.has('advert') || Q.has('shot'); // the advert films the app full-bleed in portrait
 function layout(animate) {
   const vw = window.innerWidth, vh = window.innerHeight;
   const portrait = !ADVERT && vh > vw * 1.05;
