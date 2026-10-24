@@ -1,0 +1,5 @@
+.env*
+.vercel
+supabase
+.DS_Store
+.gitignore
