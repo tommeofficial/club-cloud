@@ -26,12 +26,8 @@ const FEATURED = [{ model: 'models/crowd_mia.glb', spot: 1, scale: 0.92, style: 
 // friends stand together and turn to each other to talk, hug and high-five
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
-const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
-const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'dance4', 'dance5', 'hype']);
-// how many beats a looping clip spans, so its own tempo can be locked to the track's. The mocap dances were cut
-// to a 16-beat bar; anything not listed is a short 2-beat loop from the original hand-made set.
-const CLIP_BEATS = { dance: 16, dance2: 16, dance3: 16, dance4: 16, dance5: 16, hype: 16 };
-const MOVES = 'models/moves.glb'; // the mocap, shared by every avatar because they all share one rig
+const DANCES = ['dance', 'dance2', 'dance3'];
+const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'hype']); // 2-beat clips locked to the music
 // where the crowd stands (x, z) — the DJ looks down -Z from the booth at z = 0
 // kept on the open floor: clear of the counter between the columns (z < -4.3) and the side tables (|x| > 2.2)
 const SPOTS = [[-1.2, -2.6], [0.1, -2.4], [1.25, -2.7], [-0.55, -3.3], [0.7, -3.35], [-2.1, -4.4], [1.9, -4.6], [-0.9, -5.4], [0.8, -5.9], [-2.0, -6.0]];
@@ -433,9 +429,9 @@ function updatePeople(dt) {
       p.loop = next; p.loopName = want;
     }
     if (p.loop && BEAT_LOOPS.has(p.loopName) && beats != null) {
-      // drive the clip's time from the beat, over however many beats it was cut to, so everyone stays in time
-      const bars = CLIP_BEATS[p.loopName] || 2, dur = p.loop.getClip().duration;
-      p.loop.time = (((((beats + p.offset * bars) % bars) + bars) % bars) / bars) * dur;
+      // clips are 2 beats long; drive their time from the beat so everyone moves on the beat
+      const dur = p.loop.getClip().duration;
+      p.loop.time = ((((beats + p.offset) % 2) + 2) % 2 / 2) * dur;
       p.loop.timeScale = 0;
     } else if (p.loop) p.loop.timeScale = 1;
     // undo last frame's breathing and head turn first, so they never pile up when no clip is writing these bones
@@ -762,11 +758,7 @@ function buildSplatVenue() {
 
 async function loadCrowd() {
   const loader = new GLTFLoader();
-  const [gltfs, stars, moves] = await Promise.all([
-    Promise.all(MODELS.map((u) => loader.loadAsync(u))),
-    Promise.all(FEATURED.map((f) => loader.loadAsync(f.model).catch(() => null))),
-    loader.loadAsync(MOVES).then((g) => g.animations).catch(() => []),
-  ]);
+  const [gltfs, stars] = await Promise.all([Promise.all(MODELS.map((u) => loader.loadAsync(u))), Promise.all(FEATURED.map((f) => loader.loadAsync(f.model).catch(() => null)))]);
   SPOTS.forEach(([x, z], i) => {
     const fi = FEATURED.findIndex((f, k) => f.spot === i && stars[k]);
     const star = fi >= 0 ? FEATURED[fi] : null;
@@ -781,8 +773,7 @@ async function loadCrowd() {
     scene.add(root);
     const mixer = new THREE.AnimationMixer(root);
     const actions = {};
-    // the shared mocap wins where it exists; the character's own clips cover everything it does not replace
-    for (const clip of [...src.animations, ...moves]) actions[clip.name] = mixer.clipAction(clip);
+    for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/hand[._]?R/i), handL = bone(/hand[._]?L/i);
     const p = { root, mixer, actions, hand, handL, head: bone(/^head$/i), chest: bone(/^chest$/i), loop: null, loopName: null, busy: false,
