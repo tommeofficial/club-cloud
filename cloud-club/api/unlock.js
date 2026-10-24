@@ -1,4 +1,4 @@
-// Invite password check for the website's "Invite Early" pop-up. A right password gets the access cookie that
+// Invite password check for the website's VIP Access pop-up. A right password gets the access cookie that
 // middleware.js looks for on /app. Only hashes live here; the password itself is never stored.
 const crypto = require('crypto');
 
