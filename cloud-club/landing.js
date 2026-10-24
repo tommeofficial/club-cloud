@@ -41,7 +41,7 @@ composer.addPass(new OutputPass());
 const root = document.documentElement;
 function fit() {
   const w = innerWidth, h = innerHeight;
-  const d = Math.min(w * 0.88, h * 0.66), cy = h * (w < h ? 0.44 : 0.45);
+  const d = Math.min(w * 0.88, h * 0.6), cy = h * (w < h ? 0.4 : 0.41);
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(w, h, false);
   composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
   camera.aspect = w / h;
@@ -49,7 +49,9 @@ function fit() {
   const lift = ((h / 2 - cy) / h) * 2 * dist * Math.tan(half); // world units to move the backdrop up by
   camera.position.set(0, -lift, dist); camera.lookAt(0, -lift, 0); camera.updateProjectionMatrix();
   root.style.setProperty('--cx', w / 2 + 'px'); root.style.setProperty('--cy', cy + 'px'); root.style.setProperty('--d', d + 'px');
-  root.style.setProperty('--below', Math.min(h - 70, cy + d / 2 + 22) + 'px');
+  const tag = document.getElementById('tag'), top = cy + d / 2 + 20;
+  root.style.setProperty('--tag', top + 'px');
+  root.style.setProperty('--below', Math.min(h - 56, top + tag.offsetHeight + 12) + 'px');
 }
 addEventListener('resize', fit); fit();
 
