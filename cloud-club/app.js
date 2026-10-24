@@ -2292,6 +2292,8 @@ async function boot() {
   renderCenter();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const d of decks) d.ovl = null; });
 }
+$('#signOut')?.addEventListener('click', () => { location.href = '/api/signout'; });
+
 window.__cc = { engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout, bubble, optWheel, zoomBox(box) { ZOOMS.ad = box; L.zoom = 'ad'; placeStage(false); } };
 boot();
 })();
