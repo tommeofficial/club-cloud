@@ -25,12 +25,12 @@ body.advert #tabs, body.advert #clubhud, body.advert #chatpanel, body.advert #li
 .adline.small { top: 86%; font-size: clamp(14px, 3.8vw, 40px); }
 
 /* the SETTINGS panel laid out for portrait: as wide as the phone, scaled up so it reads */
-body.advert #lightmenu.adshow { position: fixed; top: 12%; left: 50%; right: auto; z-index: 99; width: calc((100vw - 48px) / 1.7);
-  transform-origin: top center; translate: -50% 0; scale: 1.7; gap: 14px; padding: 16px;
+body.advert #lightmenu.adshow { position: fixed; top: 12%; left: 50%; right: auto; z-index: 99; width: calc(74vw / 1.2);
+  transform-origin: top center; translate: -50% 0; scale: 1.2; gap: 14px; padding: 16px;
   box-shadow: 0 20px 60px rgba(0,0,0,.7); animation: adpop .35s cubic-bezier(.2,.9,.3,1.2) both; }
 body.advert #lightmenu.adshow .row { flex-wrap: wrap; }
 body.advert #lightmenu.adshow input[type=range] { min-width: 120px; }
-@keyframes adpop { from { opacity: 0; scale: 1.25; } to { opacity: 1; scale: 1.7; } }
+@keyframes adpop { from { opacity: 0; scale: .95; } to { opacity: 1; scale: 1.2; } }
 
 /* the live chat, big in the middle, comments flying in, a song request flashing gold */
 body.advert #chatpanel.adshow { display: flex !important; position: fixed; left: 50%; right: auto; top: 13%; z-index: 99;

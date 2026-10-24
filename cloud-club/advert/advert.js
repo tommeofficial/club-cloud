@@ -9,7 +9,7 @@ const CUE = {
   co2: 5.00,                  // the bass hits again after the dip: CO2, the room fades in, the push begins
   logoOff: 5.45,              // the CLUB CLOUD words leave the LED screen once the CO2 is going
   drop: 16.72,                // the drop: hard cut to the decks
-  closeup: 18.0,              // cut in close on deck 1, then an even slide across the mixer to deck 2
+  closeup: 17.61,             // the big bass hit: cut in close on deck 1, then an even slide across the mixer to deck 2
   settings: 23.4,             // the SETTINGS panel pops up over the slide
   djview: 25.0,               // scene 4: DJ view, orbiting right to left round the middle of the crowd
   chat: 28.04,                // beat 64: back to the crowd camera, the live chat floods in, slow push toward the DJ
@@ -18,6 +18,10 @@ const CUE = {
   stopAt: 31.0,               // the push stops with the backdrop back at its opening size
   endMsg: 30.6,               // AGA BORYN / LIVE SET / COMING SOON on the LED screen
   signup: 31.0,               // SIGN UP NOW under it
+  musicEnd: 31.55,            // the music cuts out here (silent by 32.45); the picture carries on without it
+  agaOut: 32.05,              // half a second later the AGA BORYN message fades off the LED screen...
+  logoIn: 32.1,               // ...and the CLUB CLOUD logo fades in
+  end: 35.6,                  // the logo holds for a few seconds, then the advert stops
 };
 // scene 2: lines over the push, two to a card so they read on a phone; the last sits in the breakdown
 const LINES = [
@@ -26,8 +30,8 @@ const LINES = [
   { t0: 12.3, t1: 14.5, html: 'JUMP IN AS ONE<br>OF THE <b>CROWD</b>' },
   { t0: 14.8, t1: 16.72, html: 'WANT TO BE<br>THE <b>DJ?</b>' },
   // scene 3, on the decks
-  { t0: 16.72, t1: 18.0, html: 'USE OUR <b>FULLY<br>FUNCTIONAL</b><br>VIRTUAL DECKS' },
-  { t0: 18.2, t1: 21.4, html: 'OR CONNECT<br>YOUR <b>REAL ONES</b>' },
+  { t0: 16.72, t1: 17.61, html: 'USE OUR <b>FULLY<br>FUNCTIONAL</b><br>VIRTUAL DECKS' },
+  { t0: 17.8, t1: 21.4, html: 'OR CONNECT<br>YOUR <b>REAL ONES</b>' },
   { t0: 23.4, t1: 25.0, html: 'MILLION DOLLAR<br><b>LIGHT SHOW</b>,<br>IN YOUR <b>LOUNGE</b>' },
   // scene 4, DJ view
   { t0: 25.0, t1: 26.6, html: 'THE CROWD REACTS<br>TO YOUR <b>REAL MIXING</b>' },
@@ -63,9 +67,9 @@ const wait = (ok) => new Promise((res) => { const k = () => (ok() ? res() : setT
 
 // sound: the advert track plays on its own into the speakers, the meters and the club's ears (so the lights and
 // crowd follow it), while the decks play their own tracks with their output unplugged, so they look busy but stay silent
-let deck, deck2, adBuf, adOut, src = null, at0 = 0, off0 = 0, beatGrid = { first: 0, B: 0.5 };
+let deck, deck2, adBuf, adOut, src = null, running = false, at0 = 0, off0 = 0, beatGrid = { first: 0, B: 0.5 };
 const VIP_FROM = 20; // deck 1 is this far into Club Cloud VIP when the advert starts, so it reads mid-track
-const now = () => (src ? Math.max(0, off0 + CC().ctx.currentTime - at0 - (CC().ctx.outputLatency || 0)) : off0);
+const now = () => (running ? Math.max(0, off0 + CC().ctx.currentTime - at0 - (CC().ctx.outputLatency || 0)) : off0); // keeps going after the track ends
 const decode = async (url) => CC().ctx.decodeAudioData(await (await fetch(url)).arrayBuffer());
 
 async function prepare() {
@@ -74,6 +78,7 @@ async function prepare() {
   CL().light.adDark = true;                 // rig held dark until the reveal
   CL().light.intensity = 0.85;              // a busy show for the push
   CL().sfx.volume = 0;                      // no crowd murmur over the black opening
+  CL().light.fx.blackout = false;           // the club blacks out when music stops; the end card plays on after it
   const c = CC(), m = c.master;
   const [ab, vip, glm] = await Promise.all(['advert/track.m4a', 'advert/vip.mp3', 'advert/girls-like-me.mp3'].map(decode));
   const [adAn, vipAn, glmAn] = await Promise.all([ab, vip, glm].map((b) => c.analyzeBuffer(b)));
@@ -96,12 +101,14 @@ async function prepare() {
 prepare();
 
 function play(from) {
-  stop(); off0 = from; at0 = CC().ctx.currentTime;
-  src = CC().ctx.createBufferSource(); src.buffer = adBuf; src.connect(adOut); src.start(0, from);
-  src.onended = () => { if (src && now() >= adBuf.duration - 0.05) { off0 = adBuf.duration; src = null; deck.pause(); } };
+  stop(); off0 = from; at0 = CC().ctx.currentTime; running = true;
+  if (from < adBuf.duration) {
+    src = CC().ctx.createBufferSource(); src.buffer = adBuf; src.connect(adOut); src.start(0, from);
+    src.onended = () => { src = null; deck.pause(); };
+  }
   deck.seek(VIP_FROM + from); deck.play();
 }
-function stop() { if (src) { off0 = now(); src.onended = null; src.stop(); src = null; } deck.pause(); }
+function stop() { if (running) off0 = now(); running = false; if (src) { src.onended = null; src.stop(); src = null; } deck.pause(); }
 
 gateBtn.onclick = () => { CC().unlock(); gate.remove(); play(0); };
 // for checking frames: __ad.go(2.8) jumps there paused and replays every cue up to it; __ad.play() runs on from there
@@ -223,7 +230,8 @@ const CHAT = [['bassbaby', 'THIS DROP 🔥🔥'], ['lou.mix', 'who is this DJ?? 
   ['kat', 'shout out to my girls 💕'], ['danny', 'been waiting all week for this'], ['priya', '🔥'], ['leo', 'this is unreal'],
   ['sam_k', '👏👏'], ['zoe', 'vibes are immaculate'], ['finn', 'REWIND'], ['amira', 'hallo from Berlin 🇩🇪'], ['josh', 'sending this to the group chat'],
   ['mia', '🎶🎶'], ['ollie', 'best night in'], ['nina', "DJ you're a legend"], ['marco', 'turn it uppp'], ['bex', 'cant stop dancing'], ['ash', '💯']];
-const REQ = { at: 11, who: 'mo_beats', song: 'Girls Like Me (Extended Mix)' }; // the request lands among the comments
+const PRE = 8; // comments already in the chat when it fades in
+const REQ = { at: PRE + 3, who: 'mo_beats', song: 'Girls Like Me (Extended Mix)' }; // the request lands among the comments
 const cp = document.getElementById('chatpanel'), clog = document.getElementById('chatlog');
 const hue = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7); // chat.js's name colours
 const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -232,7 +240,7 @@ let chatOn = false, chatN = 0, buyShown = false;
 function liveChat(t) {
   const on = t >= CUE.chat && t < CUE.zoomFast + 0.25;
   if (on !== chatOn) { chatOn = on; cp.classList.toggle('adshow', on); cp.classList.remove('min'); clog.innerHTML = ''; chatN = 0; cp.querySelector('.cmename').textContent = 'Live from Club Cloud'; }
-  const want = on ? Math.min(CHAT.length + 1, Math.floor((t - CUE.chat) / 0.075) + 1) : 0;
+  const want = on ? Math.min(CHAT.length + 1, PRE + Math.floor((t - CUE.chat) / 0.3) + 1) : 0; // a few already there, then one every 0.3s
   if (want < chatN) { clog.innerHTML = ''; chatN = 0; }
   while (chatN < want) {
     const d = document.createElement('div');
@@ -241,13 +249,27 @@ function liveChat(t) {
       d.innerHTML = `<span class="creq">🎵 Song request from <b style="color:hsl(${hue(REQ.who)} 85% 70%)">${REQ.who}</b>: ${esc(REQ.song)} · £5</span>`;
     } else {
       const [who, msg] = CHAT[chatN > REQ.at ? chatN - 1 : chatN];
-      d.className = 'cl adin';
+      d.className = chatN < PRE ? 'cl' : 'cl adin';
       d.innerHTML = `<b style="color:hsl(${hue(who)} 85% 70%)">${esc(who)}</b> ${esc(msg)}`;
     }
     clog.append(d); chatN++; clog.scrollTop = clog.scrollHeight;
   }
   const buy = t >= CUE.request && t < CUE.request + 1.4;
   if (buy !== buyShown) { buyShown = buy; flashEl.classList.toggle('on', buy); }
+}
+
+// the end card on the LED screen: AGA BORYN / LIVE SET / COMING SOON, fading off once the music has stopped,
+// then the CLUB CLOUD logo fading in where it sat in the opening
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+function endCard(t) {
+  if (t < CUE.endMsg) return;
+  if (t < CUE.agaOut + 0.4) {
+    const a = 1 - clamp01((t - CUE.agaOut) / 0.4);
+    say([{ t: 'AGA BORYN', c: W, y: 196, px: 46, a }, { t: 'LIVE SET', c: BL, y: 276, px: 46, a }, { t: 'COMING SOON', c: W, y: 356, px: 46, a }]);
+  } else {
+    const a = clamp01((t - CUE.logoIn - 0.35) / 0.5);
+    say([{ t: 'CLUB', c: W, y: 236, a }, { t: 'CLOUD', c: BL, y: 324, a }]);
+  }
 }
 
 function tick() {
@@ -271,6 +293,7 @@ function tick() {
   at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
   at('co2', () => CL().co2());
   at('logoOff', () => { CL().screen.ad = null; });
-  at('endMsg', () => say([{ t: 'AGA BORYN', c: W, y: 196, px: 46 }, { t: 'LIVE SET', c: BL, y: 276, px: 46 }, { t: 'COMING SOON', c: W, y: 356, px: 46 }]));
+  endCard(t);
+  if (running && t >= CUE.end) stop();
   requestAnimationFrame(tick);
 }

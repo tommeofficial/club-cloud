@@ -626,7 +626,8 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
     g.textAlign = 'center'; g.textBaseline = 'alphabetic';
     if (screen.ad) {
       dim = screen.ad.dim ?? 0.92;
-      for (const l of screen.ad.lines) { g.shadowBlur = l.glow ?? 26; g.shadowColor = l.c; g.fillStyle = l.c; fit(l.t, l.px, S * 0.72); g.fillText(l.t, S / 2, l.y); }
+      for (const l of screen.ad.lines) { g.globalAlpha = l.a ?? 1; g.shadowBlur = l.glow ?? 26; g.shadowColor = l.c; g.fillStyle = l.c; fit(l.t, l.px, S * 0.72); g.fillText(l.t, S / 2, l.y); }
+      g.globalAlpha = 1;
     } else if (msg) {
       dim = 0.75;
       g.shadowBlur = 26; g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(50); g.fillText(msg.top, S / 2, S / 2 - 44);
