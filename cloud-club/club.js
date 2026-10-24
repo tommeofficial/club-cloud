@@ -1338,8 +1338,12 @@ const sfx = (() => {
       const len = Math.floor(ac.sampleRate * 1.8), ir = ac.createBuffer(2, len, ac.sampleRate);
       for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2) * (i < ac.sampleRate * 0.012 ? i / (ac.sampleRate * 0.012) : 1); }
       const verb = ac.createConvolver(), wet = ac.createGain(), tone = ac.createBiquadFilter();
-      verb.buffer = ir; wet.gain.value = 0.22; tone.type = 'lowpass'; tone.frequency.value = 5000;
-      out.connect(verb).connect(tone).connect(wet).connect(ac.destination);
+      const pre = ac.createDelay(0.2), body = ac.createBiquadFilter();
+      verb.buffer = ir; wet.gain.value = 0.34;
+      pre.delayTime.value = 0.026;                 // the room answers a moment after the sound, which reads as distance
+      body.type = 'highpass'; body.frequency.value = 260;  // keep the tail out of the bass, so the music stays clear
+      tone.type = 'lowpass'; tone.frequency.value = 4200;  // darker than the source, like a real room
+      out.connect(pre).connect(body).connect(verb).connect(tone).connect(wet).connect(ac.destination);
       noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
       const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       // recorded crowd cheers for the drops
@@ -1355,6 +1359,9 @@ const sfx = (() => {
     if (ac.state === 'suspended') ac.resume();
     return ac.state !== 'closed';
   };
+  // somewhere left or right in the room; every one-shot gets a place rather than sitting dead centre
+  const place = (pan) => { const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(out); return p; };
+  const rndPan = (w = 0.8) => (Math.random() * 2 - 1) * w;
   const src = () => { const n = ac.createBufferSource(); n.buffer = noise; n.loop = true; n.playbackRate.value = 0.8 + Math.random() * 0.4; return n; };
   const env = (g, t, a, peak, hold, rel) => { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel); };
   const throttle = (k, gap) => { const n = performance.now(); if (n - (last[k] || 0) < gap) return false; last[k] = n; return true; };
@@ -1362,15 +1369,18 @@ const sfx = (() => {
   function cheer(size = 1) {
     if (!ready()) return;
     const t = ac.currentTime + 0.02;
-    const n = src(), bp = ac.createBiquadFilter(), g = ac.createGain();
-    bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.6;
-    n.connect(bp).connect(g).connect(out); env(g, t, 0.18, 0.22 * size, 0.5 * size, 1.4); n.start(t); n.stop(t + 3 * size);
+    for (const side of [-1, 1]) { // two separate swells, one each side, so the shout has width
+      const n = src(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = 1000 + Math.random() * 260; bp.Q.value = 0.6;
+      n.connect(bp).connect(g).connect(place(side * (0.55 + Math.random() * 0.25)));
+      env(g, t, 0.18, 0.1 * size, 0.5 * size, 1.4); n.start(t); n.stop(t + 3 * size);
+    }
     for (let i = 0; i < 4 + 4 * size; i++) {
       const o = ac.createOscillator(), f = ac.createBiquadFilter(), v = ac.createGain(), s0 = t + Math.random() * 0.4;
       o.type = 'sawtooth'; const base = 220 + Math.random() * 260;
       o.frequency.setValueAtTime(base, s0); o.frequency.exponentialRampToValueAtTime(base * (1.4 + Math.random() * 0.4), s0 + 0.35);
       f.type = 'bandpass'; f.frequency.value = 900 + Math.random() * 500; f.Q.value = 4;
-      o.connect(f).connect(v).connect(out); env(v, s0, 0.06, 0.03, 0.25, 0.5); o.start(s0); o.stop(s0 + 1.2);
+      o.connect(f).connect(v).connect(place(rndPan(0.92))); env(v, s0, 0.06, 0.022, 0.25, 0.5); o.start(s0); o.stop(s0 + 1.2);
     }
   }
   function whistle() {
@@ -1379,21 +1389,21 @@ const sfx = (() => {
       // like a real whistler: a single blast, a quick double, three fast ones in a second, or three spread out.
       // Each blast is cut short by the next; only the last one rings out in full.
       const gaps = pick([[0], [0, 0.4], [0, 0.33, 0.66], [0, 0.8, 1.6]]);
-      const t0 = ac.currentTime + 0.15 + Math.random() * 0.3, rate = 0.96 + Math.random() * 0.08;
+      const t0 = ac.currentTime + 0.15 + Math.random() * 0.3, rate = 0.96 + Math.random() * 0.08, wp = rndPan(0.75);
       gaps.forEach((gap, k) => {
         const b = ac.createBufferSource(), g = ac.createGain(), t = t0 + gap;
         b.buffer = whistleBuf; b.playbackRate.value = rate;
-        b.connect(g).connect(out); g.gain.setValueAtTime(0.45, t);
+        b.connect(g).connect(place(wp)); g.gain.setValueAtTime(0.26, t);
         const next = gaps[k + 1];
         b.start(t);
-        if (next != null) { const end = t0 + next; g.gain.setValueAtTime(0.45, end - 0.04); g.gain.linearRampToValueAtTime(0, end); b.stop(end + 0.01); }
+        if (next != null) { const end = t0 + next; g.gain.setValueAtTime(0.26, end - 0.04); g.gain.linearRampToValueAtTime(0, end); b.stop(end + 0.01); }
       });
       return;
     }
     for (let k = 0; k < 2; k++) {
       const t = ac.currentTime + 0.1 + k * 0.45 + Math.random() * 0.1, o = ac.createOscillator(), g = ac.createGain();
       o.type = 'sine'; o.frequency.setValueAtTime(2300, t); o.frequency.linearRampToValueAtTime(3300, t + 0.12); o.frequency.linearRampToValueAtTime(2700, t + 0.32);
-      o.connect(g).connect(out); env(g, t, 0.02, 0.05, 0.22, 0.12); o.start(t); o.stop(t + 0.5);
+      o.connect(g).connect(place(rndPan(0.7))); env(g, t, 0.02, 0.03, 0.22, 0.12); o.start(t); o.stop(t + 0.5);
     }
   }
   // one voice from the crowd: slightly varied pitch, somewhere left or right in the room
@@ -1401,10 +1411,10 @@ const sfx = (() => {
     const list = voices[kind]; if (!ready() || !list || !list.length) return false;
     const t = ac.currentTime + 0.02 + delay, b = ac.createBufferSource(), g = ac.createGain(), pan = ac.createStereoPanner();
     b.buffer = list[Math.floor(Math.random() * list.length)]; b.playbackRate.value = 0.94 + Math.random() * 0.12;
-    pan.pan.value = Math.random() * 1.4 - 0.7;
+    pan.pan.value = rndPan(0.85);
     b.connect(g).connect(pan).connect(out);
     const len = Math.min(b.buffer.duration, maxLen);
-    g.gain.setValueAtTime(0.55, t); g.gain.setValueAtTime(0.55, t + len - 0.3); g.gain.linearRampToValueAtTime(0, t + len);
+    g.gain.setValueAtTime(0.34, t); g.gain.setValueAtTime(0.34, t + len - 0.3); g.gain.linearRampToValueAtTime(0, t + len);
     b.start(t); b.stop(t + len + 0.05);
     return true;
   }
@@ -1414,7 +1424,7 @@ const sfx = (() => {
     const t = ac.currentTime + 0.01, o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain(), f = 380 + Math.random() * 180;
     o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.7, t + 0.09); o.frequency.exponentialRampToValueAtTime(f * 1.2, t + 0.14);
     bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 3;
-    o.connect(bp).connect(g).connect(out); env(g, t, 0.01, 0.025, 0.08, 0.06); o.start(t); o.stop(t + 0.2);
+    o.connect(bp).connect(g).connect(place(rndPan(0.6))); env(g, t, 0.01, 0.018, 0.08, 0.06); o.start(t); o.stop(t + 0.2);
   }
   function boo() {
     if (!ready()) return;
@@ -1425,20 +1435,27 @@ const sfx = (() => {
       lfo.frequency.value = 4 + Math.random() * 2; lg.gain.value = 4; lfo.connect(lg).connect(o.frequency);
       lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 2;
       const s0 = t + Math.random() * 0.25;
-      o.connect(lp).connect(v).connect(out); env(v, s0, 0.15, 0.035, 0.6, 0.6); o.start(s0); lfo.start(s0); o.stop(s0 + 1.6); lfo.stop(s0 + 1.6);
+      o.connect(lp).connect(v).connect(place(rndPan(0.85))); env(v, s0, 0.15, 0.026, 0.6, 0.6); o.start(s0); lfo.start(s0); o.stop(s0 + 1.6); lfo.stop(s0 + 1.6);
     }
   }
   function co2() {
     if (!ready()) return;
     const t = ac.currentTime + 0.02;
-    if (co2Buf) { // the recorded blast, cut to the length of the spray
-      const b = ac.createBufferSource(), g = ac.createGain(); b.buffer = co2Buf;
-      b.connect(g).connect(out); env(g, t, 0.02, 0.55, SFX_LENGTH.co2 - 0.6, 0.6); b.start(t); b.stop(t + SFX_LENGTH.co2 + 0.2);
+    if (co2Buf) { // the recorded blast from each cannon: one either side of the stage, a hair apart
+      for (const side of [-1, 1]) {
+        const b = ac.createBufferSource(), g = ac.createGain(), t0 = t + (side < 0 ? 0 : 0.018);
+        b.buffer = co2Buf; b.playbackRate.value = side < 0 ? 1 : 0.99;
+        b.connect(g).connect(place(side * 0.72));
+        env(g, t0, 0.02, 0.17, SFX_LENGTH.co2 - 0.6, 0.6); b.start(t0); b.stop(t0 + SFX_LENGTH.co2 + 0.2);
+      }
       return;
     }
-    const n = src(), hp = ac.createBiquadFilter(), g = ac.createGain();
-    hp.type = 'highpass'; hp.frequency.value = 1800;
-    n.connect(hp).connect(g).connect(out); env(g, t, 0.04, 0.32, SFX_LENGTH.co2 - 0.6, 0.6); n.start(t); n.stop(t + SFX_LENGTH.co2 + 0.2);
+    for (const side of [-1, 1]) {
+      const n = src(), hp = ac.createBiquadFilter(), g = ac.createGain();
+      hp.type = 'highpass'; hp.frequency.value = 1800;
+      n.connect(hp).connect(g).connect(place(side * 0.72));
+      env(g, t, 0.04, 0.1, SFX_LENGTH.co2 - 0.6, 0.6); n.start(t); n.stop(t + SFX_LENGTH.co2 + 0.2);
+    }
   }
   return {
     react(clip) {
@@ -1453,7 +1470,7 @@ const sfx = (() => {
       // the first few seconds of a recorded cheer, faded out
       const t = ac.currentTime + 0.02, n = ac.createBufferSource(), g = ac.createGain();
       n.buffer = samples[Math.floor(Math.random() * samples.length)];
-      n.connect(g).connect(out); env(g, t, 0.15, 0.9, 4.5, 2.5); n.start(t); n.stop(t + 7.5);
+      n.connect(g).connect(out); env(g, t, 0.15, 0.5, 4.5, 2.5); n.start(t); n.stop(t + 7.5);
     },
     unlock() { ready(); },
     co2,
@@ -1471,7 +1488,11 @@ const sfx = (() => {
         if (murmurBuf) { n.buffer = murmurBuf; n.loop = true; bp.type = 'lowpass'; bp.frequency.value = 6000; }
         else { bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.5; }
         g.gain.value = 0;
-        n.connect(bp).connect(g).connect(out); n.start(0, murmurBuf ? Math.random() * murmurBuf.duration : 0); bed = { n, g, bp, real: !!murmurBuf };
+        const wide = ac.createDelay(0.05); wide.delayTime.value = 0.013; // a few milliseconds apart reads as a wide room
+        n.connect(bp).connect(g);
+        g.connect(place(-0.62));
+        g.connect(wide).connect(place(0.62));
+        n.start(0, murmurBuf ? Math.random() * murmurBuf.duration : 0); bed = { n, g, bp, real: !!murmurBuf };
       }
       // chatter fills the room while waiting; under the music it ducks right down and rises with the hype
       const level = bed.real ? (playing ? 0.05 + 0.12 * hype / 100 : 0.35) : (playing ? 0.015 + 0.05 * hype / 100 : 0.012);
