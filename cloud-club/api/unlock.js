@@ -2,8 +2,8 @@
 // middleware.js looks for on /app. Only hashes live here; the password itself is never stored.
 const crypto = require('crypto');
 
-const PASSWORD_SHA256 = '8c6e18ee5b93efd691ec0386e740dc9961795c472254fed6fa225acbf8af4361';
-const ACCESS_TOKEN = '26aeec9afc765928a26673e59e5edff090c6c0ab583bffdbe2e91f3c45aab2e6'; // keep in step with middleware.js
+const PASSWORD_SHA256 = 'ac05c4220ac659b8bbd161e01732eb7f60379c73a7e8bb41410ec549b812fd33';
+const ACCESS_TOKEN = '36c7ab1734950b2b6c913479ddb7fcbfa901536f9ef20a6df4519f9fd2a55e04'; // keep in step with middleware.js
 
 module.exports = (req, res) => {
   if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
