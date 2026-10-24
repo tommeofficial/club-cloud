@@ -21,3 +21,8 @@ body.advert #tabs, body.advert #clubhud, body.advert #chatpanel, body.advert #li
   letter-spacing: .02em; color: rgba(255,255,255,.8); text-shadow: 0 2px 16px rgba(0,0,0,.55); }
 .adline b { font-weight: 800; color: rgba(76,235,255,.88); }
 .adline.on { opacity: 1; }
+
+/* the SETTINGS panel, popped up big in the middle of the frame over the slide */
+body.advert #lightmenu.adshow { position: fixed; top: 15%; left: 50%; right: auto; z-index: 99; transform-origin: top center;
+  translate: -50% 0; scale: 1.75; box-shadow: 0 20px 60px rgba(0,0,0,.7); animation: adpop .35s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes adpop { from { opacity: 0; scale: 1.2; } to { opacity: 1; scale: 1.75; } }

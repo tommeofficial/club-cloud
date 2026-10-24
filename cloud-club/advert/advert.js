@@ -9,8 +9,10 @@ const CUE = {
   co2: 5.00,                  // the bass hits again after the dip: CO2, the room fades in, the push begins
   logoOff: 5.45,              // the CLUB CLOUD words leave the LED screen once the CO2 is going
   drop: 16.72,                // the drop: hard cut to the decks
-  closeup: 18.48,             // beat 42: cut in close on deck 1, then glide across the mixer to deck 2
-  djview: 21.96,              // beat 50: scene 4
+  closeup: 18.0,              // cut in close on deck 1, then an even slide across the mixer to deck 2
+  settings: 23.4,             // the SETTINGS panel pops up over the slide
+  djview: 25.0,               // scene 4: DJ view, orbiting right to left round the middle of the crowd
+  djEnd: 28.26,               // where the DJ view's orbit is timed to finish
 };
 // scene 2: lines over the push, two to a card so they read on a phone; the last sits in the breakdown
 const LINES = [
@@ -19,8 +21,12 @@ const LINES = [
   { t0: 12.3, t1: 14.5, html: 'JUMP IN AS ONE<br>OF THE <b>CROWD</b>' },
   { t0: 14.8, t1: 16.72, html: 'WANT TO BE<br>THE <b>DJ?</b>' },
   // scene 3, on the decks
-  { t0: 16.72, t1: 18.48, html: 'USE OUR <b>FULLY<br>FUNCTIONAL</b><br>VIRTUAL DECKS' },
-  { t0: 18.7, t1: 21.96, html: 'OR CONNECT<br>YOUR <b>REAL ONES</b>' },
+  { t0: 16.72, t1: 18.0, html: 'USE OUR <b>FULLY<br>FUNCTIONAL</b><br>VIRTUAL DECKS' },
+  { t0: 18.2, t1: 21.4, html: 'OR CONNECT<br>YOUR <b>REAL ONES</b>' },
+  { t0: 23.4, t1: 25.0, html: 'MILLION DOLLAR<br><b>LIGHT SHOW</b>,<br>IN YOUR <b>LOUNGE</b>' },
+  // scene 4, DJ view
+  { t0: 25.0, t1: 26.6, html: 'THE CROWD REACTS<br>TO YOUR <b>REAL MIXING</b>' },
+  { t0: 26.6, t1: 28.26, html: 'IN <b>REAL TIME</b>' },
 ];
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
@@ -99,14 +105,19 @@ window.__ad = {
 const BACK_Z = -13.1, FADE = 1.4;
 const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const lerp = (a, b, k) => a + (b - a) * k;
+// scene 4: over the DJ's shoulder, swinging from the right of the booth to the left while always looking at the middle
+// of the crowd; the real controller is re-laid onto the booth table every frame so it stays stuck to it
+const CROWD = { x: 0, y: 1.1, z: -3.6 }, ORBIT = { r: 4.9, h: 2.3, from: 0.42, to: -0.42 };
+function djOrbit(cam, t) {
+  const u = Math.min(1, Math.max(0, (t - CUE.djview) / (CUE.djEnd - CUE.djview)));
+  const a = lerp(ORBIT.from, ORBIT.to, u);
+  cam.position.set(CROWD.x + Math.sin(a) * ORBIT.r, ORBIT.h, CROWD.z + Math.cos(a) * ORBIT.r);
+  cam.lookAt(CROWD.x, CROWD.y, CROWD.z);
+  cam.fov = 60; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
+  dispatchEvent(new Event('cc-deckplace'));
+}
 window.__adFrame = (cam) => {
   const t = now(), B = CL().BACKDROP, D = B.z - BACK_Z;
-  const f0 = 2 * Math.atan((2 * B.r) * innerHeight / (2 * D * glowPx())) * 180 / Math.PI;
-  const k = ease((t - CUE.co2) / (CUE.drop - CUE.co2));
-  cam.position.set(lerp(0, 0.3, k), lerp(B.y, 2.4, k), lerp(BACK_Z, -4.8, k));
-  cam.lookAt(0, lerp(B.y, 1.9, k), lerp(B.z, 0.5, k));
-  cam.fov = lerp(f0, 54, k);
-  cam.updateProjectionMatrix();
   // after the CO2 the room, the rig, the smoke and the crowd sound all come up together on one quick, smooth curve
   const f = ease((t - CUE.co2) / FADE);
   CL().setVeil(1 - f);
@@ -114,6 +125,13 @@ window.__adFrame = (cam) => {
   CL().light.adFade = f;
   CL().sfx.volume = 0.7 * f;
   CL().screen.show = -1; // no random logo flash on the LED screen during the advert
+  if (t >= CUE.djview) { djOrbit(cam, t); return; }
+  const f0 = 2 * Math.atan((2 * B.r) * innerHeight / (2 * D * glowPx())) * 180 / Math.PI;
+  const k = ease((t - CUE.co2) / (CUE.drop - CUE.co2));
+  cam.position.set(lerp(0, 0.3, k), lerp(B.y, 2.4, k), lerp(BACK_Z, -4.8, k));
+  cam.lookAt(0, lerp(B.y, 1.9, k), lerp(B.z, 0.5, k));
+  cam.fov = lerp(f0, 54, k);
+  cam.updateProjectionMatrix();
 };
 let lineOn = null;
 function showLine(t) {
@@ -134,16 +152,16 @@ function flash(ms) { playBtn.dataset.led = '1'; setTimeout(() => { playBtn.datas
 let view = 'club';
 function setView(v) { if (v === view) return; view = v; CC().setMode(v); }
 // scene 3 close-up: a box the height of the controller plus a little air, as wide as the screen's shape allows,
-// sliding across from deck 1 to deck 2 (stage coordinates are the app's 1840 x 964 controller drawing)
+// sliding evenly from deck 1 to deck 2 (stage coordinates are the app's 1840 x 964 controller drawing)
 function deckGlide(t) {
   const h = 1000, w = h * innerWidth / innerHeight, x0 = 260, x1 = 1920 - w - 180; // middle of deck 1 to middle of deck 2, slowly
-  const k = ease((t - CUE.closeup) / (CUE.djview - CUE.closeup));
+  const k = Math.min(1, Math.max(0, (t - CUE.closeup) / (CUE.djview - CUE.closeup))); // constant speed
   CC().zoomBox([lerp(x0, x1, k), 290, w, h]);
 }
 
 // scene 3 hands on the mixer, timed to when each control is in frame during the glide; all on CH 2 so nothing is heard
-const EQ = { id: 'm:eq22', t0: 20.0, t1: 20.9 };                      // CH2 LOW: cut, then back up a touch
-const FXW = { t0: 20.95, pick: 21.15, t1: 21.45, on: 21.6 };          // Beat FX wheel: pick REVERB, then FX ON
+const EQ = { id: 'm:eq22', t0: 21.6, t1: 22.5 };                      // CH2 LOW: cut, then back up a touch
+const FXW = { t0: 22.6, pick: 22.8, t1: 23.1, on: 23.25 };            // Beat FX wheel: pick REVERB, then FX ON
 const ECHO = FX_IDX(10), REVERB = FX_IDX(4);
 function FX_IDX(n) { return [12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11, 13].indexOf(n); } // app.js FX_SEQ
 let eqShown = false, wheel = 0;
@@ -170,12 +188,18 @@ function hands(t) {
   if (c.fx.on !== fxOn) { c.fx.on = fxOn; if (fxOn) { on.el.classList.add('dn'); setTimeout(() => on.el.classList.remove('dn'), 160); } }
 }
 
+// the app's own SETTINGS panel (lights, intensity, auto FX, crowd), popped up big over the slide
+const lm = document.getElementById('lightmenu');
+let lmOn = false;
+function settingsPanel(on) { if (on === lmOn) return; lmOn = on; lm.hidden = !on; lm.classList.toggle('adshow', on); }
+
 function tick() {
   const t = now();
   if (adBuf) CL().light.adBeat = (t - beatGrid.first) / beatGrid.B;
   ad.classList.toggle('reveal', t >= CUE.welcome);
   if (deck) {
-    setView(t < CUE.drop ? 'club' : 'normal');
+    setView(t < CUE.drop ? 'club' : t < CUE.djview ? 'normal' : 'djview');
+    settingsPanel(t >= CUE.settings && t < CUE.djview);
     if (view === 'normal' && t >= CUE.closeup) deckGlide(t);
     if (t >= CUE.drop && t < CUE.djview) hands(t);
     showLine(t);
