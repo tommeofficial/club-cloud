@@ -1137,7 +1137,7 @@ function pickLook(beat, drop) {
 }
 function lights(t, dt) {
   const c = cc(); const M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
-  const beat = M ? ((M.vpos - M.first) / M.B) : t * 2;
+  const beat = light.adBeat != null ? light.adBeat : M ? ((M.vpos - M.first) / M.B) : t * 2; // the advert supplies its own track's beat
   const pulse = M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
   const k = light.intensity;
   // intensity sets how fast the rig moves and how hard it reacts to bass and drops, not how bright it is

@@ -354,6 +354,7 @@ function layout(animate) {
   tabs.classList.toggle('sub', sub > 0);
   L.vx = px + (vert ? 64 + 3 : 4); L.vy = ins.t + (vert ? 4 : 36 + 3) + sub;
   L.aw = px + pw - L.vx - 4; L.ah = H - L.vy - ins.b - 3;
+  if (ADVERT) { L.vx = 0; L.vy = 0; L.aw = W; L.ah = H; } // the advert films the stage edge to edge
   // CLUB: one 3D view from behind the DJ; the club fills the screen
   if (L.mode === 'club') {
     Object.assign(club.style, ADVERT ? { left: '0px', top: '0px', width: W + 'px', height: H + 'px', borderRadius: '0' } : { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
@@ -382,7 +383,7 @@ function placeStage(animate) {
   const zk = L.mode === 'club' ? 'all' : L.zoom;
   const z = ZOOMS[zk], [zx, zy, zw, zh] = z;
   // always fit the whole section on screen, a little inside the edges, so nothing needs scrolling
-  const s = Math.min(L.aw / zw, L.ah / zh) * (L.mode === 'club' ? 1 : zk === 'all' ? 0.94 : 0.97);
+  const s = Math.min(L.aw / zw, L.ah / zh) * (L.mode === 'club' || zk === 'ad' ? 1 : zk === 'all' ? 0.94 : 0.97);
   L.panRange = 0;
   const oldS = L.s;
   L.s = s;
@@ -1566,7 +1567,7 @@ function drawJog(d) {
   c.fillStyle = '#111'; c.fillRect(-45, -45, 90, 90);
   const img = d.t && artImage(d.t);
   if (img) { c.rotate(ang + Math.PI / 2); c.drawImage(img, -45, -45, 90, 90); }
-  else if (!d.loaded) drawMark(c, 0, 0, 38);
+  else { if (d.loaded) c.rotate(ang + Math.PI / 2); drawMark(c, 0, 0, 38); } // no cover art: the logo is the label, and spins with the platter
   c.restore();
   if (d.loaded && d.loop.on) { c.beginPath(); c.arc(0, 0, 58, 0, TAU); c.lineWidth = 2; c.strokeStyle = 'rgba(255,154,20,.9)'; c.stroke(); }
   c.restore();
@@ -2290,6 +2291,6 @@ async function boot() {
   renderCenter();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const d of decks) d.ovl = null; });
 }
-window.__cc = { engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout };
+window.__cc = { engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout, bubble, optWheel, zoomBox(box) { ZOOMS.ad = box; L.zoom = 'ad'; placeStage(false); } };
 boot();
 })();

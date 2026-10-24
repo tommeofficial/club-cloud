@@ -8,7 +8,9 @@ const CUE = {
   cloud: 3.25,                // "cloud"; the bass lands at 3.70
   co2: 5.00,                  // the bass hits again after the dip: CO2, the room fades in, the push begins
   logoOff: 5.45,              // the CLUB CLOUD words leave the LED screen once the CO2 is going
-  drop: 16.72,                // the drop: scene 3 cuts to the decks here
+  drop: 16.72,                // the drop: hard cut to the decks
+  closeup: 18.48,             // beat 42: cut in close on deck 1, then glide across the mixer to deck 2
+  djview: 21.96,              // beat 50: scene 4
 };
 // scene 2: lines over the push, two to a card so they read on a phone; the last sits in the breakdown
 const LINES = [
@@ -16,6 +18,9 @@ const LINES = [
   { t0: 9.8, t1: 12.0, html: 'HAVING A<br><b>HOUSE PARTY?</b>' },
   { t0: 12.3, t1: 14.5, html: 'JUMP IN AS ONE<br>OF THE <b>CROWD</b>' },
   { t0: 14.8, t1: 16.72, html: 'WANT TO BE<br>THE <b>DJ?</b>' },
+  // scene 3, on the decks
+  { t0: 16.72, t1: 18.48, html: 'USE OUR <b>FULLY<br>FUNCTIONAL</b><br>VIRTUAL DECKS' },
+  { t0: 18.7, t1: 21.96, html: 'OR CONNECT<br>YOUR <b>REAL ONES</b>' },
 ];
 
 const el = (t, cls, parent) => { const n = document.createElement(t); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; };
@@ -40,28 +45,54 @@ const gateBtn = gate.querySelector('button');
 const CC = () => window.__cc, CL = () => window.__club;
 const wait = (ok) => new Promise((res) => { const k = () => (ok() ? res() : setTimeout(k, 100)); k(); });
 
-let deck;
+// sound: the advert track plays on its own into the speakers, the meters and the club's ears (so the lights and
+// crowd follow it), while the decks play their own tracks with their output unplugged, so they look busy but stay silent
+let deck, deck2, adBuf, adOut, src = null, at0 = 0, off0 = 0, beatGrid = { first: 0, B: 0.5 };
+const VIP_FROM = 20; // deck 1 is this far into Club Cloud VIP when the advert starts, so it reads mid-track
+const now = () => (src ? Math.max(0, off0 + CC().ctx.currentTime - at0 - (CC().ctx.outputLatency || 0)) : off0);
+const decode = async (url) => CC().ctx.decodeAudioData(await (await fetch(url)).arrayBuffer());
+
 async function prepare() {
   await wait(() => CC() && CL() && CC().ctx);
   CC().setMode('club');                     // the club starts loading behind the black
   CL().light.adDark = true;                 // rig held dark until the reveal
   CL().light.intensity = 0.85;              // a busy show for the push
   CL().sfx.volume = 0;                      // no crowd murmur over the black opening
-  const buf = await CC().ctx.decodeAudioData(await (await fetch('advert/track.m4a')).arrayBuffer());
-  const an = await CC().analyzeBuffer(buf);
-  deck = CC().decks[0];
-  await wait(() => deck.loaded); // the app puts its demo on deck 1 first; replace it
-  deck.load({ id: 'advert', title: '', artist: '', dur: buf.duration, ...an }, buf, { pos: 0, cue: 0 });
+  const c = CC(), m = c.master;
+  const [ab, vip, glm] = await Promise.all(['advert/track.m4a', 'advert/vip.mp3', 'advert/girls-like-me.mp3'].map(decode));
+  const [adAn, vipAn, glmAn] = await Promise.all([ab, vip, glm].map((b) => c.analyzeBuffer(b)));
+  adBuf = ab; beatGrid = { first: adAn.first || 0, B: 60 / (adAn.bpm || 120) };
+  // the decks' mix goes into a silent output: it must stay connected or the browser stops running the decks
+  const mute = c.ctx.createGain(); mute.gain.value = 0;
+  m.lim.disconnect(); m.lim.connect(mute); mute.connect(c.ctx.destination);
+  adOut = c.ctx.createGain(); adOut.connect(m.duck); adOut.connect(m.spec); adOut.connect(m.split);
+  [deck, deck2] = c.decks;
+  await wait(() => deck.loaded && deck2.loaded); // the app puts its demos on the decks first; replace them
+  deck.load({ id: 'ad-vip', title: 'Club Cloud VIP', artist: 'tommeofficial1', art: 'advert/vip.jpg', dur: vip.duration, ...vipAn }, vip, { pos: VIP_FROM, cue: VIP_FROM });
+  const cue = glmAn.first || 0;
+  deck2.load({ id: 'ad-glm', title: 'Girls Like Me (Extended Mix)', artist: 'TOMME & Aga Boryn', dur: glm.duration, ...glmAn }, glm, { pos: cue, cue });
   await wait(() => CL().ready);
+  c.controls.get('m:chsel').set(5); // Beat FX on CH 2: deck 2 sits cued and paused, so the effects make no sound
   CL().setVeil(1);
   gateBtn.disabled = false; gateBtn.textContent = 'PLAY ADVERT';
   requestAnimationFrame(tick);
 }
 prepare();
 
-gateBtn.onclick = () => { CC().unlock(); gate.remove(); deck.play(); };
-// scrub for checking frames: __ad.go(2.8) jumps there paused and replays every cue up to it
-window.__ad = { go(t) { gate.remove(); deck.pause(); fired.clear(); ad.classList.remove('reveal'); CL().screen.ad = null; deck.seek(t); } };
+function play(from) {
+  stop(); off0 = from; at0 = CC().ctx.currentTime;
+  src = CC().ctx.createBufferSource(); src.buffer = adBuf; src.connect(adOut); src.start(0, from);
+  src.onended = () => { if (src && now() >= adBuf.duration - 0.05) { off0 = adBuf.duration; src = null; deck.pause(); } };
+  deck.seek(VIP_FROM + from); deck.play();
+}
+function stop() { if (src) { off0 = now(); src.onended = null; src.stop(); src = null; } deck.pause(); }
+
+gateBtn.onclick = () => { CC().unlock(); gate.remove(); play(0); };
+// for checking frames: __ad.go(2.8) jumps there paused and replays every cue up to it; __ad.play() runs on from there
+window.__ad = {
+  go(t) { gate.remove(); if (t < CUE.closeup && view === 'normal') view = ''; stop(); off0 = t; deck.seek(VIP_FROM + t); fired.clear(); CL().screen.ad = null; },
+  play() { CC().unlock(); play(off0); }, pause: stop,
+};
 
 // camera: starts on the back wall square on to the backdrop, lens set so the backdrop fills the glow's circle;
 // from the CO2 it glides over the crowd's heads toward the booth, easing in and out, and tilts down onto the DJ
@@ -69,7 +100,7 @@ const BACK_Z = -13.1, FADE = 1.4;
 const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const lerp = (a, b, k) => a + (b - a) * k;
 window.__adFrame = (cam) => {
-  const t = deck ? deck.vpos : 0, B = CL().BACKDROP, D = B.z - BACK_Z;
+  const t = now(), B = CL().BACKDROP, D = B.z - BACK_Z;
   const f0 = 2 * Math.atan((2 * B.r) * innerHeight / (2 * D * glowPx())) * 180 / Math.PI;
   const k = ease((t - CUE.co2) / (CUE.drop - CUE.co2));
   cam.position.set(lerp(0, 0.3, k), lerp(B.y, 2.4, k), lerp(BACK_Z, -4.8, k));
@@ -83,7 +114,6 @@ window.__adFrame = (cam) => {
   CL().light.adFade = f;
   CL().sfx.volume = 0.7 * f;
   CL().screen.show = -1; // no random logo flash on the LED screen during the advert
-  showLine(t);
 };
 let lineOn = null;
 function showLine(t) {
@@ -97,14 +127,63 @@ function showLine(t) {
 const say = (lines) => { CL().screen.ad = { dim: 1, lines: lines.map((l) => ({ glow: 0, px: 66, ...l })) }; };
 const W = '#c9d3dc', BL = '#2fb8cc'; // the screen blooms, so the words are drawn below white
 let fired = new Set();
-function at(key, fn) { if (deck.vpos >= CUE[key] && !fired.has(key)) { fired.add(key); fn(); } }
+function at(key, fn) { if (now() >= CUE[key] && !fired.has(key)) { fired.add(key); fn(); } }
 function flash(ms) { playBtn.dataset.led = '1'; setTimeout(() => { playBtn.dataset.led = '0'; }, ms); }
 
+// which part of the app is on screen; switching only when it changes, so scrubbing back and forth works
+let view = 'club';
+function setView(v) { if (v === view) return; view = v; CC().setMode(v); }
+// scene 3 close-up: a box the height of the controller plus a little air, as wide as the screen's shape allows,
+// sliding across from deck 1 to deck 2 (stage coordinates are the app's 1840 x 964 controller drawing)
+function deckGlide(t) {
+  const h = 1000, w = h * innerWidth / innerHeight, x0 = 260, x1 = 1920 - w - 180; // middle of deck 1 to middle of deck 2, slowly
+  const k = ease((t - CUE.closeup) / (CUE.djview - CUE.closeup));
+  CC().zoomBox([lerp(x0, x1, k), 290, w, h]);
+}
+
+// scene 3 hands on the mixer, timed to when each control is in frame during the glide; all on CH 2 so nothing is heard
+const EQ = { id: 'm:eq22', t0: 20.0, t1: 20.9 };                      // CH2 LOW: cut, then back up a touch
+const FXW = { t0: 20.95, pick: 21.15, t1: 21.45, on: 21.6 };          // Beat FX wheel: pick REVERB, then FX ON
+const ECHO = FX_IDX(10), REVERB = FX_IDX(4);
+function FX_IDX(n) { return [12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11, 13].indexOf(n); } // app.js FX_SEQ
+let eqShown = false, wheel = 0;
+function hands(t) {
+  const c = CC(), eq = c.controls.get(EQ.id), sel = c.controls.get('m:fxsel'), on = c.controls.get('m:fxon');
+  const u = (t - EQ.t0) / (EQ.t1 - EQ.t0);
+  eq.set(u <= 0 ? 0.5 : u >= 1 ? 0.62 : u < 0.55 ? lerp(0.5, 0.12, ease(u / 0.55)) : lerp(0.12, 0.62, ease((u - 0.55) / 0.45)));
+  const inEq = u > 0 && u < 1;
+  if (inEq && !eqShown) { c.bubble.show(eq); eqShown = true; }
+  if (!inEq && eqShown) { c.bubble.flash(eq); eqShown = false; }
+  const r = sel.el.getBoundingClientRect(), p = { ax: r.left + r.width / 2, ay: r.top + r.height / 2 };
+  const w = t < FXW.t0 ? 0 : t < FXW.t1 ? 1 : 2;
+  if (w !== wheel) {
+    if (w === 0) { c.optWheel.close(false); sel.set(ECHO); }
+    if (w >= 1 && wheel === 0) c.optWheel.open(sel, p);
+    if (w === 2) { if (!c.optWheel.ctrl) c.optWheel.open(sel, p); c.optWheel.pick = REVERB; c.optWheel.close(true); }
+    wheel = w;
+  }
+  if (w === 1 && t >= FXW.pick) { // the finger slides round to REVERB
+    const n = sel.steps, a = ((-150 + 300 * (REVERB + 0.5) / n) * Math.PI) / 180;
+    c.optWheel.move({ ax: c.optWheel.cx + Math.sin(a) * 100, ay: c.optWheel.cy - Math.cos(a) * 100 });
+  }
+  const fxOn = t >= FXW.on;
+  if (c.fx.on !== fxOn) { c.fx.on = fxOn; if (fxOn) { on.el.classList.add('dn'); setTimeout(() => on.el.classList.remove('dn'), 160); } }
+}
+
 function tick() {
+  const t = now();
+  if (adBuf) CL().light.adBeat = (t - beatGrid.first) / beatGrid.B;
+  ad.classList.toggle('reveal', t >= CUE.welcome);
+  if (deck) {
+    setView(t < CUE.drop ? 'club' : 'normal');
+    if (view === 'normal' && t >= CUE.closeup) deckGlide(t);
+    if (t >= CUE.drop && t < CUE.djview) hands(t);
+    showLine(t);
+  }
   at('beep1', () => flash(170));
   at('beep2', () => flash(170));
   // one word size throughout, all caps; WELCOME is the widest word so it sets the size
-  at('welcome', () => { ad.classList.add('reveal'); say([{ t: 'WELCOME', c: W, y: 280 }]); });
+  at('welcome', () => { say([{ t: 'WELCOME', c: W, y: 280 }]); });
   at('to', () => say([{ t: 'TO', c: W, y: 280 }]));
   at('club', () => say([{ t: 'CLUB', c: W, y: 236 }])); // already where it sits once CLOUD joins it
   at('cloud', () => say([{ t: 'CLUB', c: W, y: 236 }, { t: 'CLOUD', c: BL, y: 324 }]));
