@@ -37,11 +37,16 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.7); composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
-// fit: the backdrop as big as the page allows, a little above centre so the links fit underneath
-const root = document.documentElement;
+// fit: the screen, the line under it and the links are sized together so the whole stack fits any window, centred
+const root = document.documentElement, tagEl = document.getElementById('tag');
 function fit() {
-  const w = innerWidth, h = innerHeight;
-  const d = Math.min(w * 0.88, h * 0.6), cy = h * (w < h ? 0.4 : 0.41);
+  const w = innerWidth, h = innerHeight, GAP1 = 22, GAP2 = 14, LINKS = 44, PAD = 20;
+  // the line's size follows the screen (4.6% of it), capped so its longest row fits the width
+  const fsFor = (d) => Math.max(13, Math.min(34, d * 0.046, (w - 32) / 23.5));
+  let d = Math.min(w * 0.88, 760);
+  for (let i = 0; i < 3; i++) d = Math.min(d, h - 2 * PAD - GAP1 - 2 * 1.35 * fsFor(d) - GAP2 - LINKS);
+  const fs = fsFor(d), tagH = 2 * 1.35 * fs, total = d + GAP1 + tagH + GAP2 + LINKS;
+  const cy = Math.max(PAD, (h - total) / 2) + d / 2;
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(w, h, false);
   composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
   camera.aspect = w / h;
@@ -49,9 +54,9 @@ function fit() {
   const lift = ((h / 2 - cy) / h) * 2 * dist * Math.tan(half); // world units to move the backdrop up by
   camera.position.set(0, -lift, dist); camera.lookAt(0, -lift, 0); camera.updateProjectionMatrix();
   root.style.setProperty('--cx', w / 2 + 'px'); root.style.setProperty('--cy', cy + 'px'); root.style.setProperty('--d', d + 'px');
-  const tag = document.getElementById('tag'), top = cy + d / 2 + 20;
-  root.style.setProperty('--tag', top + 'px');
-  root.style.setProperty('--below', Math.min(h - 56, top + tag.offsetHeight + 12) + 'px');
+  root.style.setProperty('--tagfs', fs.toFixed(1) + 'px');
+  root.style.setProperty('--tag', cy + d / 2 + GAP1 + 'px');
+  root.style.setProperty('--below', cy + d / 2 + GAP1 + tagH + GAP2 + 'px');
 }
 addEventListener('resize', fit); fit();
 
@@ -72,6 +77,7 @@ function frame() {
   for (let i = 0; i < 64; i++) { const k = i / 64; d[i] = Math.max(0, Math.min(255, 255 * ((0.75 - k * 0.5) * (0.45 + 0.55 * pulse * (1 - k)) + 0.18 * Math.sin(t * 3 + i * 0.7) * Math.sin(t * 1.7 + i * 0.31)))); }
   spec.needsUpdate = true;
   composer.render();
+  if (!canvas.classList.contains('on')) canvas.classList.add('on'); // fade the circle in once it has drawn
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
