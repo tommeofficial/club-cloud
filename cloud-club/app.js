@@ -400,14 +400,15 @@ function placeStage(animate) {
   stage.style.transform = `translate(${tx}px,${ty}px) scale(${s})`;
   if (Math.abs(oldS - s) > 1e-4 || !canvases[0] || canvases[0].k === 1) sizeCanvases();
   for (const b of tabs.querySelectorAll('[data-zoom]')) b.classList.toggle('on', b.dataset.zoom === L.zoom);
-  const shown = L.mode === 'club' && L.cam === 'booth' ? 'djview' : L.mode;
+  const shown = L.mode === 'club' ? (L.cam === 'booth' ? 'djview' : L.cam === 'pan' ? 'club2' : 'club') : L.mode;
   for (const b of tabs.querySelectorAll('[data-mode]')) b.classList.toggle('on', b.dataset.mode === shown);
 }
 
 function setZoom(z) { L.zoom = L.zoom === z ? 'all' : z; placeStage(true); } // pressing the open side again goes back to both decks
-// DJ VIEW and CLUB are both the 3D club: DJ VIEW looks over the DJ's shoulder, CLUB looks at the stage from the back wall
+// DJ VIEW and CLUB 1 / CLUB 2 are all the 3D club: DJ VIEW looks over the DJ's shoulder, CLUB 1 looks at the stage from the back wall
+// (fixed), CLUB 2 is the same room with a camera that drifts between shots on the beat
 function setMode(m) {
-  if (m === 'djview' || m === 'club') { L.cam = m === 'djview' ? 'booth' : 'crowd'; m = 'club'; window.dispatchEvent(new CustomEvent('cc-cam', { detail: L.cam })); }
+  if (m === 'djview' || m === 'club' || m === 'club2') { L.cam = m === 'djview' ? 'booth' : m === 'club2' ? 'pan' : 'crowd'; m = 'club'; m = 'club'; window.dispatchEvent(new CustomEvent('cc-cam', { detail: L.cam })); }
   L.mode = m; L.zoom = 'all'; layout(false); // picking a view always starts zoomed out
 }
 // drag bar between the club and the decks in SPLIT

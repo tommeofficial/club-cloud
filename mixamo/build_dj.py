@@ -17,6 +17,7 @@ MAP = [('hips', 'Hips'), ('spine', 'Spine'), ('chest', 'Spine2'), ('neck', 'Neck
        ('shoulder.L', 'LeftShoulder'), ('upper_arm.L', 'LeftArm'), ('forearm.L', 'LeftForeArm'), ('hand.L', 'LeftHand'),
        ('shoulder.R', 'RightShoulder'), ('upper_arm.R', 'RightArm'), ('forearm.R', 'RightForeArm'), ('hand.R', 'RightHand')]
 clips = {x.name: x for x in bpy.data.actions if x.name in ('play', 'idle', 'wave', 'hype', 'kiss')}
+for act in clips.values(): act.name += '_old'   # the new moves must be able to take the real names
 for o in added:
     if o.type == 'MESH': o.hide_viewport = True          # aiming is faster without the skin being recomputed each step
 if new.animation_data: new.animation_data.action = None
@@ -47,9 +48,13 @@ for name, act in clips.items():
     print('DBG', name, [round(x, 3) for x in q], [len(cb.fcurves) for l in out.layers for st in l.strips for cb in st.channelbags])
     made[name] = f1 - f0 + 1
     print('CLIP', name, made[name], 'frames')
+# the exporter reads NLA tracks most reliably: one track per move, named for it
+new.animation_data.action = None
 for n in made:
-    new.animation_data.action = bpy.data.actions[n]; new.animation_data.action_slot = new.animation_data.action.slots[0]; sc.frame_set(10)
-    print('CHECK', n, new.animation_data.action_slot.name_display if new.animation_data.action_slot else None, [round(x, 3) for x in new.pose.bones['mixamorig:LeftArm'].rotation_quaternion])
+    act = bpy.data.actions[n]
+    tr = new.animation_data.nla_tracks.new(); tr.name = n
+    st = tr.strips.new(n, 1, act); st.name = n
+    st.action_slot = act.slots[0]
 # the Mixamo T-pose action, if any, and the old rig have no place in the output
 new.animation_data.action = None
 for pb in new.pose.bones: pb.rotation_quaternion = (1, 0, 0, 0)
@@ -62,6 +67,6 @@ for x in list(bpy.data.actions):
 for img in bpy.data.images:
     if img.size[0] > max_px or img.size[1] > max_px:
         w, h = img.size; k = max_px / max(w, h); img.scale(int(w * k), int(h * k))
-bpy.ops.export_scene.gltf(filepath=out_glb, export_format='GLB', export_animations=True, export_animation_mode='ACTIONS',
+bpy.ops.export_scene.gltf(filepath=out_glb, export_format='GLB', export_animations=True, export_animation_mode='NLA_TRACKS',
                           export_force_sampling=True, export_frame_step=1, export_image_format='JPEG', export_jpeg_quality=86, export_yup=True)
 print('WROTE %s %.2f MB' % (out_glb, os.path.getsize(out_glb) / 1e6))

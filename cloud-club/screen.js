@@ -1,4 +1,4 @@
-// The LED screen's shader: six looks that crossfade, drawn through an LED dot grid. Shared by the club and the website.
+// The LED screen's shader: eight looks that crossfade, drawn through an LED dot grid. Shared by the club and the website.
 export function screenMaterial(THREE, textTex, specTex) {
   return new THREE.ShaderMaterial({
     fog: false,
@@ -48,6 +48,27 @@ export function screenMaterial(THREE, textTex, specTex) {
           float bars = step(r0, r) * step(r, r1) * smoothstep(0.5, 0.35, abs(fract(k*96.0) - 0.5));
           float core = smoothstep(r0 - 0.02, r0 - 0.08, r) * (0.4 + 0.6*kick);
           return pal(k + r) * bars * 1.6 + pal(b*0.05) * core + pal(r) * exp(-abs(r - r0)*30.0) * 0.6;
+        } else if (m > 5.5 && m < 6.5) { // 6 outrun: a sun sinking into a glowing grid that rushes towards you
+          float hz = -0.08;
+          if (p.y < hz) {
+            float dep = 0.32 / max(hz - p.y, 0.012);
+            float gx = abs(fract(p.x * dep * 0.9) - 0.5), gz = abs(fract(dep * 0.7 - b * 0.5) - 0.5);
+            float l = max(smoothstep(0.44, 0.5, gx), smoothstep(0.44, 0.5, gz));
+            return pal(0.15 + b * 0.01) * l * (0.55 + 0.9 * kick) * exp(-dep * 0.07) + pal(0.6) * 0.06;
+          }
+          vec2 sp = p - vec2(0.0, 0.3 + 0.02 * kick);
+          float sun = smoothstep(0.34, 0.325, length(sp));
+          float cut = step(0.0, sin(p.y * 46.0 - b * 0.4 + 2.0)) * smoothstep(0.28, 0.02, sp.y + 0.2);
+          vec3 sc = mix(pal(0.05), pal(0.35), (sp.y + 0.34) / 0.68);
+          return sc * sun * (1.0 - 0.9 * cut * step(sp.y, 0.0)) * (1.1 + 0.6 * kick) + pal(0.5) * exp(-abs(p.y - hz) * 22.0) * 0.8;
+        } else if (m > 6.5) { // 7 mirror bars: the spectrum as LED columns climbing from the middle line, mirrored both ways
+          float x = abs(p.x);
+          float col_ = floor(x * 28.0) / 28.0;
+          float v = texture2D(uSpec, vec2(col_, 0.5)).r;
+          float h = 0.05 + v * 0.85 * (0.75 + 0.25 * kick);
+          float inBar = step(abs(p.y), h) * step(fract(x * 28.0), 0.78);
+          float seg = step(0.12, fract(abs(p.y) * 18.0));
+          return pal(col_ * 0.8 + b * 0.02) * inBar * seg * 1.5 + pal(b * 0.03) * exp(-abs(p.y) * 14.0) * 0.4;
         } else if (m > 4.5) { // 5 black hole, Interstellar style: shadow, photon ring, a thin disk in front and its lensed back arching over and under
           vec2 q = p * 1.15;
           float rr = length(q), ang = atan(q.y, q.x);
@@ -92,7 +113,7 @@ export function screenMaterial(THREE, textTex, specTex) {
         // LED dot grid: each pixel is a little round light with a dark gap round it
         vec2 cell = fract(vUv * 150.0) - 0.5;
         float dot_ = smoothstep(0.5, 0.25, length(cell));
-        col *= 0.25 + 0.95*dot_;
+        col *= mix(0.25 + 0.95*dot_, 0.82 + 0.18*dot_, tx.a);   // text keeps its shape through the dots
         col *= smoothstep(1.0, 0.92, length(p));               // soft edge at the rim
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>

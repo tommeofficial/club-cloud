@@ -10,7 +10,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
-import { screenMaterial } from './screen.js';
+import { screenMaterial } from './screen.js?v=2';
 
 const el = document.getElementById('club');
 const canvas = document.getElementById('clubcv');
@@ -592,7 +592,7 @@ function buildBackdrop() {
   arc(white, Math.PI / 2 + gap);   // left C, opening to the right
   arc(blue, -Math.PI / 2 + gap);   // right C, opening to the left
   // round LED screen inside the C's
-  screen.cv = document.createElement('canvas'); screen.cv.width = screen.cv.height = 512; screen.g = screen.cv.getContext('2d');
+  screen.cv = document.createElement('canvas'); screen.cv.width = screen.cv.height = 1024; // drawn at 2x so the logo and titles stay crisp screen.g = screen.cv.getContext('2d');
   screen.tex = new THREE.CanvasTexture(screen.cv); screen.tex.colorSpace = THREE.SRGBColorSpace;
   screen.spec = new THREE.DataTexture(new Uint8Array(64), 64, 1, THREE.RedFormat); screen.spec.needsUpdate = true;
   screen.mat = screenMaterial(THREE, screen.tex, screen.spec);
@@ -617,12 +617,16 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   const g = screen.g, S = 512, u = screen.mat.uniforms;
   const phrase = Math.floor(beat / 16);
   if (phrase !== screen.lastPhrase) { screen.lastPhrase = phrase; if (Math.random() < 0.25) screen.show = beat; }
-  const showing = screen.show >= 0 && beat - screen.show < 4;
+  if (brain.lastDrop !== screen.lastDrop) { screen.lastDrop = brain.lastDrop; screen.show = beat; } // the name lands on every drop
+  const idleLogo = !brain.playing;
+  const showing = idleLogo || (screen.show >= 0 && beat - screen.show < 4);
   const msg = screen.msg && performance.now() < screen.msg.until ? screen.msg : null;
   // the graphics run on the GPU: pick a look every 16 beats and crossfade into it
-  if (phrase !== vis.phrase) {
-    vis.phrase = phrase; u.uModeA.value = u.uModeB.value;
-    const pool = brain.playing ? [0, 1, 2, 3, 4, 5] : [1, 4, 5];
+  const build = brain.playing && brain.lowSince > 2.5;
+  if (phrase !== vis.phrase || build !== vis.build) {
+    vis.phrase = phrase; vis.build = build; u.uModeA.value = u.uModeB.value;
+    // the look follows the moment: rushing tunnels and warps on a build, the grid and bars when it's hot, slow ones in a lull
+    const pool = !brain.playing ? [1, 4, 5, 6] : build ? [2, 0, 4] : brain.hype > 62 ? [0, 2, 3, 6, 7, 5] : [1, 3, 4, 5, 6, 7];
     let m; do m = pool[Math.floor(Math.random() * pool.length)]; while (pool.length > 1 && m === u.uModeA.value);
     u.uModeB.value = m; vis.fadeFrom = t;
   }
@@ -636,7 +640,7 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   for (let i = 0; i < 64; i++) { const bin = sb ? Math.floor(Math.pow(i / 64, 1.7) * sb.length * 0.45) + 2 : 0; const v = sb ? (sb[bin] + 95) / 65 : 0; d[i] = Math.max(0, Math.min(255, v * 255)); }
   screen.spec.needsUpdate = true;
   // text layer: welcome / shout-outs / tips, now playing, and the odd logo flash
-  g.clearRect(0, 0, S, S);
+  g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, S, S);
   const cc_ = cc(), M = cc_ && cc_.decks.find((x) => x.master && x.loaded && x.playing);
   const title = M && M.t ? (M.t.title || '') : '';
   if (title && title !== vis.title) { vis.title = title; vis.trackUntil = beat + 8; vis.artist = M.t.artist || ''; }
@@ -659,7 +663,7 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
       g.shadowColor = '#ffffff'; g.fillStyle = '#ffffff'; fit(vis.title, 62, S * 0.78); g.fillText(vis.title, S / 2, S / 2 + 8);
       if (vis.artist) { g.fillStyle = '#b8c6da'; fit(vis.artist, 32, S * 0.7); g.fillText(vis.artist, S / 2, S / 2 + 56); }
     } else if (showing) {
-      const a = Math.min(1, (beat - screen.show) * 2) * Math.min(1, (4 - (beat - screen.show)) * 2);
+      const a = idleLogo ? 1 : Math.min(1, (beat - screen.show) * 2) * Math.min(1, (4 - (beat - screen.show)) * 2);
       dim = 0.6 * a; g.globalAlpha = a;
       g.shadowBlur = 30; g.shadowColor = '#ffffff'; g.fillStyle = '#ffffff'; g.font = font(150); g.fillText('club', S / 2, S / 2 + 20);
       g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(58); g.fillText('C L O U D', S / 2, S / 2 + 100);
@@ -778,7 +782,9 @@ function buildSplatVenue() {
 
 async function loadCrowd() {
   const loader = new GLTFLoader();
-  const [gltfs, stars] = await Promise.all([Promise.all(MODELS.map((u) => loader.loadAsync(u))), Promise.all(FEATURED.map((f) => loader.loadAsync(f.model).catch(() => null)))]);
+  const total = MODELS.length + FEATURED.length + 1; let done = 0; // the loading screen's bar
+  const tick = (p) => p.finally(() => loadMsg.querySelector('.ldbar')?.style.setProperty('--p', Math.min(1, ++done / total)));
+  const [gltfs, stars] = await Promise.all([Promise.all(MODELS.map((u) => tick(loader.loadAsync(u)))), Promise.all(FEATURED.map((f) => tick(loader.loadAsync(f.model)).catch(() => null)))]);
   SPOTS.forEach(([x, z], i) => {
     const fi = FEATURED.findIndex((f, k) => f.spot === i && stars[k]);
     const star = fi >= 0 ? FEATURED[fi] : null;
@@ -965,14 +971,14 @@ function addProps(p) {
 let clubZoom = 1; // the club view is fixed at the close-up from the booth
 // which camera the club uses: 'booth' (over the DJ's shoulder) or 'crowd' (on the back wall, looking at the booth)
 let camView = 'booth';
-try { if (localStorage.getItem('cc-cam') === 'crowd') camView = 'crowd'; } catch (_) {}
+try { const v = localStorage.getItem('cc-cam'); if (v === 'crowd' || v === 'pan') camView = v; } catch (_) {}
 function setCamView(v) {
   camView = v;
   try { localStorage.setItem('cc-cam', v); } catch (_) {}
   // from the booth the DJ is drawn on her own layer over the deck UI; from the crowd she stands in the room so people can pass in front
-  if (dj) (v === 'crowd' ? scene : djScene).add(dj.root);
-  djCanvas.style.visibility = v === 'crowd' ? 'hidden' : '';
-  if (boothDecks) boothDecks.visible = v === 'crowd';
+  if (dj) (v !== 'booth' ? scene : djScene).add(dj.root);
+  djCanvas.style.visibility = v !== 'booth' ? 'hidden' : '';
+  if (boothDecks) boothDecks.visible = v !== 'booth';
   aimCamera();
 }
 window.addEventListener('cc-cam', (e) => setCamView(e.detail));
@@ -990,8 +996,8 @@ let djRenderer = null, djScene = null;
 function placeDecks() {
   const view = document.getElementById('view');
   if (!view) return;
-  view.style.visibility = mode === 'club' && camView === 'crowd' ? 'hidden' : '';
-  if (mode !== 'club' || !camera || camView === 'crowd') return;
+  view.style.visibility = mode === 'club' && camView !== 'booth' ? 'hidden' : '';
+  if (mode !== 'club' || !camera || camView !== 'booth') return;
   const vw = view.offsetWidth, vh = view.offsetHeight, w = el.clientWidth, h = el.clientHeight;
   if (!vw || !vh || !w || !h) return;
   const d = DECKS.w * vh / vw, y = BOOTH.tableY + 0.003;
@@ -1016,7 +1022,9 @@ window.addEventListener('cc-deckplace', () => placeDecks());
 function aimCamera() {
   if (!camera) return;
   const w = el.clientWidth, h = el.clientHeight;
-  if (camView === 'crowd') {
+  if (camView === 'pan') {
+    camera.fov = w / h < 1.3 ? 55 : 40; // CLUB 2: updatePanCam moves it every frame
+  } else if (camView === 'crowd') {
     // mounted on the back wall under the logo, looking over the crowd at the booth
     camera.fov = w / h < 1.3 ? 36 : 28;
     camera.position.set(0, 3.35, ROOM.z1 + 0.4);
@@ -1030,6 +1038,25 @@ function aimCamera() {
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(); // placeDecks projects through the camera, so it must already be in its new spot
   placeDecks();
+}
+// CLUB 2: a camera that drifts between shots on the beat: a new shot every 16 beats, every 8 when the crowd is flying
+const PAN = { shot: -1, block: -1 };
+const mix_ = THREE.MathUtils.lerp;
+const PAN_SHOTS = [
+  (k) => [[mix_(-3.2, 3.2, k), 1.9, -1.0], [mix_(1.2, -1.2, k), 1.35, -4.2]],                                          // along the front of the stage, across the faces
+  (k) => [[mix_(-1.6, 1.6, k), 1.9, mix_(-8.8, -7.2, k)], [0, 1.8, -0.5]],                                             // over the crowd's shoulders to the DJ
+  (k) => { const a = mix_(-0.9, 0.9, k); return [[Math.sin(a) * 4.6, 3.5, -3.8 - Math.cos(a) * 4.4], [0, 1.0, -3.8]]; }, // high arc round the back of the floor
+  (k) => [[mix_(-2.4, -1.5, k), 1.9, mix_(-1.5, -2.3, k)], [0, 1.78, 0]],                                             // close on the DJ from the side
+  (k) => [[mix_(3.6, 2.3, k), 0.95, -5.4], [mix_(0.2, -0.6, k), 1.3, -3.4]],                                          // low among the dancers
+  (k) => [[mix_(4.8, 4.0, k), 3.2, -10.6], [0, 1.2, -3]],                                                              // wide from the back corner
+];
+function updatePanCam(beat) {
+  const hot = brain.playing && brain.hype > 66, len = hot ? 8 : 16;
+  const block = Math.floor(beat / len);
+  if (block !== PAN.block) { PAN.block = block; let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot); PAN.shot = n; }
+  const k = (((beat % len) + len) % len) / len;
+  const [pos, look] = PAN_SHOTS[PAN.shot](k);
+  camera.position.set(pos[0], pos[1], pos[2]); camera.lookAt(look[0], look[1], look[2]);
 }
 window.addEventListener('cc-clubzoom', (e) => { clubZoom = e.detail; aimCamera(); });
 
@@ -1051,13 +1078,15 @@ function resize() {
 // the moving heads run one look at a time, changing every 8 beats: chases and still downlights when it's calm,
 // sweeps and fans when the crowd is up, and always a sweep or fan on a drop
 const look = { name: 'sweep', block: -1 };
+let curBeat = 0; // the beat the rig is running on, shared with the camera
 function pickLook(beat, drop) {
   const block = Math.floor(beat / 8);
   if (block === look.block) return;
   look.block = block;
   const hot = brain.hype > 62, r = Math.random();
   // chill: no chases or flashing pairs, just slow sweeps, fans and downlights that glow
-  if (light.style === 'chill') { look.name = ['sweep', 'sweep', 'fan', 'down'][Math.floor(r * 4)]; return; }
+  if (light.style === 'chill' || (brain.playing && brain.lowSince > 9)) { look.name = ['sweep', 'sweep', 'fan', 'down'][Math.floor(r * 4)]; return; }
+  if (light.style === 'rave') { look.name = drop ? 'sweep' : ['chase', 'pingpong', 'pairs', 'chase', 'sweep'][Math.floor(r * 5)]; return; }
   look.name = drop ? (r < 0.6 ? 'sweep' : 'fan')
     : hot ? ['sweep', 'sweep', 'fan', 'pairs', 'chase', 'pingpong'][Math.floor(r * 6)]
     : ['down', 'chase', 'pingpong', 'pairs', 'sweep'][Math.floor(r * 5)];
@@ -1065,7 +1094,14 @@ function pickLook(beat, drop) {
 function lights(t, dt) {
   const c = cc(); const M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
   const beat = light.adBeat != null ? light.adBeat : M ? ((M.vpos - M.first) / M.B) : t * 2; // the advert supplies its own track's beat
-  const chill = light.style === 'chill';
+  curBeat = beat;
+  // the rig follows the song: a build-up (the bass drops out) tightens and whitens the beams, a long lull softens everything
+  // into a glow whatever the style, and the drop lands as a blast
+  const buildAmt = brain.playing && brain.lowSince > 2.5 ? Math.min(1, (brain.lowSince - 2.5) / 8) : 0;
+  const lull = brain.playing && brain.lowSince > 9;
+  const chill = light.style === 'chill' || lull;
+  const rave = light.style === 'rave' && !lull;
+  const dropHit = t - brain.lastDrop < 0.25;
   // energetic punches on every kick; chill breathes slowly over two bars instead
   const pulse = chill ? 0.5 + 0.5 * Math.sin(beat * Math.PI / 4) : M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
   const k = light.intensity;
@@ -1083,7 +1119,9 @@ function lights(t, dt) {
   const colours = pal.length ? pal : PALETTE;
   const step = Math.floor(beat / Math.max(1, Math.round(8 - 6 * k))); // colour changes every 8 beats at low intensity, every 2 at high
   const speed = (0.4 + 1.6 * k) * (chill ? 0.35 : 1);
-  const strobe = !chill && drop && ((beat * 4) % 1 + 1) % 1 < 0.35;
+  const strobe = !chill && ((drop && ((beat * 4) % 1 + 1) % 1 < 0.35)
+    || (rave && energy > 0.45 && ((beat % 4) + 4) % 4 > 3 && ((beat * 2) % 1 + 1) % 1 < 0.4)      // rave: a burst on the last beat of every bar
+    || (buildAmt > 0.5 && ((beat * (2 + 4 * buildAmt)) % 1 + 1) % 1 < 0.3));                      // a build: flashes that speed up
   pickLook(beat, drop);
   beams.forEach((b, i) => {
     if (dark) { b.material.opacity = 0; b.userData.lens.material.color.setRGB(0.02, 0.02, 0.02); return; }
@@ -1092,23 +1130,26 @@ function lights(t, dt) {
     const base = chill ? 0.3 + 0.2 * pulse + 0.15 * energy : 0.12 + (0.25 + 0.5 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
     let P = 0, T = 0, lvl = base;
     const b4 = Math.floor(beat) % 4, b8 = Math.floor(beat) % 8;
-    switch (look.name) {
+    const lk = buildAmt > 0.15 && !chill ? 'fan' : look.name;
+    switch (lk) {
       case 'down': lvl = chill ? base : 0.3 + 0.25 * pulse; break;                                          // all straight down, still
       case 'chase': lvl = (row ? 3 - b4 : b4) === col ? 0.75 : 0; break;                      // one at a time along the row, rows opposite ways
       case 'pingpong': { const p = b8 < 4 ? b8 : 7 - b8; lvl = p === col ? 0.75 : 0; break; } // back and forth along the row
       case 'pairs': lvl = (Math.floor(beat) % 2) === (col % 2) ? 0.6 * (0.4 + 0.6 * pulse) : 0; break; // alternate pairs on each beat
-      case 'fan': P = (col - 1.5) * 0.32 + (chill ? Math.sin(beat * Math.PI / 16 + col) * 0.12 : 0); T = 0.38; lvl = chill ? base : 0.25 + 0.5 * pulse; break;          // still fan out over the crowd
+      case 'fan': P = (col - 1.5) * 0.32 * (1 - 0.7 * buildAmt) + (chill ? Math.sin(beat * Math.PI / 16 + col) * 0.12 : 0); T = 0.38 - 0.3 * buildAmt; lvl = chill ? base : 0.25 + 0.5 * pulse + 0.5 * buildAmt; break;          // still fan out over the crowd
       default:                                                                                 // sweeping
         P = mirror * Math.sin(beat * Math.PI / 4 * speed + i * 0.8) * 0.7;
         T = 0.3 + Math.cos(beat * Math.PI / 8 * speed + i * 0.6) * 0.35;
     }
     u.pan.rotation.y = P; u.tilt.rotation.x = T;
     b.position.set(u.x, u.y, u.z); b.rotation.set(T, P, 0, 'YXZ');
-    const hex = colours[(look.name === 'sweep' ? i + step : step) % colours.length];
+    const hex = colours[(lk === 'sweep' ? i + step : step) % colours.length];
     if (chill) b.material.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); // colours melt into each other
     else b.material.color.setHex(hex);
     if (strobe) b.material.color.lerp(WHITE, 0.6);
-    b.material.opacity = (lvl + (strobe ? 0.5 : 0)) * F;
+    if (buildAmt > 0) b.material.color.lerp(WHITE, 0.6 * buildAmt);
+    if (rave && !strobe) lvl *= 0.6; // rave keeps the heads low and lets the lasers carry it
+    b.material.opacity = (lvl + (strobe ? 0.5 : 0) + (dropHit ? 0.8 : 0)) * F;
     u.lens.material.color.copy(b.material.color).multiplyScalar(0.4 + b.material.opacity);
   });
   washes.forEach((l, i) => {
@@ -1116,12 +1157,12 @@ function lights(t, dt) {
     if (dark) { l.intensity = 0; return; }
     const hex = colours[(i * 2 + step) % colours.length];
     if (chill) l.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); else l.color.setHex(hex);
-    l.intensity = (chill ? 22 + 18 * pulse + 12 * energy : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * F;
+    l.intensity = ((chill ? 22 + 18 * pulse + 12 * energy : rave ? 8 + 18 * energy + (strobe ? 70 : 0) : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * (1 - 0.5 * buildAmt) + (dropHit ? 90 : 0)) * F;
   });
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
   // the haze picks up whatever the rig is throwing, shaft by shaft
-  updateAtmos(t, colours, step, energy, strobe, dark, F);
+  updateAtmos(t, colours, step, Math.min(1, energy + 0.5 * buildAmt + (dropHit ? 0.5 : 0)), strobe, dark, F);
   // the giant C's double as blinders: they blast white on a hit, strobe on a drop, and stay glowing through a blackout
   const flick = ((beat * 4) % 1 + 1) % 1 < 0.5 ? 1 : 0.15;
   const want = !light.on || !light.fx.blinders ? 0 : hitOn ? 1 : cut ? 0.25 : drop ? (chill ? 0.3 : 0.8 * flick) : 0;
@@ -1143,6 +1184,7 @@ function autoFx(t, beat) {
     if (light.fx.laser && Math.random() < 0.6) { auto.laser = Math.random() < 0.5 ? 'drop' : 'cone'; auto.laserEnd = beat + 8 + 8 * Math.floor(Math.random() * 2); }
   }
   if (auto.laser && beat > auto.laserEnd) auto.laser = null;
+  if (light.style === 'rave' && light.fx.laser && brain.playing && !auto.laser) { auto.laser = ['drop', 'kick', 'cone', 'drop'][Math.floor(Math.random() * 4)]; auto.laserEnd = beat + 16; }
   const phrase = Math.floor(beat / 16);
   if (phrase !== auto.phrase) {
     auto.phrase = phrase;
@@ -1152,7 +1194,7 @@ function autoFx(t, beat) {
       else if (!breakdown && Math.random() < 0.18) { auto.laser = 'kick'; auto.laserEnd = beat + 8; }
     }
   }
-  if (light.style === 'chill' && auto.laser && auto.laser !== 'slow' && auto.laser !== 'sheet') auto.laser = Math.random() < 0.5 ? 'slow' : 'sheet';
+  if ((light.style === 'chill' || (brain.playing && brain.lowSince > 9)) && auto.laser && auto.laser !== 'slow' && auto.laser !== 'sheet') auto.laser = Math.random() < 0.5 ? 'slow' : 'sheet';
   if (!light.fx.laser) auto.laser = null;
 }
 
@@ -1237,7 +1279,7 @@ function updateLasers(t, beat, dark) {
 // ------------------------------------------------------------------ atmosphere
 // Real club light only reads because there is haze in the air: the beams, washes and lasers are drawn through it,
 // the beams throw pools of light on the floor, and the CO2 sinks into a low fog. Phones get a lighter version.
-const LITE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
+const LITE = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
 const MAX_SHAFTS = 12; // light shafts the haze knows about: the moving heads first, then the washes
 
 // 3D value noise, a few octaves: the drifting body of the haze
@@ -1754,7 +1796,7 @@ if (lightMenu) {
     else if (b.dataset.lm === 'mute') sfx.on = !sfx.on;
     syncLightMenu();
   });
-  try { const st = localStorage.getItem('cc-light-style'); if (st === 'chill' || st === 'energetic') light.style = st; } catch (_) {}
+  try { const st = localStorage.getItem('cc-light-style'); if (st === 'chill' || st === 'energetic' || st === 'rave') light.style = st; } catch (_) {}
   lightMenu.querySelector('#lightIntensity').addEventListener('input', (e) => { light.intensity = e.target.value / 100; });
   const vol = lightMenu.querySelector('#crowdVol');
   try { const v = localStorage.getItem('cc-crowd-vol'); if (v != null) vol.value = v; } catch (_) {}
@@ -1795,6 +1837,7 @@ function frame() {
   updateTexts(dt);
   lights(t, dt);
   sfx.bed(brain.playing, brain.hype);
+  if (camView === 'pan' && mode === 'club') updatePanCam(curBeat);
   if (window.__adFrame) window.__adFrame(camera, dt, t);
   syncHaze();
   composer.render();
@@ -1858,7 +1901,7 @@ function updateDj(dt, t) {
     }
   }
   dj.mixer.update(dt);
-  if (camView !== 'crowd') djRenderer.render(djScene, camera);
+  if (camView === 'booth') djRenderer.render(djScene, camera);
 }
 
 async function start() {
@@ -1876,7 +1919,7 @@ async function start() {
   bloom = LITE ? new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.86) : new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.55, 0.82); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   resize();
-  try { await loadCrowd(); await loadDj(); resize(); loadMsg.hidden = true; }
+  try { await loadCrowd(); await loadDj(); loadMsg.querySelector('.ldbar')?.style.setProperty('--p', 1); resize(); loadMsg.hidden = true; }
   catch (e) { console.warn('crowd failed to load', e); loadMsg.textContent = 'The crowd could not load. Check your connection and reopen CLUB.'; }
 }
 
