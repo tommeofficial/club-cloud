@@ -22,12 +22,13 @@ const splash = document.getElementById('splash');
 const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // a scanned, rigged dancer who takes one spot at the front of the crowd
 // scanned, rigged people who take spots at the front; they have the full set of moves
-const FEATURED = [{ model: 'models/crowd_mia.glb', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_26064435.glb', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
+const FEATURED = [{ model: 'models/crowd_mia.glb', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
 // friends stand together and turn to each other to talk, hug and high-five
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
-const DANCES = ['dance', 'dance2', 'dance3'];
-const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'hype']); // 2-beat clips locked to the music
+const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
+const RESTS = ['idle', 'lookaround', 'listen', 'talk']; // what people do between songs, so nobody stands in step
+const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'dance4', 'dance5', 'hype']); // 2-beat clips locked to the music
 // where the crowd stands (x, z) — the DJ looks down -Z from the booth at z = 0
 // kept on the open floor: clear of the counter between the columns (z < -4.3) and the side tables (|x| > 2.2)
 const SPOTS = [[-1.2, -2.6], [0.1, -2.4], [1.25, -2.7], [-0.55, -3.3], [0.7, -3.35], [-2.1, -4.4], [1.9, -4.6], [-0.9, -5.4], [0.8, -5.9], [-2.0, -6.0]];
@@ -418,20 +419,22 @@ function updatePeople(dt) {
     if (p.hold && t > p.hold.until) { p.hold = null; p.yawTarget = 0; p.look = null; }
     // every new phrase, dancers may switch to another of their dances
     if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.dance = pick(p.dances); }
-    let want = 'idle';
-    if (playing) { const e = brain.hype + p.bias; want = e > 74 && has(p, 'hype') && p.style !== 'chill' ? 'hype' : e > 48 ? p.dance || 'idle' : 'idle'; }
+    if (!playing && t > (p.restUntil || 0)) { p.restUntil = t + rnd(8, 20); if (p.rests.length > 1 && Math.random() < 0.5) p.rest = pick(p.rests); }
+    let want = p.rest || 'idle';
+    if (playing) { const e = brain.hype + p.bias; want = e > 74 && has(p, 'hype') && p.style !== 'chill' ? 'hype' : e > 48 ? p.dance || p.rest : p.rest; }
     if (p.hold) want = p.hold.name;
     if (!p.busy && want !== p.loopName && p.actions[want]) {
       const next = p.actions[want];
       next.reset(); next.setLoop(THREE.LoopRepeat, Infinity); next.enabled = true; next.setEffectiveWeight(1);
+      if (!BEAT_LOOPS.has(want)) next.time = Math.random() * next.getClip().duration;
       next.fadeIn(0.4).play();
       if (p.loop && p.loop !== next) p.loop.fadeOut(0.4);
       p.loop = next; p.loopName = want;
     }
     if (p.loop && BEAT_LOOPS.has(p.loopName) && beats != null) {
-      // clips are 2 beats long; drive their time from the beat so everyone moves on the beat
-      const dur = p.loop.getClip().duration;
-      p.loop.time = ((((beats + p.offset) % 2) + 2) % 2 / 2) * dur;
+      // drive the clip's time from the beat so everyone stays on it, each from their own place in the move
+      const dur = p.loop.getClip().duration, bars = dur > 3 ? 16 : 2;
+      p.loop.time = (((((beats + p.phase + p.offset) % bars) + bars) % bars) / bars) * dur;
       p.loop.timeScale = 0;
     } else if (p.loop) p.loop.timeScale = 1;
     // undo last frame's breathing and head turn first, so they never pile up when no clip is writing these bones
@@ -775,11 +778,12 @@ async function loadCrowd() {
     const actions = {};
     for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
-    const hand = bone(/hand[._]?R/i), handL = bone(/hand[._]?L/i);
-    const p = { root, mixer, actions, hand, handL, head: bone(/^head$/i), chest: bone(/^chest$/i), loop: null, loopName: null, busy: false,
-      bias: rnd(-10, 10), offset: rnd(-0.06, 0.06), home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
+    const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
+    const p = { root, mixer, actions, hand, handL, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
+      bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: Math.floor(rnd(0, 16)), /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d]), dance: null, phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.dance = pick(p.dances);
+    p.rests = RESTS.filter((r) => actions[r]); p.rest = pick(p.rests) || 'idle';
     addProps(p);
     if (star.robot && p.head) { scene.updateMatrixWorld(true); p.robot = buildRobotHead(p.head, p); p.dances = p.dances.filter((d) => d !== 'dance3' || true); }
     p.spot = i;
