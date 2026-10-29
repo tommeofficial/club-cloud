@@ -405,7 +405,7 @@ function think1(p, t, playing) {
   const once = ['hairflip', 'clap', 'sing', 'wave', 'handsup'].filter((c) => has(p, c));
   if (r < 0.35 && once.length) react(p, pick(once));
 }
-const crowdEvents = { drop: -99, djKiss: -99, build: false };
+const crowdEvents = { drop: -99, djKiss: -99, build: false, lasers: false };
 function crowdMoments(t, playing) {
   // a drop: phones up for some, hugs and high-fives between friends
   if (brain.lastDrop !== crowdEvents.drop) {
@@ -419,6 +419,16 @@ function crowdMoments(t, playing) {
   const build = playing && brain.lowSince > 2.5;
   if (build && !crowdEvents.build) for (const p of people) if (Math.random() < 0.5) react(p, has(p, 'handsup') ? 'handsup' : 'cheer');
   crowdEvents.build = build;
+  // the lasers come in: hands go up across the floor, a few at a time, and stay up for a while
+  const lasersOn = playing && !!auto.laser;
+  if (lasersOn && !crowdEvents.lasers) {
+    for (const p of people) {
+      if (p.robot || !has(p, 'handsup')) continue;
+      const chance = p.style === 'chill' ? 0.3 : p.style === 'filmer' ? 0.35 : 0.75;
+      if (Math.random() < chance) setTimeout(() => { if (auto.laser) holdFor(p, 'handsup', rnd(4, 9)); }, rnd(150, 1400));
+    }
+  }
+  crowdEvents.lasers = lasersOn;
   // the DJ blew a kiss: some blow one back, others wave
   if (dj && dj.kissAt && dj.kissAt !== crowdEvents.djKiss) {
     crowdEvents.djKiss = dj.kissAt;
