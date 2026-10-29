@@ -49,7 +49,7 @@ const texts = [];
 let beams = [], washes = [], ledMat, signMat;
 // light show state, driven by the controls under the club view
 // effects are switched on or off here; when on they fire by themselves with the music
-const light = { on: true, colours: [true, true, true, true, true, true], intensity: 0.5, room: 0.45, fx: { laser: true, co2: true, blackout: true, blinders: true }, sfx: {} }; // sfx: name -> elapsed time it ends
+const light = { on: true, colours: [true, true, true, true, true, true], intensity: 0.5, style: 'energetic', room: 0.45, fx: { laser: true, co2: true, blackout: true, blinders: true }, sfx: {} }; // sfx: name -> elapsed time it ends
 const SFX_LENGTH = { co2: 3 };
 const DROP_CHEERS = ['sounds/cheer_big.m4a', 'sounds/cheer_small.m4a', 'sounds/cheer_teens.m4a'];
 const CO2_SOUND = 'sounds/co2.m4a';
@@ -1038,6 +1038,8 @@ function pickLook(beat, drop) {
   if (block === look.block) return;
   look.block = block;
   const hot = brain.hype > 62, r = Math.random();
+  // chill: no chases or flashing pairs, just slow sweeps, fans and downlights that glow
+  if (light.style === 'chill') { look.name = ['sweep', 'sweep', 'fan', 'down'][Math.floor(r * 4)]; return; }
   look.name = drop ? (r < 0.6 ? 'sweep' : 'fan')
     : hot ? ['sweep', 'sweep', 'fan', 'pairs', 'chase', 'pingpong'][Math.floor(r * 6)]
     : ['down', 'chase', 'pingpong', 'pairs', 'sweep'][Math.floor(r * 5)];
@@ -1045,7 +1047,9 @@ function pickLook(beat, drop) {
 function lights(t, dt) {
   const c = cc(); const M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
   const beat = light.adBeat != null ? light.adBeat : M ? ((M.vpos - M.first) / M.B) : t * 2; // the advert supplies its own track's beat
-  const pulse = M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
+  const chill = light.style === 'chill';
+  // energetic punches on every kick; chill breathes slowly over two bars instead
+  const pulse = chill ? 0.5 + 0.5 * Math.sin(beat * Math.PI / 4) : M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
   const k = light.intensity;
   // intensity sets how fast the rig moves and how hard it reacts to bass and drops, not how bright it is
   const energy = Math.min(1, brain.bassFast * (0.6 + 1.4 * k));
@@ -1053,36 +1057,38 @@ function lights(t, dt) {
   autoFx(t, beat);
   // blackout: the music cut out mid-set, so the rig goes dark until it comes back
   const cut = light.fx.blackout && !brain.playing && t - auto.lastPlay < 30; // the music cut out mid-set
-  const hitOn = light.fx.blinders && beat < auto.blindUntil;            // a blinder hit on a drop
+  const hitOn = !chill && light.fx.blinders && beat < auto.blindUntil;            // a blinder hit on a drop
   const scrDark = !light.on || cut || hitOn;
   const dark = scrDark || !!light.adDark; // the advert can hold the rig dark while the screen still plays
   const F = light.adFade ?? 1; // the advert fades the whole rig in
   const pal = PALETTE.filter((_, i) => light.colours[i]);
   const colours = pal.length ? pal : PALETTE;
   const step = Math.floor(beat / Math.max(1, Math.round(8 - 6 * k))); // colour changes every 8 beats at low intensity, every 2 at high
-  const speed = 0.4 + 1.6 * k;
-  const strobe = drop && ((beat * 4) % 1 + 1) % 1 < 0.35;
+  const speed = (0.4 + 1.6 * k) * (chill ? 0.35 : 1);
+  const strobe = !chill && drop && ((beat * 4) % 1 + 1) % 1 < 0.35;
   pickLook(beat, drop);
   beams.forEach((b, i) => {
     if (dark) { b.material.opacity = 0; b.userData.lens.material.color.setRGB(0.02, 0.02, 0.02); return; }
     // pan and tilt the head, and swing the beam with it; the look decides how
     const u = b.userData, mirror = i % 2 ? -1 : 1, col = i % 4, row = Math.floor(i / 4);
-    const base = 0.12 + (0.25 + 0.5 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
+    const base = chill ? 0.3 + 0.2 * pulse + 0.15 * energy : 0.12 + (0.25 + 0.5 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
     let P = 0, T = 0, lvl = base;
     const b4 = Math.floor(beat) % 4, b8 = Math.floor(beat) % 8;
     switch (look.name) {
-      case 'down': lvl = 0.3 + 0.25 * pulse; break;                                          // all straight down, still
+      case 'down': lvl = chill ? base : 0.3 + 0.25 * pulse; break;                                          // all straight down, still
       case 'chase': lvl = (row ? 3 - b4 : b4) === col ? 0.75 : 0; break;                      // one at a time along the row, rows opposite ways
       case 'pingpong': { const p = b8 < 4 ? b8 : 7 - b8; lvl = p === col ? 0.75 : 0; break; } // back and forth along the row
       case 'pairs': lvl = (Math.floor(beat) % 2) === (col % 2) ? 0.6 * (0.4 + 0.6 * pulse) : 0; break; // alternate pairs on each beat
-      case 'fan': P = (col - 1.5) * 0.32; T = 0.38; lvl = 0.25 + 0.5 * pulse; break;          // still fan out over the crowd
+      case 'fan': P = (col - 1.5) * 0.32 + (chill ? Math.sin(beat * Math.PI / 16 + col) * 0.12 : 0); T = 0.38; lvl = chill ? base : 0.25 + 0.5 * pulse; break;          // still fan out over the crowd
       default:                                                                                 // sweeping
         P = mirror * Math.sin(beat * Math.PI / 4 * speed + i * 0.8) * 0.7;
         T = 0.3 + Math.cos(beat * Math.PI / 8 * speed + i * 0.6) * 0.35;
     }
     u.pan.rotation.y = P; u.tilt.rotation.x = T;
     b.position.set(u.x, u.y, u.z); b.rotation.set(T, P, 0, 'YXZ');
-    b.material.color.setHex(colours[(look.name === 'sweep' ? i + step : step) % colours.length]);
+    const hex = colours[(look.name === 'sweep' ? i + step : step) % colours.length];
+    if (chill) b.material.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); // colours melt into each other
+    else b.material.color.setHex(hex);
     if (strobe) b.material.color.lerp(WHITE, 0.6);
     b.material.opacity = (lvl + (strobe ? 0.5 : 0)) * F;
     u.lens.material.color.copy(b.material.color).multiplyScalar(0.4 + b.material.opacity);
@@ -1090,8 +1096,9 @@ function lights(t, dt) {
   washes.forEach((l, i) => {
     l.target.position.x = Math.sin(beat * Math.PI / 4 * speed + i * 2) * 1.6;
     if (dark) { l.intensity = 0; return; }
-    l.color.setHex(colours[(i * 2 + step) % colours.length]);
-    l.intensity = (12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * F;
+    const hex = colours[(i * 2 + step) % colours.length];
+    if (chill) l.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); else l.color.setHex(hex);
+    l.intensity = (chill ? 22 + 18 * pulse + 12 * energy : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * F;
   });
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
@@ -1099,7 +1106,7 @@ function lights(t, dt) {
   updateAtmos(t, colours, step, energy, strobe, dark, F);
   // the giant C's double as blinders: they blast white on a hit, strobe on a drop, and stay glowing through a blackout
   const flick = ((beat * 4) % 1 + 1) % 1 < 0.5 ? 1 : 0.15;
-  const want = !light.on || !light.fx.blinders ? 0 : hitOn ? 1 : cut ? 0.25 : drop ? 0.8 * flick : 0;
+  const want = !light.on || !light.fx.blinders ? 0 : hitOn ? 1 : cut ? 0.25 : drop ? (chill ? 0.3 : 0.8 * flick) : 0;
   auto.blind = want > auto.blind ? want : Math.max(want, auto.blind - dt * 3);
   updateCs(auto.blind);
   updateScreen(t, beat, pulse, colours, step, scrDark);
@@ -1127,6 +1134,7 @@ function autoFx(t, beat) {
       else if (!breakdown && Math.random() < 0.18) { auto.laser = 'kick'; auto.laserEnd = beat + 8; }
     }
   }
+  if (light.style === 'chill' && auto.laser && auto.laser !== 'slow' && auto.laser !== 'sheet') auto.laser = Math.random() < 0.5 ? 'slow' : 'sheet';
   if (!light.fx.laser) auto.laser = null;
 }
 
@@ -1706,6 +1714,7 @@ function syncLightMenu() {
   lightMenu.querySelectorAll('[data-col]').forEach((b) => b.classList.toggle('on', light.colours[+b.dataset.col]));
   lightMenu.querySelector('[data-lm=all]').classList.toggle('on', light.colours.every(Boolean));
   lightMenu.querySelectorAll('[data-fx]').forEach((b) => b.classList.toggle('on', light.fx[b.dataset.fx]));
+  lightMenu.querySelectorAll('[data-style]').forEach((b) => b.classList.toggle('on', light.style === b.dataset.style));
   const m = lightMenu.querySelector('[data-lm=mute]'); m.classList.toggle('muted', !sfx.on);
   m.innerHTML = sfx.on ? SPEAKER_ON : SPEAKER_OFF; m.title = sfx.on ? 'Mute crowd sound' : 'Unmute crowd sound';
 }
@@ -1723,9 +1732,11 @@ if (lightMenu) {
       light.colours[i] = !light.colours[i];
       if (!light.colours.some(Boolean)) light.colours[i] = true; // always keep at least one colour
     } else if (b.dataset.fx) light.fx[b.dataset.fx] = !light.fx[b.dataset.fx];
+    else if (b.dataset.style) { light.style = b.dataset.style; try { localStorage.setItem('cc-light-style', light.style); } catch (_) {} }
     else if (b.dataset.lm === 'mute') sfx.on = !sfx.on;
     syncLightMenu();
   });
+  try { const st = localStorage.getItem('cc-light-style'); if (st === 'chill' || st === 'energetic') light.style = st; } catch (_) {}
   lightMenu.querySelector('#lightIntensity').addEventListener('input', (e) => { light.intensity = e.target.value / 100; });
   const vol = lightMenu.querySelector('#crowdVol');
   try { const v = localStorage.getItem('cc-crowd-vol'); if (v != null) vol.value = v; } catch (_) {}
