@@ -48,6 +48,23 @@ if len(meshes) > 1:
     bpy.ops.object.join()
 obj = bpy.context.view_layer.objects.active
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+# scans leave dozens of loose scraps floating about; they upset Mixamo's auto-rigger, so drop the tiny ones
+import bmesh
+MIN_PART = int(args[3]) if len(args) > 3 else 0
+if MIN_PART:
+    bm = bmesh.new(); bm.from_mesh(obj.data)
+    seen, drop = set(), []
+    for v in bm.verts:
+        if v.index in seen: continue
+        part, st = [v], [v]; seen.add(v.index)
+        while st:
+            x = st.pop()
+            for e in x.link_edges:
+                w = e.other_vert(x)
+                if w.index not in seen: seen.add(w.index); st.append(w); part.append(w)
+        if len(part) < MIN_PART: drop += part
+    bmesh.ops.delete(bm, geom=drop, context='VERTS'); bm.to_mesh(obj.data); bm.free()
+    print('CLEAN removed %d verts in loose scraps' % len(drop))
 low = min((obj.matrix_world @ v.co).z for v in obj.data.vertices)
 obj.location.z -= low
 bpy.ops.object.transform_apply(location=True)
