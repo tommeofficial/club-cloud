@@ -403,9 +403,13 @@ function placeStage(animate) {
   const shown = L.mode === 'club' ? (L.cam === 'booth' ? 'djview' : 'club') : L.mode;
   for (const b of tabs.querySelectorAll('[data-mode]')) b.classList.toggle('on', b.dataset.mode === shown);
   // CLUB is one tab: the first press is the fixed view (1), pressing it again moves to the next (2)
-  const cb = tabs.querySelector('[data-mode=club]'); if (cb) cb.textContent = shown === 'club' ? (L.cam === 'pan' ? 'CLUB 2' : 'CLUB 1') : 'CLUB';
+  const cb = tabs.querySelector('[data-mode=club]');
+  if (cb) { const v = shown === 'club' ? (L.cam === 'pan' ? 'b' : 'a') : ''; cb.innerHTML = clubTabHtml(v); cb.title = v === 'a' ? 'Camera A. Press again for camera B' : v === 'b' ? 'Camera B (auto camera). Press again for camera A' : 'The club. Press again to switch between camera A and B'; }
 }
 
+// the CLUB tab is two views in one: CLUB with an A / B pair and a cycle arrow, so it is obvious it can be pressed again
+const CYCLE = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 6.2A5.2 5.2 0 0 0 3.6 4.9M2.8 9.8a5.2 5.2 0 0 0 9.6 1.3"/><path d="M3.4 1.9v3.2h3.2M12.6 14.1v-3.2H9.4"/></svg>';
+const clubTabHtml = (v) => `CLUB<span class="ab"><i class="${v === 'a' ? 'on' : ''}">A</i><i class="${v === 'b' ? 'on' : ''}">B</i>${CYCLE}</span>`;
 function setZoom(z) { L.zoom = L.zoom === z ? 'all' : z; placeStage(true); } // pressing the open side again goes back to both decks
 // DJ VIEW and CLUB 1 / CLUB 2 are all the 3D club: DJ VIEW looks over the DJ's shoulder, CLUB 1 looks at the stage from the back wall
 // (fixed), CLUB 2 is the same room with a camera that drifts between shots on the beat
