@@ -10,7 +10,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
-import { screenMaterial } from './screen.js?v=4';
+import { screenMaterial } from './screen.js?v=5';
 import { createBeatTracker } from './beattrack.js?v=3';
 
 const el = document.getElementById('club');
