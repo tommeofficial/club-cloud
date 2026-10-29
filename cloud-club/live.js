@@ -17,10 +17,11 @@ function tuneOpus(sdp) {
       ? `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=${BITRATE}` : line));
 }
 
-export function createLive({ channel, me, isDj, onState = () => {}, onListenStream = () => {} }) {
+export function createLive({ channel, me, isDj, onState = () => {}, onListenStream = () => {}, onSync = () => {} }) {
   const L = {
     isDj, on: false, listening: false, full: false,
     peers: new Map(),          // DJ: listener id -> RTCPeerConnection
+    dcs: new Map(),            // DJ: listener id -> the data channel that carries beat and light timing
     stream: null,              // DJ: the mix being sent
     fanPc: null, audio: null,  // listener: the one connection to the DJ, and the element playing it
     count: () => L.peers.size,
@@ -38,20 +39,22 @@ export function createLive({ channel, me, isDj, onState = () => {}, onListenStre
     if (!isDj || !L.on) return;
     send({ type: 'lv-off' });
     for (const pc of L.peers.values()) pc.close();
-    L.peers.clear(); L.on = false; L.stream = null; emit();
+    L.peers.clear(); L.dcs.clear(); L.on = false; L.stream = null; emit();
   };
   async function offerTo(fan) {
-    if (L.peers.has(fan)) { L.peers.get(fan).close(); L.peers.delete(fan); }   // they pressed again: start clean
+    if (L.peers.has(fan)) { L.peers.get(fan).close(); L.peers.delete(fan); L.dcs.delete(fan); }   // they pressed again: start clean
     if (L.peers.size >= MAX_LISTENERS) { send({ type: 'lv-full', to: fan }); return; }
     const pc = new RTCPeerConnection(ICE);
     L.peers.set(fan, pc);
     pc.onicecandidate = (e) => { if (e.candidate) send({ type: 'lv-ice', to: fan, c: e.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => {
       if (['failed', 'closed', 'disconnected'].includes(pc.connectionState) && L.peers.get(fan) === pc) {
-        if (pc.connectionState !== 'disconnected') { pc.close(); L.peers.delete(fan); }
+        if (pc.connectionState !== 'disconnected') { pc.close(); L.peers.delete(fan); L.dcs.delete(fan); }
       }
       emit();
     };
+    // beat and light timing ride alongside the sound: small, often, and never worth waiting for (a late packet is dropped)
+    L.dcs.set(fan, pc.createDataChannel('sync', { ordered: false, maxRetransmits: 0 }));
     for (const t of L.stream.getAudioTracks()) pc.addTrack(t, L.stream);
     for (const s of pc.getSenders()) {
       const p = s.getParameters(); p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}];
@@ -62,6 +65,13 @@ export function createLive({ channel, me, isDj, onState = () => {}, onListenStre
     await pc.setLocalDescription(offer);
     send({ type: 'lv-offer', to: fan, sdp: pc.localDescription.toJSON() }); emit();
   }
+
+  // DJ: send one packet of beat and light timing to everyone who is listening
+  L.sendSync = (obj) => {
+    if (!L.on || !L.dcs.size) return;
+    const msg = JSON.stringify(obj);
+    for (const dc of L.dcs.values()) if (dc.readyState === 'open') dc.send(msg);
+  };
 
   // ------------------------------------------------------------------ listener
   L.join = () => {
@@ -86,6 +96,7 @@ export function createLive({ channel, me, isDj, onState = () => {}, onListenStre
     const pc = new RTCPeerConnection(ICE); L.fanPc = pc;
     pc.onicecandidate = (e) => { if (e.candidate) send({ type: 'lv-ice', to: ev.from, c: e.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState) && L.fanPc === pc) L.leave(); else emit(); };
+    pc.ondatachannel = (e) => { e.channel.onmessage = (m) => { try { onSync(JSON.parse(m.data)); } catch (_) {} }; };
     pc.ontrack = (e) => {
       const stream = e.streams[0];
       L.audio.srcObject = stream; L.audio.play().catch(() => {});
@@ -106,7 +117,7 @@ export function createLive({ channel, me, isDj, onState = () => {}, onListenStre
         else if (ev.type === 'lv-hello' && L.on) await offerTo(ev.from);
         else if (ev.type === 'lv-answer') { const pc = L.peers.get(ev.from); if (pc) await pc.setRemoteDescription(ev.sdp); }
         else if (ev.type === 'lv-ice') { const pc = L.peers.get(ev.from); if (pc) await pc.addIceCandidate(ev.c); }
-        else if (ev.type === 'lv-bye') { const pc = L.peers.get(ev.from); if (pc) { pc.close(); L.peers.delete(ev.from); emit(); } }
+        else if (ev.type === 'lv-bye') { const pc = L.peers.get(ev.from); if (pc) { pc.close(); L.peers.delete(ev.from); L.dcs.delete(ev.from); emit(); } }
       } else {
         if (ev.type === 'lv-on') { L.on = true; emit(); }
         else if (ev.type === 'lv-off') { L.on = false; L.leave(); emit(); }

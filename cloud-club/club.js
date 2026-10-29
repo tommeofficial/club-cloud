@@ -11,7 +11,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
 import { screenMaterial } from './screen.js?v=7';
-import { createBeatTracker } from './beattrack.js?v=3';
+import { createBeatTracker } from './beattrack.js?v=4';
 
 const el = document.getElementById('club');
 const canvas = document.getElementById('clubcv');
@@ -58,7 +58,7 @@ const texts = [];
 let beams = [], washes = [], ledMat, signMat;
 // light show state, driven by the controls under the club view
 // effects are switched on or off here; when on they fire by themselves with the music
-const light = { syncMs: 0, on: true, colours: [true, true, true, true, true, true], intensity: 0.5, style: 'energetic', room: 0.45, fx: { laser: true, co2: true, blackout: true, blinders: true }, sfx: {} }; // sfx: name -> elapsed time it ends
+const light = { on: true, colours: [true, true, true, true, true, true], intensity: 0.5, style: 'energetic', room: 0.45, fx: { laser: true, co2: true, blackout: true, blinders: true }, sfx: {} }; // sfx: name -> elapsed time it ends
 const SFX_LENGTH = { co2: 3 };
 const DROP_CHEERS = ['sounds/cheer_big.m4a', 'sounds/cheer_small.m4a', 'sounds/cheer_teens.m4a'];
 const CO2_SOUND = 'sounds/co2.m4a';
@@ -100,7 +100,28 @@ function keyOk(a, b) {
 // Beat sync and mix quality need the app's own decks, so the crowd doesn't judge those.
 let inputMode = false;
 const ext = { ctx: null, analyser: null, stream: null, bufT: null, specBuf: null };
-const live = createBeatTracker(); // finds the tempo and keeps the beat for a mic / line-in, where there is no beat grid
+// A listener of a live broadcast follows the DJ's own club: the DJ sends the beat clock and the light and effect state, so the lights, camera cuts,
+// crowd and screen agree with the DJ's exactly. The listener's own beat tracker only measures the small network delay (when the kicks that arrive
+// in the sound land against the DJ's clock), so the lights fall on the kicks the listener actually hears.
+const remote = { on: false, p: null, rx: 0, line: null, off: 0, samples: 0, prevDrop: 1e9, co2: false };
+const wrap = (x) => x - Math.round(x);
+const lineBeat = (now) => remote.line.b + (now - remote.line.rx0) / 1000 * remote.p.bpm / 60;
+const remoteBeat = (now = performance.now()) => lineBeat(now) + remote.off;
+function applySync(p) {
+  const now = performance.now(); remote.p = p; remote.rx = now;
+  if (!remote.line || !remote.on) { remote.line = { b: p.beat, rx0: now }; remote.on = true; remote.samples = 0; remote.off = 0; remote.prevDrop = 1e9; return; }
+  const pred = lineBeat(now), eps = p.beat - pred;
+  remote.line = Math.abs(eps) > 0.4 ? { b: p.beat, rx0: now } : { b: pred + eps * 0.12, rx0: now }; // smooth out network jitter; jump if the DJ's clock leapt
+}
+function endSync() { remote.on = false; remote.line = null; }
+const live = createBeatTracker();
+live.hook = (now, at) => { // a kick has been heard: where did it land on the DJ's clock?
+  if (!remote.on || !remote.line) return;
+  const perf = performance.now() - (now - at) * 1000, e = Math.round(lineBeat(perf)) - lineBeat(perf);
+  if (remote.samples === 0) remote.off = e;
+  else { const d = wrap(e - remote.off); if (Math.abs(d) < 0.3) remote.off += d * 0.1; }
+  remote.samples++;
+}; // finds the tempo and keeps the beat for a mic / line-in, where there is no beat grid
 
 async function useInput(deviceId) {
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -118,7 +139,7 @@ async function useStream(stream, owned = false) {
   const src = ctx.createMediaStreamSource(stream); src.connect(analyser);
   let node = null; // kicks are found on the audio thread, where no sample can be skipped
   try {
-    await ctx.audioWorklet.addModule('onset-worklet.js?v=2');
+    await ctx.audioWorklet.addModule('onset-worklet.js?v=3');
     node = new AudioWorkletNode(ctx, 'onset');
     node.port.onmessage = (e) => live.kickAt(ctx.currentTime, e.data.at);
     const mute = ctx.createGain(); mute.gain.value = 0; src.connect(node); node.connect(mute).connect(ctx.destination);
@@ -222,7 +243,7 @@ function think(dt, t) {
   brain.hype = THREE.MathUtils.clamp(brain.hype + d * dt, 0, 100);
 
   // big drop: bass slams back after a quiet stretch
-  if (brain.bassFast < 0.28) brain.lowSince += dt; else if (brain.bassFast > 0.55) {
+  if (remote.on) { /* the DJ's club says when builds and drops happen */ } else if (brain.bassFast < 0.28) brain.lowSince += dt; else if (brain.bassFast > 0.55) {
     if (brain.lowSince > 3.5 && t - brain.lastDrop > 8 && playing) { brain.lastDrop = t; brain.hype = Math.min(100, brain.hype + 22); everyone('cheer', 0.35, ['WOOO!', 'YESSS!', 'DROP!']); }
     brain.lowSince = 0;
   }
@@ -447,16 +468,38 @@ function chooseDance(p, bpm) {
   const pool = (TIERS[tier][p.sex] || TIERS[tier].m).filter((d) => p.dances.includes(d) && d !== p.dance);
   return pool.length ? pick(pool) : p.dance;
 }
+function applyRemote(t) {
+  if (remote.on && performance.now() - remote.rx > 1500) endSync(); // the DJ's packets stopped: back to following the sound
+  if (!remote.on) return;
+  const p = remote.p, el = (performance.now() - remote.rx) / 1000, beat = remoteBeat(), perBeat = p.bpm / 60;
+  brain.playing = p.playing; brain.hype = p.hype; brain.bassFast = p.bf; brain.bassSlow = p.bs; brain.lowSince = p.low + el;
+  const dropAge = p.drop + el; brain.lastDrop = t - dropAge; auto.drop = brain.lastDrop;
+  if (brain.playing) auto.lastPlay = t;
+  light.style = p.style; light.intensity = p.k; light.on = p.on; Object.assign(light.fx, p.fx);
+  for (let i = 0; i < light.colours.length; i++) light.colours[i] = !!p.col[i];
+  look.name = p.look; look.block = Math.floor(beat / 8);
+  auto.laser = p.laser; auto.laserEnd = beat + p.laserLeft - el * perBeat; auto.blindUntil = beat + p.blindLeft - el * perBeat;
+  if (dropAge < remote.prevDrop - 0.5) sfx.drop();   // a fresh drop on the DJ's side
+  remote.prevDrop = dropAge;
+  if (p.co2 - el > 0.3) { if (!remote.co2) { remote.co2 = true; light.sfx.co2 = t + p.co2 - el; sfx.co2(); } } else remote.co2 = false;
+}
+// what the DJ sends: everything a listener's club needs to do the same show
+function syncPacket() {
+  const t = clock.elapsedTime;
+  return { beat: curBeat, bpm: curBpm, playing: brain.playing, hype: brain.hype, bf: brain.bassFast, bs: brain.bassSlow, low: brain.lowSince, drop: t - brain.lastDrop,
+    style: light.style, k: light.intensity, col: light.colours.map(Boolean), on: light.on, fx: { ...light.fx }, look: look.name,
+    laser: auto.laser || null, laserLeft: auto.laser ? Math.max(0, auto.laserEnd - curBeat) : 0, blindLeft: Math.max(0, auto.blindUntil - curBeat), co2: Math.max(0, (light.sfx.co2 || 0) - t) };
+}
 function updatePeople(dt) {
   const c = cc(); if (!c) return;
   const t = clock.elapsedTime;
   const M = c.decks.find((d) => d.master && d.loaded && d.playing) || c.decks.find((d) => d.loaded && d.playing && c.chanGain(d.i) > 0.1);
   const lockedIn = inputMode && !M && live.conf > 0.4;
-  const beats = M ? (M.vpos - M.first) / M.B : lockedIn ? live.beat : null;
-  const playing = inputMode ? brain.playing : !!M && brain.dead < 1;
+  const beats = remote.on ? remoteBeat() : M ? (M.vpos - M.first) / M.B : lockedIn ? live.beat : null;
+  const playing = inputMode || remote.on ? brain.playing : !!M && brain.dead < 1;
   crowdMoments(t, playing);
   const phrase = beats != null ? Math.floor(beats / 16) : -1;
-  const tempo = M ? 60 / M.B : inputMode ? live.bpm : 125; // slow tunes get the easy grooves, fast ones the big moves
+  const tempo = remote.on ? remote.p.bpm : M ? 60 / M.B : inputMode ? live.bpm : 125; // slow tunes get the easy grooves, fast ones the big moves
   const kickPulse = beats != null ? Math.pow(1 - (((beats % 1) + 1) % 1), 3) : 0;
   for (const p of people) {
     if (t > p.nextThink) { p.nextThink = t + rnd(3, 8); think1(p, t, playing); }
@@ -1124,7 +1167,7 @@ function resize() {
 // the moving heads run one look at a time, changing every 8 beats: chases and still downlights when it's calm,
 // sweeps and fans when the crowd is up, and always a sweep or fan on a drop
 const look = { name: 'sweep', block: -1 };
-let curBeat = 0; // the beat the rig is running on, shared with the camera
+let curBeat = 0, curBpm = 120; // the beat the rig is running on, shared with the camera and sent to listeners
 let buildStart = null; // the beat a build-up began on
 function pickLook(beat, drop) {
   const block = Math.floor(beat / 8);
@@ -1140,10 +1183,10 @@ function pickLook(beat, drop) {
 }
 function lights(t, dt) {
   const c = cc(); const M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
-  const locked = inputMode && !M && live.conf > 0.4; // a mic whose beat has been found
-  const bpmNow = M ? 60 / M.B : locked ? live.bpm : 120;
-  // LIGHT SYNC nudges every light, screen and camera move earlier (+) or later (-) to match the room's own delay: speakers, bluetooth, a mic's distance
-  const beat = (light.adBeat != null ? light.adBeat : M ? ((M.vpos - M.first) / M.B) : locked ? live.beat : t * 2) + light.syncMs / 1000 * bpmNow / 60; // the advert supplies its own track's beat
+  const locked = remote.on || (inputMode && !M && live.conf > 0.4); // the DJ's clock, or a mic whose beat has been found
+  const bpmNow = remote.on ? remote.p.bpm : M ? 60 / M.B : locked ? live.bpm : 120;
+  curBpm = bpmNow;
+  const beat = light.adBeat != null ? light.adBeat : remote.on ? remoteBeat() : M ? ((M.vpos - M.first) / M.B) : locked ? live.beat : t * 2; // the advert supplies its own track's beat
   curBeat = beat;
   // the rig follows the song: a build-up (the bass drops out) tightens and whitens the beams, a long lull softens everything
   // into a glow whatever the style, and the drop lands as a blast
@@ -1162,7 +1205,7 @@ function lights(t, dt) {
   // intensity sets how fast the rig moves and how hard it reacts to bass and drops, not how bright it is
   const energy = Math.min(1, brain.bassFast * (0.6 + 1.4 * k));
   const drop = t - brain.lastDrop < 0.5 + 2.5 * k;
-  autoFx(t, beat);
+  if (!remote.on) autoFx(t, beat); // on a listener's screen the DJ's club makes these choices
   // blackout: the music cut out mid-set, so the rig goes dark until it comes back
   const cut = light.fx.blackout && !brain.playing && t - auto.lastPlay < 30; // the music cut out mid-set
   const hitOn = !chill && light.fx.blinders && beat < auto.blindUntil;            // a blinder hit on a drop
@@ -1853,10 +1896,6 @@ if (lightMenu) {
     syncLightMenu();
   });
   try { const st = localStorage.getItem('cc-light-style'); if (st === 'chill' || st === 'energetic' || st === 'rave') light.style = st; } catch (_) {}
-  const sync = lightMenu.querySelector('#lightSync'), syncOut = lightMenu.querySelector('#lightSyncVal');
-  try { const v = localStorage.getItem('cc-light-sync'); if (v != null) sync.value = v; } catch (_) {}
-  const setSync = () => { light.syncMs = +sync.value; syncOut.textContent = (light.syncMs > 0 ? '+' : '') + light.syncMs + ' ms'; try { localStorage.setItem('cc-light-sync', sync.value); } catch (_) {} };
-  sync.addEventListener('input', setSync); sync.addEventListener('dblclick', () => { sync.value = 0; setSync(); }); setSync();
   lightMenu.querySelector('#lightIntensity').addEventListener('input', (e) => { light.intensity = e.target.value / 100; });
   const vol = lightMenu.querySelector('#crowdVol');
   try { const v = localStorage.getItem('cc-crowd-vol'); if (v != null) vol.value = v; } catch (_) {}
@@ -1891,6 +1930,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
   think(dt, t);
+  applyRemote(t);
   pushRoomState(t);
   updatePeople(dt);
   updateFlying(dt);
@@ -1992,4 +2032,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { live, useInput, useStream, stopInput, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };

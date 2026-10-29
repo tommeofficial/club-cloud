@@ -55,6 +55,7 @@ export function createBeatTracker() {
     T.hits.push(Math.abs(err) < 0.12 ? 1 : 0); if (T.hits.length > 16) T.hits.shift();
     T.conf = T.hits.reduce((a, b) => a + b, 0) / T.hits.length * Math.min(1, T.hits.length / 8);
     T.err = err;
+    if (T.hook) T.hook(now, at);
     if (T.conf > 0.5 && Math.abs(err) < 0.2) T.bpm *= 1 + err * 0.1;   // a steady lead or lag means the tempo is off: let it creep to follow a tempo change
   }
 

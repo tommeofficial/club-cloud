@@ -5,7 +5,7 @@
 // Rooms: open the app plainly and you are the DJ in your own room (your username).
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
-import { createLive } from './live.js?v=1';
+import { createLive } from './live.js?v=2';
 
 const panel = document.getElementById('chatpanel');
 const log = document.getElementById('chatlog');
@@ -239,14 +239,17 @@ function setupLive() {
       listenBtn.classList.toggle('on', st.listening); listenBtn.textContent = st.listening ? 'STOP LISTENING' : st.full ? 'ROOM FULL, TRY LATER' : 'LISTEN LIVE';
     },
     // what a listener hears is also what their club reacts to: lights, crowd and screen follow the stream
-    onListenStream: (stream) => { if (stream) window.__club?.useStream(stream); else window.__club?.stopInput(); },
+    onListenStream: (stream) => { if (stream) window.__club?.useStream(stream); else { window.__club?.stopInput(); window.__club?.endSync(); } },
+    // the DJ's beat clock and light state: the listener's club does the DJ's show
+    onSync: (p) => window.__club?.applySync(p),
   });
   goBtn.onclick = () => {
-    if (S.live.on) { S.live.stop(); system('You are off air.', 'sys'); return; }
+    if (S.live.on) { S.live.stop(); clearInterval(S.syncTimer); system('You are off air.', 'sys'); return; }
     window.__cc?.unlock?.();
     const tap = window.__cc?.master?.tap;
     if (!tap) { system('The audio engine has not started yet. Press play on a deck first, then try again.', 'err'); return; }
     S.live.start(tap.stream); system('You are live. Everyone in the room can press LISTEN LIVE.', 'ok');
+    clearInterval(S.syncTimer); S.syncTimer = setInterval(() => { if (S.live.on) S.live.sendSync(window.__club.syncPacket()); else clearInterval(S.syncTimer); }, 100);
   };
   listenBtn.onclick = () => { if (S.live.listening) S.live.leave(); else S.live.join(); };
   if (!S.isDj) setTimeout(() => S.live.ask(), 1200); // is the DJ already on air?

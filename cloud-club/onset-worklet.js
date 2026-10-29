@@ -1,5 +1,5 @@
 // Finds kicks in the incoming audio on the audio thread, so none are missed however slowly the page is drawing.
-import { OnsetDetector } from './beattrack.js?v=3';
+import { OnsetDetector } from './beattrack.js?v=4';
 class Onset extends AudioWorkletProcessor {
   constructor() { super(); this.det = new OnsetDetector(sampleRate); }
   process(inputs) {
