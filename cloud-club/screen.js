@@ -61,15 +61,18 @@ export function screenMaterial(THREE, textTex, specTex) {
           float cut = step(0.0, sin(p.y * 46.0 - b * 0.4 + 2.0)) * smoothstep(0.28, 0.02, sp.y + 0.2);
           vec3 sc = mix(pal(0.05), pal(0.35), (sp.y + 0.34) / 0.68);
           return sc * sun * (1.0 - 0.9 * cut * step(sp.y, 0.0)) * (1.1 + 0.6 * kick) + pal(0.5) * exp(-abs(p.y - hz) * 22.0) * 0.8;
-        } else if (m > 7.5) { // 8 orb: a soft, mottled ball of pale light that swells on the kick; the LED dots do the rest
+        } else if (m > 7.5) { // 8 orb: a solid ball of mottled pale light that spins and swells on the kick; the LED dots do the rest
           vec2 q = p / 0.86; float rr = length(q);
-          if (rr > 1.0) return pal(b*0.03) * exp(-(rr - 1.0) * 6.0) * 0.35;
+          if (rr > 1.0) return vec3(0.0);                                   // a hard edge: nothing outside the ball
           vec3 n = vec3(q, sqrt(1.0 - rr*rr));
-          float dif = 0.45 + 0.55 * max(0.0, dot(n, normalize(vec3(-0.35, 0.45, 0.82))));
-          float mott = fbm(q * 3.2 + vec2(uTime * 0.05, -uTime * 0.04)) * 0.8 + fbm(q * 7.0 - uTime * 0.03) * 0.35;
+          float sp = uTime * 0.3, cs = cos(sp), sn = sin(sp);
+          vec3 nr = vec3(cs*n.x + sn*n.z, n.y, -sn*n.x + cs*n.z);          // the same point, turned about the ball's upright axis
+          float dif = 0.4 + 0.6 * max(0.0, dot(n, normalize(vec3(-0.35, 0.45, 0.82))));
+          float mott = fbm(vec2(nr.x * 3.0 + nr.z * 1.7, nr.y * 3.0 - nr.z * 1.3)) * 0.85 + fbm(vec2(nr.x * 7.0 - nr.z * 2.9, nr.y * 7.0 + nr.z * 3.3)) * 0.3;
           vec3 base = mix(vec3(0.82, 0.88, 0.98), pal(b * 0.02 + 0.1), 0.18);
-          vec3 col = base * dif * (0.45 + 0.75 * mott) * (0.8 + 0.5 * kick);
-          return col + pal(0.4) * exp(-abs(rr - 1.0) * 16.0) * 0.55;
+          vec3 col = base * dif * (0.4 + 0.85 * mott) * (0.8 + 0.5 * kick);
+          col += vec3(0.9, 0.95, 1.0) * smoothstep(0.93, 0.995, rr) * 0.45;   // a bright rim to define the edge
+          return col;
         } else if (m > 6.5) { // 7 mirror bars: the spectrum as LED columns climbing from the middle line, mirrored both ways
           float x = abs(p.x);
           float col_ = floor(x * 28.0) / 28.0;
