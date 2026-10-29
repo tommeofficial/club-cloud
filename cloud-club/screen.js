@@ -1,4 +1,4 @@
-// The LED screen's shader: eight looks that crossfade, drawn through an LED dot grid. Shared by the club and the website.
+// The LED screen's shader: nine looks that crossfade, drawn through an LED dot grid. Shared by the club and the website.
 export function screenMaterial(THREE, textTex, specTex) {
   return new THREE.ShaderMaterial({
     fog: false,
@@ -61,6 +61,20 @@ export function screenMaterial(THREE, textTex, specTex) {
           float cut = step(0.0, sin(p.y * 46.0 - b * 0.4 + 2.0)) * smoothstep(0.28, 0.02, sp.y + 0.2);
           vec3 sc = mix(pal(0.05), pal(0.35), (sp.y + 0.34) / 0.68);
           return sc * sun * (1.0 - 0.9 * cut * step(sp.y, 0.0)) * (1.1 + 0.6 * kick) + pal(0.5) * exp(-abs(p.y - hz) * 22.0) * 0.8;
+        } else if (m > 7.5) { // 8 mirror ball: a spinning ball of little mirrors, each tile catching a different colour of the rig and flashing
+          vec2 q = p / 0.82; float rr = length(q);
+          if (rr > 1.0) return pal(b*0.03) * exp(-(rr - 1.0) * 7.0) * 0.3;
+          vec3 n0 = vec3(q, sqrt(1.0 - rr*rr)); float sp = uTime * 0.35, cs = cos(sp), sn = sin(sp);
+          vec3 n = vec3(cs*n0.x + sn*n0.z, n0.y, -sn*n0.x + cs*n0.z);
+          float lon = atan(n.z, n.x) / (PI/14.0), lat = asin(clamp(n.y, -1.0, 1.0)) / (PI/14.0);
+          vec2 cell = vec2(floor(lon), floor(lat)); float h1 = hash(cell), h2 = hash(cell + 7.3);
+          vec3 tile = pal(h1 + b*0.015) * (0.2 + 1.2 * pow(h2, 3.0));
+          float flash = smoothstep(0.985, 1.0, sin(uTime * (1.3 + 2.0*h1) + h2 * 40.0) * 0.5 + 0.5);
+          tile += vec3(1.0) * flash * (0.7 + 0.9*kick);
+          vec2 f = vec2(fract(lon), fract(lat));
+          float grout = smoothstep(0.0, 0.08, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+          float dif = 0.3 + 0.7 * max(0.0, dot(n0, normalize(vec3(-0.4, 0.5, 0.8))));
+          return tile * grout * dif * (0.85 + 0.4*kick) + pal(0.5) * exp(-abs(rr - 1.0) * 18.0) * 0.5;
         } else if (m > 6.5) { // 7 mirror bars: the spectrum as LED columns climbing from the middle line, mirrored both ways
           float x = abs(p.x);
           float col_ = floor(x * 28.0) / 28.0;

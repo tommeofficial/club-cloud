@@ -10,7 +10,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
-import { screenMaterial } from './screen.js?v=3';
+import { screenMaterial } from './screen.js?v=4';
+import { createBeatTracker } from './beattrack.js?v=3';
 
 const el = document.getElementById('club');
 const canvas = document.getElementById('clubcv');
@@ -57,7 +58,7 @@ const texts = [];
 let beams = [], washes = [], ledMat, signMat;
 // light show state, driven by the controls under the club view
 // effects are switched on or off here; when on they fire by themselves with the music
-const light = { on: true, colours: [true, true, true, true, true, true], intensity: 0.5, style: 'energetic', room: 0.45, fx: { laser: true, co2: true, blackout: true, blinders: true }, sfx: {} }; // sfx: name -> elapsed time it ends
+const light = { syncMs: 0, on: true, colours: [true, true, true, true, true, true], intensity: 0.5, style: 'energetic', room: 0.45, fx: { laser: true, co2: true, blackout: true, blinders: true }, sfx: {} }; // sfx: name -> elapsed time it ends
 const SFX_LENGTH = { co2: 3 };
 const DROP_CHEERS = ['sounds/cheer_big.m4a', 'sounds/cheer_small.m4a', 'sounds/cheer_teens.m4a'];
 const CO2_SOUND = 'sounds/co2.m4a';
@@ -99,6 +100,7 @@ function keyOk(a, b) {
 // Beat sync and mix quality need the app's own decks, so the crowd doesn't judge those.
 let inputMode = false;
 const ext = { ctx: null, analyser: null, stream: null, bufT: null, specBuf: null };
+const live = createBeatTracker(); // finds the tempo and keeps the beat for a mic / line-in, where there is no beat grid
 
 async function useInput(deviceId) {
   stopInput();
@@ -109,15 +111,24 @@ async function useInput(deviceId) {
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.55;
-  ctx.createMediaStreamSource(stream).connect(analyser);
-  Object.assign(ext, { ctx, analyser, stream, bufT: new Float32Array(analyser.fftSize), specBuf: new Float32Array(analyser.frequencyBinCount) });
+  const src = ctx.createMediaStreamSource(stream); src.connect(analyser);
+  let node = null; // kicks are found on the audio thread, where no sample can be skipped
+  try {
+    await ctx.audioWorklet.addModule('onset-worklet.js?v=2');
+    node = new AudioWorkletNode(ctx, 'onset');
+    node.port.onmessage = (e) => live.kickAt(ctx.currentTime, e.data.at);
+    const mute = ctx.createGain(); mute.gain.value = 0; src.connect(node); node.connect(mute).connect(ctx.destination);
+  } catch (e) { console.warn('worklet unavailable, timing kicks per frame', e); }
+  Object.assign(ext, { node, ctx, analyser, stream, bufT: new Float32Array(analyser.fftSize), specBuf: new Float32Array(analyser.frequencyBinCount) });
+  live.reset();
   inputMode = true;
 }
 
 function stopInput() {
   if (ext.stream) ext.stream.getTracks().forEach((t) => t.stop());
   if (ext.ctx) ext.ctx.close();
-  Object.assign(ext, { ctx: null, analyser: null, stream: null });
+  Object.assign(ext, { node: null, ctx: null, analyser: null, stream: null });
+  live.reset();
   inputMode = false;
 }
 
@@ -171,6 +182,7 @@ function think(dt, t) {
   const [a, b] = c.decks;
   const aud = inputMode ? [0, 0] : c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
   const { bass, peak } = listen();
+  if (inputMode) { if (ext.node) live.advance(ext.ctx.currentTime); else live.updateWave(dt, t, ext.bufT, ext.ctx.sampleRate); } // kicks are timed from the raw samples
   brain.bassFast += (bass - brain.bassFast) * Math.min(1, dt * 12);
   brain.bassSlow += (bass - brain.bassSlow) * Math.min(1, dt * 0.35);
   // dead air
@@ -191,7 +203,8 @@ function think(dt, t) {
   } else { brain.clash = Math.max(0, brain.clash - dt * 2); brain.blend = Math.max(0, brain.blend - dt * 1.5); brain.keyBad = Math.max(0, brain.keyBad - dt); }
   if (peak > 0.97) brain.clip += dt; else brain.clip = Math.max(0, brain.clip - dt * 2);
   // external input counts as playing when it is loud enough to hear over the room
-  const playing = inputMode ? peak > 0.02 : aud[0] > 0.05 || aud[1] > 0.05;
+  if (peak > 0.02) brain.lastLoud = t;
+  const playing = inputMode ? t - (brain.lastLoud ?? -9) < 0.6 : aud[0] > 0.05 || aud[1] > 0.05; // a mic is playing while it was loud a moment ago
   brain.playing = playing && brain.dead < 0.25;
   if (brain.playing) auto.lastPlay = t;
   // hype drifts toward the energy of the music, pushed by good blends and dragged by mistakes
@@ -424,11 +437,12 @@ function updatePeople(dt) {
   const c = cc(); if (!c) return;
   const t = clock.elapsedTime;
   const M = c.decks.find((d) => d.master && d.loaded && d.playing) || c.decks.find((d) => d.loaded && d.playing && c.chanGain(d.i) > 0.1);
-  const beats = M ? (M.vpos - M.first) / M.B : null;
-  const playing = !!M && brain.dead < 1;
+  const lockedIn = inputMode && !M && live.conf > 0.4;
+  const beats = M ? (M.vpos - M.first) / M.B : lockedIn ? live.beat : null;
+  const playing = inputMode ? brain.playing : !!M && brain.dead < 1;
   crowdMoments(t, playing);
   const phrase = beats != null ? Math.floor(beats / 16) : -1;
-  const tempo = M ? 60 / M.B : 125; // slow tunes get the easy grooves, fast ones the big moves
+  const tempo = M ? 60 / M.B : inputMode ? live.bpm : 125; // slow tunes get the easy grooves, fast ones the big moves
   const kickPulse = beats != null ? Math.pow(1 - (((beats % 1) + 1) % 1), 3) : 0;
   for (const p of people) {
     if (t > p.nextThink) { p.nextThink = t + rnd(3, 8); think1(p, t, playing); }
@@ -619,7 +633,7 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   if (phrase !== vis.phrase || build !== vis.build) {
     vis.phrase = phrase; vis.build = build; u.uModeA.value = u.uModeB.value;
     // the look follows the moment: rushing tunnels and warps on a build, the grid and bars when it's hot, slow ones in a lull
-    const pool = !brain.playing ? [1, 4, 5, 6] : build ? [2, 0, 4] : brain.hype > 62 ? [0, 2, 3, 6, 7, 5] : [1, 3, 4, 5, 6, 7];
+    const pool = !brain.playing ? [1, 4, 5, 6, 8] : build ? [2, 0, 4] : brain.hype > 62 ? [0, 2, 3, 6, 7, 5, 8] : [1, 3, 4, 5, 6, 7, 8];
     let m; do m = pool[Math.floor(Math.random() * pool.length)]; while (pool.length > 1 && m === u.uModeA.value);
     u.uModeB.value = m; vis.fadeFrom = t;
   }
@@ -629,7 +643,7 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   u.uDark.value = dark ? 1 : 0; u.uBlast.value = screen.blast || 0;
   u.uEnergy.value += ((brain.bassFast || 0) - u.uEnergy.value) * 0.2;
   // live spectrum for the ring look
-  const sb = brain.specBuf, d = screen.spec.image.data;
+  const sb = inputMode ? ext.specBuf : brain.specBuf, d = screen.spec.image.data;
   for (let i = 0; i < 64; i++) { const bin = sb ? Math.floor(Math.pow(i / 64, 1.7) * sb.length * 0.45) + 2 : 0; const v = sb ? (sb[bin] + 95) / 65 : 0; d[i] = Math.max(0, Math.min(255, v * 255)); }
   screen.spec.needsUpdate = true;
   // text layer: welcome / shout-outs / tips, now playing, and the odd logo flash
@@ -1038,6 +1052,7 @@ function resize() {
 // sweeps and fans when the crowd is up, and always a sweep or fan on a drop
 const look = { name: 'sweep', block: -1 };
 let curBeat = 0; // the beat the rig is running on, shared with the camera
+let buildStart = null; // the beat a build-up began on
 function pickLook(beat, drop) {
   const block = Math.floor(beat / 8);
   if (block === look.block) return;
@@ -1052,17 +1067,24 @@ function pickLook(beat, drop) {
 }
 function lights(t, dt) {
   const c = cc(); const M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
-  const beat = light.adBeat != null ? light.adBeat : M ? ((M.vpos - M.first) / M.B) : t * 2; // the advert supplies its own track's beat
+  const locked = inputMode && !M && live.conf > 0.4; // a mic whose beat has been found
+  const bpmNow = M ? 60 / M.B : locked ? live.bpm : 120;
+  // LIGHT SYNC nudges every light, screen and camera move earlier (+) or later (-) to match the room's own delay: speakers, bluetooth, a mic's distance
+  const beat = (light.adBeat != null ? light.adBeat : M ? ((M.vpos - M.first) / M.B) : locked ? live.beat : t * 2) + light.syncMs / 1000 * bpmNow / 60; // the advert supplies its own track's beat
   curBeat = beat;
   // the rig follows the song: a build-up (the bass drops out) tightens and whitens the beams, a long lull softens everything
   // into a glow whatever the style, and the drop lands as a blast
   const buildAmt = brain.playing && brain.lowSince > 2.5 ? Math.min(1, (brain.lowSince - 2.5) / 8) : 0;
+  if (buildAmt > 0) { if (buildStart == null) buildStart = beat; } else buildStart = null;
+  // a build runs in whole bars: on the last beat before the next 8-beat mark the rig cuts to black, so the drop lands out of the dark
+  const toMark = buildStart == null ? 9 : 8 - ((((beat - buildStart) % 8) + 8) % 8);
+  const preDrop = buildAmt > 0.55 && beat - buildStart >= 8 && toMark < 0.7;
   const lull = brain.playing && brain.lowSince > 9;
   const chill = light.style === 'chill' || lull;
   const rave = light.style === 'rave' && !lull;
   const dropHit = t - brain.lastDrop < 0.25;
   // energetic punches on every kick; chill breathes slowly over two bars instead
-  const pulse = chill ? 0.5 + 0.5 * Math.sin(beat * Math.PI / 4) : M ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : 0.3;
+  const pulse = chill ? 0.5 + 0.5 * Math.sin(beat * Math.PI / 4) : (M || locked) ? Math.pow(1 - (((beat % 1) + 1) % 1), 3) : inputMode ? THREE.MathUtils.clamp((brain.bassFast - brain.bassSlow * 0.85) * 3.5, 0, 1) : 0.3;
   const k = light.intensity;
   // intensity sets how fast the rig moves and how hard it reacts to bass and drops, not how bright it is
   const energy = Math.min(1, brain.bassFast * (0.6 + 1.4 * k));
@@ -1108,7 +1130,7 @@ function lights(t, dt) {
     if (strobe) b.material.color.lerp(WHITE, 0.6);
     if (buildAmt > 0) b.material.color.lerp(WHITE, 0.6 * buildAmt);
     if (rave && !strobe) lvl *= 0.6; // rave keeps the heads low and lets the lasers carry it
-    b.material.opacity = (lvl + (strobe ? 0.5 : 0) + (dropHit ? 0.8 : 0)) * F;
+    b.material.opacity = preDrop ? 0 : (lvl + (strobe ? 0.5 : 0) + (dropHit ? 0.8 : 0)) * F;
     u.lens.material.color.copy(b.material.color).multiplyScalar(0.4 + b.material.opacity);
   });
   washes.forEach((l, i) => {
@@ -1116,7 +1138,7 @@ function lights(t, dt) {
     if (dark) { l.intensity = 0; return; }
     const hex = colours[(i * 2 + step) % colours.length];
     if (chill) l.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); else l.color.setHex(hex);
-    l.intensity = ((chill ? 22 + 18 * pulse + 12 * energy : rave ? 8 + 18 * energy + (strobe ? 70 : 0) : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * (1 - 0.5 * buildAmt) + (dropHit ? 90 : 0)) * F;
+    l.intensity = ((chill ? 22 + 18 * pulse + 12 * energy : rave ? 8 + 18 * energy + (strobe ? 70 : 0) : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * (1 - 0.5 * buildAmt) + (dropHit ? 90 : 0)) * (preDrop ? 0.05 : 1) * F;
   });
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
@@ -1757,6 +1779,10 @@ if (lightMenu) {
     syncLightMenu();
   });
   try { const st = localStorage.getItem('cc-light-style'); if (st === 'chill' || st === 'energetic' || st === 'rave') light.style = st; } catch (_) {}
+  const sync = lightMenu.querySelector('#lightSync'), syncOut = lightMenu.querySelector('#lightSyncVal');
+  try { const v = localStorage.getItem('cc-light-sync'); if (v != null) sync.value = v; } catch (_) {}
+  const setSync = () => { light.syncMs = +sync.value; syncOut.textContent = (light.syncMs > 0 ? '+' : '') + light.syncMs + ' ms'; try { localStorage.setItem('cc-light-sync', sync.value); } catch (_) {} };
+  sync.addEventListener('input', setSync); sync.addEventListener('dblclick', () => { sync.value = 0; setSync(); }); setSync();
   lightMenu.querySelector('#lightIntensity').addEventListener('input', (e) => { light.intensity = e.target.value / 100; });
   const vol = lightMenu.querySelector('#crowdVol');
   try { const v = localStorage.getItem('cc-crowd-vol'); if (v != null) vol.value = v; } catch (_) {}
@@ -1892,4 +1918,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { live, useInput, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
