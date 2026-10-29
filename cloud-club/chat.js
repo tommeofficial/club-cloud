@@ -127,7 +127,7 @@ async function enterRoom(room) {
 // the STREAMS button: leave the stream, back to your own room, and show the grid
 async function leaveToGrid() { await connect(S.me.username); S.lobby?.open(); }
 backBtn.addEventListener('click', leaveToGrid);
-addEventListener('cc-timeup', () => { if (S.live?.on && S.isDj) { clearInterval(S.syncTimer); clearInterval(S.annTimer); S.live.stop(); S.lobby?.withdraw(); system('Your deck time ran out, so you are off air. Buy more time to go live again.', 'err'); } });
+addEventListener('cc-timeup', () => { if (S.live?.on && S.isDj) { clearInterval(S.syncTimer); clearInterval(S.annTimer); S.live.stop(); S.lobby?.withdraw(); system('Your Pro membership or deck time ended, so you are off air.', 'err'); } });
 addEventListener('pagehide', () => { try { if (S.live) { if (S.isDj) S.live.stop(); else S.live.leave(); } } catch (_) {} });
 
 input.disabled = true;
@@ -277,9 +277,9 @@ function setupLive() {
   };
   goBtn.onclick = () => {
     if (S.live.on) { clearInterval(S.syncTimer); clearInterval(S.annTimer); S.live.stop(); S.lobby?.withdraw(); system('You are off air.', 'sys'); return; }
-    // going live is for paying DJs: the free minutes do not count, you need paid deck time on your account
+    // going live is for Pro members: pay-as-you-go hours do not unlock it
     const bill = window.__billing?.state;
-    if (bill?.ready && bill.paid <= 0) { system('Going live is for paying DJs. Buy deck time to unlock it.', 'err'); window.__billing.showShop('golive'); return; }
+    if (bill?.ready && !bill.pro) { system('Going live is for Pro members.', 'err'); window.__billing.showShop('golive'); return; }
     window.__cc?.unlock?.();
     const tap = window.__cc?.master?.tap;
     if (!tap) { system('The audio engine has not started yet. Press play on a deck first, then try again.', 'err'); return; }

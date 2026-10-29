@@ -1,4 +1,5 @@
 -- Club Cloud: deck time. Watching streams is free; USING THE DECKS is metered.
+--   * Pro members (GBP 9.99 a month) get unlimited deck time and are the only ones who can go live.
 --   * 5 free minutes per account per rolling 24 hours (the first use starts the clock; 24 hours later it resets).
 --   * After that, paid time: GBP 1 buys 1 hour, any number of hours, and it never expires. It only counts down while a deck is playing.
 -- Run this in the Supabase SQL editor. Wallets can only be changed through the functions below, never directly.
@@ -10,8 +11,10 @@ create table if not exists wallets (
   user_id uuid primary key references auth.users(id) on delete cascade,
   free_window_start timestamptz,                         -- when the current 24-hour free allowance began (null = unused)
   free_used_seconds integer not null default 0 check (free_used_seconds >= 0),
-  paid_seconds integer not null default 0 check (paid_seconds >= 0)
+  paid_seconds integer not null default 0 check (paid_seconds >= 0),
+  pro_until timestamptz                                   -- Pro membership runs until then (the payment webhook extends it on every renewal)
 );
+alter table wallets add column if not exists pro_until timestamptz;
 alter table wallets enable row level security;
 drop policy if exists "wallet readable by owner" on wallets;
 create policy "wallet readable by owner" on wallets for select using (user_id = auth.uid());
@@ -31,7 +34,9 @@ begin
   return json_build_object(
     'free_left', greatest(0, free_total - w.free_used_seconds),
     'paid_left', w.paid_seconds,
-    'free_resets_at', case when w.free_window_start is null then null else w.free_window_start + interval '24 hours' end);
+    'free_resets_at', case when w.free_window_start is null then null else w.free_window_start + interval '24 hours' end,
+    'pro', coalesce(w.pro_until > now(), false),
+    'pro_until', w.pro_until);
 end $$;
 
 -- the app reports deck-playing time in small chunks; free time is used first, then paid time
@@ -46,6 +51,7 @@ begin
   if w.free_window_start is not null and now() - w.free_window_start >= interval '24 hours' then
     w.free_window_start := null; w.free_used_seconds := 0;
   end if;
+  if coalesce(w.pro_until > now(), false) then s := 0; end if;      -- Pro members use no deck time
   if s > 0 and w.free_window_start is null then w.free_window_start := now(); end if;
   from_free := least(s, free_total - w.free_used_seconds);
   from_paid := least(s - from_free, w.paid_seconds);
@@ -66,6 +72,24 @@ begin
   return wallet_status();
 end $$;
 
+-- TEST ONLY: switch Pro on for 30 days (or off with 0) without paying
+create or replace function test_set_pro(p_days integer) returns json
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'sign in first'; end if;
+  insert into wallets (user_id) values (auth.uid()) on conflict do nothing;
+  update wallets set pro_until = case when coalesce(p_days, 0) > 0 then now() + make_interval(days => p_days) else null end where user_id = auth.uid();
+  return wallet_status();
+end $$;
+
+-- for the payment webhook (service role only): extend a Pro membership after a payment
+create or replace function grant_pro_until(p_user uuid, p_until timestamptz) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into wallets (user_id) values (p_user) on conflict do nothing;
+  update wallets set pro_until = p_until where user_id = p_user;
+end $$;
+
 -- for the payment webhook (service role only): add paid time after a successful payment
 create or replace function grant_paid_seconds(p_user uuid, p_seconds integer) returns void
 language plpgsql security definer set search_path = public as $$
@@ -75,9 +99,12 @@ begin
 end $$;
 
 revoke all on function grant_paid_seconds(uuid, integer) from public, anon, authenticated;
+revoke all on function grant_pro_until(uuid, timestamptz) from public, anon, authenticated;
 grant execute on function wallet_status() to authenticated;
 grant execute on function use_deck_time(integer) to authenticated;
 grant execute on function test_buy_hours(integer) to authenticated;
+grant execute on function test_set_pro(integer) to authenticated;
 
 -- BEFORE TAKING REAL MONEY:
 --   drop function test_buy_hours(integer);
+--   drop function test_set_pro(integer);
