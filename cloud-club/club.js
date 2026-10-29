@@ -742,16 +742,34 @@ const beamMat = () => new THREE.ShaderMaterial({
 });
 function movingHead(x, y, z) {
   const body = new THREE.Group(); body.position.set(x, y, z);
-  const dark = new THREE.MeshStandardMaterial({ color: 0x111215, roughness: 0.5, metalness: 0.6 });
-  const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.2), dark); yoke.position.y = 0.15; body.add(yoke);
-  const pan = new THREE.Group(); body.add(pan);
-  const tilt = new THREE.Group(); pan.add(tilt);
-  const can = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.3, 20), dark); tilt.add(can);
-  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.09, 20), new THREE.MeshBasicMaterial({ color: 0xffffff })); lens.rotation.x = Math.PI / 2; lens.position.y = -0.151; tilt.add(lens);
+  const dark = new THREE.MeshStandardMaterial({ color: 0x242830, roughness: 0.38, metalness: 0.55, emissive: 0x0a0c10 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x4a505c, roughness: 0.22, metalness: 0.9, emissive: 0x0a0c10 });
+  const accent = new THREE.MeshBasicMaterial({ color: 0x2fa8d8 }); // small glowing details so the shape reads in the dark
+  // clamp on the truss and a round base the yoke turns on
+  const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.025, 0.11), metal); clamp.position.y = 0.275; body.add(clamp);
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.009, 8, 20), metal); hook.position.y = 0.3; hook.rotation.y = Math.PI / 2; body.add(hook);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.09, 28), dark); base.position.y = 0.2; body.add(base);
+  const pan = new THREE.Group(); pan.position.y = 0.15; body.add(pan);                       // turns about the upright axis
+  const tilt = new THREE.Group(); tilt.position.y = -0.15; pan.add(tilt);                    // nods between the yoke's arms, at the head's centre
+  // the U-shaped yoke: a bar across the top and an arm either side, with a pivot cap where the head hangs
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.04, 0.09), dark); bar.position.y = 0.025; pan.add(bar);
+  for (const sd of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.27, 0.075), dark); arm.position.set(sd * 0.178, -0.1, 0); pan.add(arm);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.17, 0.006), accent); strip.position.set(sd * 0.197, -0.08, 0.04); pan.add(strip);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.022, 24), metal); cap.rotation.z = Math.PI / 2; cap.position.set(sd * 0.19, -0.15, 0); pan.add(cap);
+  }
+  // the head: a tapered body with a domed back, a dark bezel round the lens, and an LED ring that takes the beam's colour
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.128, 0.27, 32), dark); can.position.y = -0.005; tilt.add(can);
+  const domeBack = new THREE.Mesh(new THREE.SphereGeometry(0.105, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), dark); domeBack.position.y = 0.13; domeBack.scale.y = 0.55; tilt.add(domeBack);
+  for (const k of [-1, 0, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.236, 0.012, 0.012), metal); fin.position.set(0, 0.03 + k * 0.045, 0); fin.scale.z = 1; tilt.add(fin); }
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.1285, 0.004, 6, 48), accent); band.rotation.x = Math.PI / 2; band.position.y = -0.1; tilt.add(band); // a thin glowing band round the head
+  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.106, 0.024, 12, 40), metal); bezel.rotation.x = Math.PI / 2; bezel.position.y = -0.148; tilt.add(bezel);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.007, 8, 48), new THREE.MeshBasicMaterial({ color: 0x111111 })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.135; tilt.add(ring);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.092, 28), new THREE.MeshBasicMaterial({ color: 0xffffff })); lens.rotation.x = Math.PI / 2; lens.position.y = -0.151; tilt.add(lens);
   // beam: an open cone hanging down from the lens (uv.y is 1 at the lens, 0 at the far end)
   const geo = new THREE.CylinderGeometry(0.06, 0.75, 8, 32, 1, true); geo.translate(0, -4.15, 0);
   const beam = new THREE.Mesh(geo, beamMat());
-  beam.userData = { pan, tilt, lens, x, y, z };
+  beam.userData = { pan, tilt, lens, ring, x, y, z };
   beam.material.color = beam.material.uniforms.color.value; // so the light show can treat it like a normal material
   Object.defineProperty(beam.material, 'opacity', { get() { return this.uniforms.opacity.value; }, set(v) { this.uniforms.opacity.value = v; } });
   return { body, beam };
@@ -1115,7 +1133,7 @@ function lights(t, dt) {
     || (buildAmt > 0.5 && ((beat * (2 + 4 * buildAmt)) % 1 + 1) % 1 < 0.3));                      // a build: flashes that speed up
   pickLook(beat, drop);
   beams.forEach((b, i) => {
-    if (dark) { b.material.opacity = 0; b.userData.lens.material.color.setRGB(0.02, 0.02, 0.02); return; }
+    if (dark) { b.material.opacity = 0; b.userData.lens.material.color.setRGB(0.02, 0.02, 0.02); b.userData.ring.material.color.setRGB(0.03, 0.03, 0.03); return; }
     // pan and tilt the head, and swing the beam with it; the look decides how
     const u = b.userData, mirror = i % 2 ? -1 : 1, col = i % 4, row = Math.floor(i / 4);
     const base = chill ? 0.3 + 0.2 * pulse + 0.15 * energy : 0.12 + (0.25 + 0.5 * energy) * (0.5 + 0.5 * pulse) * (brain.hype / 100 + 0.3);
@@ -1142,6 +1160,7 @@ function lights(t, dt) {
     if (rave && !strobe) lvl *= 0.6; // rave keeps the heads low and lets the lasers carry it
     b.material.opacity = preDrop ? 0 : (lvl + (strobe ? 0.5 : 0) + (dropHit ? 0.8 : 0)) * F;
     u.lens.material.color.copy(b.material.color).multiplyScalar(0.4 + b.material.opacity);
+    u.ring.material.color.copy(b.material.color).multiplyScalar(0.25 + 1.2 * b.material.opacity);
   });
   washes.forEach((l, i) => {
     l.target.position.x = Math.sin(beat * Math.PI / 4 * speed + i * 2) * 1.6;
