@@ -50,7 +50,7 @@ function tick() {
 }
 function check() {
   const out = B.free + B.paid <= 0;
-  if (out && !B.locked) { B.locked = true; for (const d of decks()) d.pauseNow(); flush(); showShop('out'); }
+  if (out && !B.locked) { B.locked = true; for (const d of decks()) d.pauseNow(); flush(); dispatchEvent(new Event('cc-timeup')); showShop('out'); }
   if (!out && B.locked) { B.locked = false; hideShop(); }
 }
 
@@ -60,7 +60,8 @@ function showShop(why) {
   if (!shop) { shop = document.createElement('div'); shop.id = 'timeshop'; document.body.appendChild(shop); shop.addEventListener('click', onShopClick); }
   const resets = B.resets && B.free <= 0 ? `Your 5 free minutes come back ${B.resets.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.` : '';
   shop.innerHTML = `<div class="tsbox">
-    <h3>${why === 'out' ? 'Your deck time is up' : 'Deck time'}</h3>
+    <h3>${why === 'out' ? 'Your deck time is up' : why === 'golive' ? 'Going live is for paying DJs' : 'Deck time'}</h3>
+    ${why === 'golive' ? '<p>Buy any amount of deck time to unlock going live. The free 5 minutes do not count. Your broadcast uses your deck time while you play.</p>' : ''}
     <p>Watching streams and chatting are always free. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. ${resets}</p>
     <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
     <p class="tsnote">Test mode: payments are not connected yet, so hours are added for free.</p>
