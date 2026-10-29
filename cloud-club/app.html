@@ -270,6 +270,10 @@ canvas.cv { position: absolute; pointer-events: none; }
 #timepill { font: 700 10px var(--label); letter-spacing: 1px; color: #8fe9ff; background: rgba(65,231,255,.1); border: 1px solid rgba(65,231,255,.35); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
 #timepill.pro { color: #07121d; background: linear-gradient(90deg, #8fe9ff, #c9a6ff); border-color: transparent; }
 #timepill.low { color: #ffd479; border-color: rgba(255,212,121,.5); background: rgba(255,212,121,.1); } #timepill.out { color: #fff; border-color: #ff4d6a; background: rgba(255,60,80,.25); }
+#timewarn { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 55; display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 16px; color: #fff; background: rgba(12,16,26,.94); border: 1px solid #ffd479; border-radius: 999px; box-shadow: 0 6px 28px rgba(0,0,0,.5); font: 700 13px var(--ui); } #timewarn[hidden] { display: none; }
+#timewarn.ok { border-color: #5be39a; } #timewarn .twt { font-variant-numeric: tabular-nums; }
+#timewarn .twadd { padding: 8px 14px; font: 700 11px var(--label); letter-spacing: 1.2px; color: #07121d; background: linear-gradient(90deg, #ffd479, #ffb347); border: 0; border-radius: 999px; cursor: pointer; } #timewarn .twadd[hidden] { display: none; }
+#timewarn .twx { width: 26px; height: 26px; color: #8a94a6; background: transparent; border: 0; border-radius: 50%; cursor: pointer; font-size: 12px; }
 #timeshop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(2,4,8,.78); backdrop-filter: blur(4px); } #timeshop[hidden] { display: none; }
 #timeshop .tsbox { width: min(440px, 90%); background: #0b0f18; border: 1px solid #24304a; border-radius: 14px; padding: 22px; color: #e9eaec; font-family: var(--ui); }
 #timeshop h3 { margin: 0 0 8px; font: 700 16px var(--label); letter-spacing: 2px; } #timeshop p { font: 500 13px/1.5 var(--ui); color: #b8c6da; margin: 8px 0; }
@@ -414,7 +418,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=143"></script>
 <script type="module" src="chat.js?v=104"></script>
-<script type="module" src="billing.js?v=3"></script>
+<script type="module" src="billing.js?v=5"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {
   const js = document.createElement('script'); js.type = 'module'; js.src = 'advert/shot.js?v=10'; document.head.appendChild(js);
 }

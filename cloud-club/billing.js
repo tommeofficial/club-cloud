@@ -22,7 +22,7 @@ function pill() {
   el.className = '';
   const left = B.free + B.paid;
   el.classList.toggle('out', left <= 0);
-  el.classList.toggle('low', left > 0 && left < 60);
+  el.classList.toggle('low', left > 0 && left <= 180);
   el.textContent = left <= 0 ? 'TIME’S UP' : B.paid > 0 ? fmtH(B.paid + B.free) : `FREE ${fmt(B.free)}`;
   el.title = left <= 0 ? 'Buy deck time to keep playing' : 'Deck time left. Streams and chat are free; only playing the decks uses it.';
 }
@@ -41,6 +41,41 @@ async function flush() {
   B.busy = false; check(); pill();
 }
 
+// ------------------------------------------------------------------ the "running low" prompt: one tap to add an hour, without stopping the music
+const WARN_AT = [180, 60, 30];   // seconds left when the prompt appears (again each time, if dismissed)
+let warnEl = null, prevLeft = null, dismissedAt = null, flashUntil = 0;
+function warn() {
+  if (!warnEl) {
+    warnEl = document.createElement('div'); warnEl.id = 'timewarn';
+    warnEl.innerHTML = '<span class="twt"></span><button class="twadd">ADD 1 HOUR \u00b7 \u00a3' + PRICE + '</button><button class="twx" aria-label="Dismiss">\u2715</button>';
+    document.body.appendChild(warnEl);
+    warnEl.addEventListener('click', async (e) => {
+      if (e.target.closest('.twx')) { dismissedAt = B.free + B.paid; warnEl.hidden = true; return; }
+      const add = e.target.closest('.twadd'); if (!add || B.busy) return;
+      B.busy = true; add.disabled = true;
+      try { take(await rpc('test_buy_hours', { p_hours: 1 })); flashUntil = Date.now() + 2500; prevLeft = B.free + B.paid; dismissedAt = null; pill(); }  // payments are a free test until they are connected
+      catch (err) { console.warn('could not add an hour', err); }
+      add.disabled = false; B.busy = false; warnRefresh();
+    });
+  }
+  warnEl.hidden = false; warnRefresh();
+}
+function warnRefresh() {
+  if (!warnEl || warnEl.hidden) return;
+  const left = B.free + B.paid;
+  if (Date.now() < flashUntil) { warnEl.classList.add('ok'); warnEl.querySelector('.twt').textContent = '\u2713 1 hour added'; warnEl.querySelector('.twadd').hidden = true; return; }
+  if (B.pro || left > WARN_AT[0] + 1) { warnEl.hidden = true; warnEl.classList.remove('ok'); return; }
+  warnEl.classList.remove('ok'); warnEl.querySelector('.twadd').hidden = false;
+  warnEl.querySelector('.twt').textContent = `\u23f1 ${fmt(left)} left`;
+}
+function lowCheck() {
+  const left = B.free + B.paid;
+  if (!B.pro && left > 0 && prevLeft !== null) {
+    for (const s of WARN_AT) if (prevLeft > s && left <= s) { dismissedAt = null; warn(); break; }
+  }
+  prevLeft = left; warnRefresh();
+}
+
 // ------------------------------------------------------------------ the clock: one tick a second
 function tick() {
   if (!B.ready) return;
@@ -50,8 +85,8 @@ function tick() {
     B.pending++; B.sinceFlush++;
     if (B.free > 0) B.free--; else if (B.paid > 0) B.paid--;     // show the balance falling right away; the server confirms it
     if (B.sinceFlush >= FLUSH_EVERY) flush();
-    check(); pill();
-  }
+    check(); pill(); lowCheck();
+  } else if (warnEl && !warnEl.hidden) warnRefresh();
 }
 function check() {
   const out = !B.pro && B.free + B.paid <= 0;
@@ -97,5 +132,5 @@ async function init() {
   addEventListener('pagehide', () => { if (B.pending) flush(); });
   document.addEventListener('click', (e) => { if (e.target.closest('#timepill')) showShop(B.free + B.paid <= 0 ? 'out' : 'info'); });
 }
-window.__billing = { state: B, get locked() { return B.locked; }, showShop, flush };
+window.__billing = { state: B, get locked() { return B.locked; }, showShop, flush, lowCheck };
 init();
