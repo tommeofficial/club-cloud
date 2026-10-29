@@ -781,7 +781,7 @@ async function loadCrowd() {
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const p = { root, mixer, actions, hand, handL, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
       bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: Math.floor(rnd(0, 16)), /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
-      style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d]), dance: null, phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
+      style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || src.animations.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.dance = pick(p.dances);
     p.rests = RESTS.filter((r) => actions[r]); p.rest = pick(p.rests) || 'idle';
     addProps(p);

@@ -74,7 +74,7 @@ function placeCrowd() {
     p.yaw = p.yawTarget = 0; p.look = null; p.friends = [];
     p.nextThink = Infinity;                              // no wandering off or chatting during the shot
     p.busy = false;
-    const dances = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'].filter((d) => p.actions[d]);
+    const dances = p.dances.length ? p.dances : ['idle'];
     if (dances.length) { p.dances = dances; p.dance = dances[i % dances.length]; }
     p.offset = (i * 0.37) % 2;                           // spread across the beat, so it is not one drilled move
   });
