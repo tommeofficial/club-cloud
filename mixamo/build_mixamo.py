@@ -28,6 +28,7 @@ CLIPS = [
 argv = sys.argv[sys.argv.index('--') + 1:]
 out_glb = argv[0]
 max_px = int(argv[1]) if len(argv) > 1 else 1024
+base_fbx = argv[2] if len(argv) > 2 else None   # another Mixamo-rigged character to dance with the same clips
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -48,6 +49,11 @@ def trim(action, seconds, fps):
             kp.co.x -= d; kp.handle_left.x -= d; kp.handle_right.x -= d
 
 arm = None
+if base_fbx:
+    bpy.ops.import_scene.fbx(filepath=base_fbx)
+    arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
+    base_hip = (arm.matrix_world @ arm.data.bones['mixamorig:Hips'].head_local).z
+    print('BASE %s hips at %.3fm' % (base_fbx, base_hip))
 for name, fbx, secs in CLIPS:
     path = os.path.join(SRC_DIR, fbx + '.fbx')
     if not os.path.exists(path):
@@ -62,11 +68,19 @@ for name, fbx, secs in CLIPS:
     act.use_fake_user = True
     trim(act, secs, fps)
     if arm is None:
-        arm = a                                   # the first import brings the character in with it
+        arm = a                                  # the first import brings the character in with it
         for o in added:
             if o is not a and o.type != 'MESH':
                 bpy.data.objects.remove(o, do_unlink=True)
+        base_hip = None
     else:
+        if base_hip is None:
+            base_hip = (arm.matrix_world @ arm.data.bones['mixamorig:Hips'].head_local).z
+        src_hip = (a.matrix_world @ a.data.bones['mixamorig:Hips'].head_local).z
+        if base_fbx and abs(src_hip / base_hip - 1) > 0.02:   # taller or shorter body: scale the hips' travel to match
+            k = base_hip / src_hip
+            for fc in [f for f in (getattr(act, 'fcurves', None) or [f for l in act.layers for s in l.strips for cb in s.channelbags for f in cb.fcurves]) if 'mixamorig:Hips"' in f.data_path and f.data_path.endswith('location')]:
+                for p in fc.keyframe_points: p.co.y *= k; p.handle_left.y *= k; p.handle_right.y *= k
         for o in added:                           # later imports are only here for their animation
             bpy.data.objects.remove(o, do_unlink=True)
     print('CLIP %-11s <- %-22s %5.2fs' % (name, fbx, secs))
@@ -93,7 +107,7 @@ def narrow_shoulders(mesh, arm, squash=0.58):
             v.co = inv @ p; moved += 1
     print('NARROW moved %d verts (sleeve tops flattened up to %d%%)' % (moved, squash * 100))
 
-for o in bpy.data.objects:
+for o in ([] if base_fbx else bpy.data.objects):
     if o.type == 'MESH' and o.parent is arm:
         narrow_shoulders(o, arm)
 
