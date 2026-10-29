@@ -28,6 +28,20 @@ for side, name in ((1, 'upper_arm.L'), (-1, 'upper_arm.R')):
     pb.matrix = arm.matrix_world.inverted() @ (Matrix.Translation(head) @ R @ Matrix.Translation(-head)) @ arm.matrix_world @ pb.matrix
     bpy.context.view_layer.update()
     print('ARM %s %.0f deg -> %d deg' % (name, math.degrees(now), ANGLE))
+# bent elbows and wrists upset the rigger too (the DJ has her hands up by her face): lay each forearm and hand straight
+# out along the upper arm
+for side, sfx in ((1, 'L'), (-1, 'R')):
+    ua = arm.pose.bones.get('upper_arm.' + sfx)
+    if not ua: continue
+    for name in ('forearm.' + sfx, 'hand.' + sfx):
+        pb = arm.pose.bones.get(name)
+        if not pb: continue
+        bpy.context.view_layer.update()
+        head = arm.matrix_world @ pb.head; tail = arm.matrix_world @ pb.tail
+        want = ((arm.matrix_world @ ua.tail) - (arm.matrix_world @ ua.head)).normalized()
+        R = (tail - head).normalized().rotation_difference(want).to_matrix().to_4x4()
+        pb.matrix = arm.matrix_world.inverted() @ (Matrix.Translation(head) @ R @ Matrix.Translation(-head)) @ arm.matrix_world @ pb.matrix
+bpy.context.view_layer.update()
 bpy.ops.object.mode_set(mode='OBJECT')
 
 # bake the posed shape into each mesh, then the skeleton can go

@@ -28,7 +28,8 @@ CLIPS = [
 argv = sys.argv[sys.argv.index('--') + 1:]
 out_glb = argv[0]
 max_px = int(argv[1]) if len(argv) > 1 else 1024
-base_fbx = argv[2] if len(argv) > 2 else None   # another Mixamo-rigged character to dance with the same clips
+base_fbx = argv[2] if len(argv) > 2 else None
+hat_glb = argv[3] if len(argv) > 3 else None   # a hat saved apart by export_for_mixamo.py, to go back on the rigged head   # another Mixamo-rigged character to dance with the same clips
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -110,6 +111,29 @@ def narrow_shoulders(mesh, arm, squash=0.58):
 for o in ([] if base_fbx else bpy.data.objects):
     if o.type == 'MESH' and o.parent is arm:
         narrow_shoulders(o, arm)
+
+# put the saved hat back: scale and place it by the bare body's size, then skin it to the head bone so it follows
+if hat_glb:
+    import json
+    from mathutils import Matrix, Vector
+    info = json.load(open(hat_glb.rsplit('.', 1)[0] + '.json'))
+    body = [o for o in bpy.data.objects if o.type == 'MESH' and o.parent is arm]
+    pts = [o.matrix_world @ v.co for o in body for v in o.data.vertices]
+    rz0, rz1 = min(p.z for p in pts), max(p.z for p in pts)
+    rcx, rcy = (min(p.x for p in pts) + max(p.x for p in pts)) / 2, (min(p.y for p in pts) + max(p.y for p in pts)) / 2
+    k = (rz1 - rz0) / (info['zmax'] - info['zmin'])
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=hat_glb)
+    hat = next(o for o in bpy.data.objects if o not in before and o.type == 'MESH')
+    for o in [o for o in bpy.data.objects if o not in before and o is not hat]: bpy.data.objects.remove(o, do_unlink=True)
+    hat.parent = None
+    hat.matrix_world = Matrix.Translation(Vector((rcx, rcy, rz0))) @ Matrix.Scale(k, 4) @ Matrix.Translation(Vector((-info['cx'], -info['cy'], -info['zmin'])))
+    bpy.context.view_layer.objects.active = hat; hat.select_set(True)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    vg = hat.vertex_groups.new(name='mixamorig:Head'); vg.add(list(range(len(hat.data.vertices))), 1.0, 'REPLACE')
+    hat.parent = arm; hat.matrix_parent_inverse = arm.matrix_world.inverted()
+    mod = hat.modifiers.new('Armature', 'ARMATURE'); mod.object = arm
+    print('HAT placed: scale %.3f, body z %.2f..%.2f' % (k, rz0, rz1))
 
 FINGERS = ('Thumb', 'Index', 'Middle', 'Ring', 'Pinky')
 def curves_of(action):
