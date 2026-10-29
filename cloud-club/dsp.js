@@ -1,4 +1,4 @@
-/* DSP: deck playback (scratch, loops, slip, master tempo), channel strip
+/* Club Cloud DSP: deck playback (scratch, loops, slip, master tempo), channel strip
    (trim, isolator EQ, sound colour FX) and the Beat FX unit.
    Runs inside an AudioWorklet; the same classes back a ScriptProcessor fallback. */
 (function (G) {

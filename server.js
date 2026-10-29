@@ -64,5 +64,5 @@ wss.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Test server on http://localhost:${PORT}`);
+  console.log(`Club Cloud test server on http://localhost:${PORT}`);
 });

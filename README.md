@@ -1,4 +1,4 @@
-# Virtual DJ Club
+# Club Cloud
 
 Stream test scaffold: one DJ streams to fans in the same room over WebRTC.
 Media goes browser to browser. The Node server only relays setup messages.

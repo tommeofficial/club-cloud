@@ -1,4 +1,4 @@
-// The club seen from the DJ booth, with a crowd that reacts to the music and the mixing.
+// Club Cloud: the club seen from the DJ booth, with a crowd that reacts to the music and the mixing.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
@@ -10,7 +10,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
-import { screenMaterial } from './screen.js?v=6';
+import { screenMaterial } from './screen.js?v=7';
 import { createBeatTracker } from './beattrack.js?v=3';
 
 const el = document.getElementById('club');
@@ -594,7 +594,11 @@ function buildRoom() {
     }
   }
   const barLight = new THREE.PointLight(0xffa860, 6, 6, 1.5); barLight.position.set(0, 1.9, z1 + 1); scene.add(barLight);
-  signMat = new THREE.MeshBasicMaterial({ transparent: true });
+  // the Club Cloud logo as a huge neon piece on the back wall, with the name written inside it
+  const cv = logoCanvas();
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  signMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  add(new THREE.PlaneGeometry(2.5, 2.5), signMat, 0, 3.05, z1 + 0.03);
   // fire exit signs
   const exit = new THREE.MeshBasicMaterial({ color: 0x19c25a });
   for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.4, 0.15, 0.04), exit, s * 4.5, 2.6, z1 + 0.05);
@@ -631,12 +635,15 @@ function updateCs(v) {
   screen.blue.emissive.setRGB(0.18 + 0.82 * v, 0.85 + 0.15 * v, 1); // the blue C burns white at full blast
   screen.blast = v;
 }
-// the screen glows softly in the rig's colours on the beat
+// the screen glows softly in the rig's colours on the beat; every so often it flashes the Club Cloud name
 function updateScreen(t, beat, pulse, colours, step, dark) {
   if (!screen.g) return;
   const g = screen.g, S = 512, u = screen.mat.uniforms;
   const phrase = Math.floor(beat / 16);
-  const showing = false;
+  if (phrase !== screen.lastPhrase) { screen.lastPhrase = phrase; if (Math.random() < 0.25) screen.show = beat; }
+  if (brain.lastDrop !== screen.lastDrop) { screen.lastDrop = brain.lastDrop; screen.show = beat; } // the name lands on every drop
+  const idleLogo = !brain.playing;
+  const showing = idleLogo || (screen.show >= 0 && beat - screen.show < 4);
   const msg = screen.msg && performance.now() < screen.msg.until ? screen.msg : null;
   // the graphics run on the GPU: pick a look every 16 beats and crossfade into it
   const build = brain.playing && brain.lowSince > 2.5;
@@ -679,6 +686,12 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
       g.shadowBlur = 20; g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(28); g.fillText('NOW PLAYING', S / 2, S / 2 - 70);
       g.shadowColor = '#ffffff'; g.fillStyle = '#ffffff'; fit(vis.title, 62, S * 0.78); g.fillText(vis.title, S / 2, S / 2 + 8);
       if (vis.artist) { g.fillStyle = '#b8c6da'; fit(vis.artist, 32, S * 0.7); g.fillText(vis.artist, S / 2, S / 2 + 56); }
+    } else if (showing) {
+      const a = idleLogo ? 1 : Math.min(1, (beat - screen.show) * 2) * Math.min(1, (4 - (beat - screen.show)) * 2);
+      dim = 0.6 * a; g.globalAlpha = a;
+      g.shadowBlur = 30; g.shadowColor = '#ffffff'; g.fillStyle = '#ffffff'; g.font = font(150); g.fillText('club', S / 2, S / 2 + 20);
+      g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(58); g.fillText('C L O U D', S / 2, S / 2 + 100);
+      g.globalAlpha = 1;
     }
     g.shadowBlur = 0;
   }
@@ -691,6 +704,22 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
 
 // ---- the screen's shader lives in screen.js
 const vis = { phrase: -1, title: '', trackUntil: 0, fadeFrom: 0 };
+
+// the Club Cloud logo in neon: white C and blue C almost meeting, an inner ring, and the name inside
+function logoCanvas() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024;
+  const g = cv.getContext('2d'), C = 512, R = 400, gap = 0.1;
+  g.lineWidth = 86; g.shadowBlur = 40;
+  g.shadowColor = '#e9fbff'; g.strokeStyle = '#f2fcff';
+  g.beginPath(); g.arc(C, C, R, -Math.PI / 2 - gap, Math.PI / 2 + gap, true); g.stroke();
+  g.shadowColor = '#41e7ff'; g.strokeStyle = '#4cebff';
+  g.beginPath(); g.arc(C, C, R, -Math.PI / 2 + gap, Math.PI / 2 - gap, false); g.stroke();
+  g.lineWidth = 8; g.shadowBlur = 16; g.strokeStyle = '#3a6a96'; g.beginPath(); g.arc(C, C, 250, 0, Math.PI * 2); g.stroke();
+  g.textAlign = 'center'; g.shadowBlur = 30;
+  g.shadowColor = '#e9fbff'; g.fillStyle = '#f2fcff'; g.font = "700 200px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.fillText('club', C, C + 30);
+  g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = "700 76px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.fillText('C L O U D', C, C + 130);
+  return cv;
+}
 
 // the DJ booth: a riser, a table, and the controller on top, built to real sizes
 let boothDecks = null; // 3D decks on the table, only shown from the crowd camera (the booth camera shows the real deck UI)
@@ -711,6 +740,9 @@ function buildBooth() {
   }
   add(new THREE.BoxGeometry(2.3, 0.025, 0.025), ledMat, 0, fh - 0.02, fz - 0.04);
   add(new THREE.BoxGeometry(2.3, 0.025, 0.025), ledMat, 0, 0.04, fz - 0.04);
+  const logoTex = new THREE.CanvasTexture(logoCanvas()); logoTex.colorSpace = THREE.SRGBColorSpace;
+  const logo = add(new THREE.PlaneGeometry(0.95, 0.95), new THREE.MeshBasicMaterial({ map: logoTex, transparent: true }), 0, fh * 0.52, fz - 0.035);
+  logo.rotation.y = Math.PI; // faces the crowd
   const glow = new THREE.PointLight(0x41e7ff, 1.6, 2.2, 2); glow.position.set(0, fh * 0.52, fz - 0.4); scene.add(glow);
   // simple 3D decks and mixer on the table for the crowd camera
   boothDecks = new THREE.Group(); boothDecks.visible = false;
@@ -829,7 +861,7 @@ async function loadCrowd() {
 }
 
 // ------------------------------------------------------------------ the robot's head
-// A robot head: a dark glass dome with a round
+// The Club Cloud logo as a head: a glossy white C and a glowing cyan C wrapped round a dark glass dome, with a round
 // LED face inside. The face is a shader: its eyes and mouth follow the crowd meter (angry, bored, dancing, buzzing),
 // it blinks, bounces on the beat, and flashes heart eyes on a drop.
 function buildRobotHead(bone, p) {
@@ -840,7 +872,13 @@ function buildRobotHead(bone, p) {
   // glass dome: a slightly flattened sphere, dark and glossy
   const dome = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshPhysicalMaterial({ color: 0x04060a, roughness: 0.05, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.03 }));
   dome.scale.set(1, 1, 0.82); g.add(dome);
-  // the face's text layer: @name for a shout-out
+  // the two C's, wrapped round the head like the logo: white on the left, cyan on the right, small gaps top and bottom
+  const gap = 0.16, tube = 0.027, cr = R + 0.026;
+  const whiteC = new THREE.MeshPhysicalMaterial({ color: 0xf4fbff, roughness: 0.12, clearcoat: 1, emissive: 0xdff6ff, emissiveIntensity: 0.25 });
+  const cyanC = new THREE.MeshPhysicalMaterial({ color: 0x4cebff, roughness: 0.15, clearcoat: 1, emissive: 0x2fd8ff, emissiveIntensity: 0.9 });
+  const arc = (mat, start) => { const m = new THREE.Mesh(new THREE.TorusGeometry(cr, tube, 20, 80, Math.PI - 2 * gap), mat); m.rotation.z = start; g.add(m); return m; };
+  arc(whiteC, Math.PI / 2 + gap); arc(cyanC, -Math.PI / 2 + gap);
+  // the face's text layer: the Club Cloud logo, or @name for a shout-out
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   // the LED face, drawn like the big screen: fine dot grid, scanlines, soft-edged shapes and glow
@@ -921,6 +959,9 @@ function robotText(r, top, name) {
     g.fillStyle = '#ffffff'; let fs = 52; g.font = `700 ${fs}px 'Avenir Next','Barlow Semi Condensed',sans-serif`;
     while (g.measureText(name).width > S * 0.84 && fs > 18) { fs -= 3; g.font = `700 ${fs}px 'Avenir Next','Barlow Semi Condensed',sans-serif`; }
     g.fillText(name, S / 2, S / 2 + 30);
+  } else {
+    g.font = "700 76px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.fillText('club', S / 2, S / 2 + 10);
+    g.fillStyle = '#4cebff'; g.font = "700 28px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.fillText('C L O U D', S / 2, S / 2 + 50);
   }
   r.tex.needsUpdate = true;
 }

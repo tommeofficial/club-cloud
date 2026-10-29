@@ -1,4 +1,4 @@
-/* DJ app: hardware layout, touch controls, deck logic, mixer, Beat FX, screens and library. */
+/* Club Cloud DJ: hardware layout, touch controls, deck logic, mixer, Beat FX, screens and library. */
 (() => {
 'use strict';
 
@@ -1461,7 +1461,19 @@ function buildArt() {
   P('M995 1083 l5 -4 l5 4 M1013 1083 l3 -5 h6 l3 5', '#c9cbd0', 1);
   for (let x = 944; x <= 1056; x += 14) P(`M${x} 1180 V1236`, '#3d3f44', 1.2);
   T(898, 1213, '‹A', 15, { w: 700 }); T(1102, 1213, 'B›', 15, { w: 700 });
+  // Club Cloud marks (jog-wheel monogram: two C arcs almost meeting, an inner ring and a blue centre)
+  const Mark = (cx, cy, r) => o.push(`<g transform="translate(${cx - r} ${cy - r}) scale(${(r / 155).toFixed(4)})"><circle cx="155" cy="155" r="143" fill="#0D1B2D" stroke="url(#ccRing)" stroke-width="12"/><path d="M145.7 62A93 93 0 0 0 145.7 248" fill="none" stroke="#F4FBFF" stroke-width="31"/><path d="M164.3 62A93 93 0 0 1 164.3 248" fill="none" stroke="#4CEBFF" stroke-width="31"/><circle cx="155" cy="155" r="46.5" fill="none" stroke="#25415E" stroke-width="4.6"/><circle cx="155" cy="155" r="15.5" fill="#4CEBFF"/></g>`);
+  const WF = "'Avenir Next','Avenir','Barlow Semi Condensed','Helvetica Neue',sans-serif";
+  const Word = (x, y, size) => {
+    o.push(`<text x="${x}" y="${y}" font-size="${size}" font-family="${WF}" font-weight="700" letter-spacing="${-size * 0.02}" fill="#F4FBFF" text-anchor="start">club</text>`);
+    o.push(`<line x1="${x + 1}" y1="${y + size * 0.25}" x2="${x + size * 2.55}" y2="${y + size * 0.25}" stroke="#25415E" stroke-width="${Math.max(1, size * 0.03)}"/>`);
+    o.push(`<text x="${x + 2}" y="${y + size * 0.78}" font-size="${size * 0.42}" font-family="${WF}" font-weight="700" letter-spacing="${size * 0.13}" fill="#41E7FF" text-anchor="start">CLOUD</text>`);
+  };
+  Mark(1000, 512, 19);
+  o.push(`<text x="972" y="522.5" font-size="29" font-family="${WF}" font-weight="700" letter-spacing="3" fill="#F4FBFF" text-anchor="end">CLUB</text>`);
+  o.push(`<text x="1028" y="522.5" font-size="29" font-family="${WF}" font-weight="700" letter-spacing="3" fill="#41E7FF" text-anchor="start">CLOUD</text>`);
   T(1200, 1214, 'ALL-IN-ONE DJ SYSTEM', 7.8);
+  Mark(1158, 1236, 13); Word(1178, 1239, 17);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('width', SW); svg.setAttribute('height', SH);
   svg.setAttribute('viewBox', `${X0} ${Y0} ${SW} ${SH}`);
@@ -1494,6 +1506,10 @@ function jogLayers(o) {
   g.beginPath(); g.arc(0, 0, R - 44, 0, TAU); g.fillStyle = '#2b2c30'; g.fill();
   g.beginPath(); g.arc(0, 0, R - 47, 0, TAU); g.fillStyle = '#111113'; g.fill();
   for (let r = 84; r < R - 48; r += 2.6) { g.beginPath(); g.arc(0, 0, r, 0, TAU); g.strokeStyle = (r | 0) % 2 ? 'rgba(255,255,255,.022)' : 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.stroke(); }
+  g.save(); g.fillStyle = 'rgba(244,251,255,.16)'; g.textAlign = 'center';
+  g.font = `700 17px 'Avenir Next','Barlow Semi Condensed',sans-serif`; g.fillText('club', 0, -112);
+  g.font = `700 7.5px 'Avenir Next','Barlow Semi Condensed',sans-serif`; g.fillStyle = 'rgba(65,231,255,.28)'; g.fillText('C L O U D', 0, -101);
+  g.restore();
   o.rot = rc;
   // fixed lighting: sheen wedges
   const [fc, f] = mk();
@@ -1510,11 +1526,14 @@ function jogLayers(o) {
 }
 
 function drawMark(c, x, y, r) {
-  // the label on a platter with no cover art: a plain dark disc with a ring and a spindle dot
-  const k = r / 155;
+  // the Club Cloud mark: a white C and a blue backwards C almost meeting, an inner ring and a blue centre, like a jog wheel
+  const k = r / 155, gap = 0.1;
   c.save(); c.translate(x - 155 * k, y - 155 * k); c.scale(k, k);
   const g = c.createLinearGradient(0, 0, 310, 310); g.addColorStop(0, '#41E7FF'); g.addColorStop(1, '#6285FF');
   c.beginPath(); c.arc(155, 155, 143, 0, TAU); c.fillStyle = '#0D1B2D'; c.fill(); c.lineWidth = 12; c.strokeStyle = g; c.stroke();
+  c.lineWidth = 31;
+  c.beginPath(); c.arc(155, 155, 93, -Math.PI / 2 - gap, Math.PI / 2 + gap, true); c.strokeStyle = '#F4FBFF'; c.stroke();
+  c.beginPath(); c.arc(155, 155, 93, -Math.PI / 2 + gap, Math.PI / 2 - gap, false); c.strokeStyle = '#4CEBFF'; c.stroke();
   c.beginPath(); c.arc(155, 155, 46.5, 0, TAU); c.lineWidth = 4.6; c.strokeStyle = '#25415E'; c.stroke();
   c.beginPath(); c.arc(155, 155, 15.5, 0, TAU); c.fillStyle = '#4CEBFF'; c.fill();
   c.restore();
@@ -2220,12 +2239,13 @@ function demoArt(a, b, label) {
   g.fillStyle = 'rgba(255,255,255,.18)';
   for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(30 + i * 28, 110 - i * 9, 26 + i * 4, 0, TAU); g.fill(); }
   g.fillStyle = '#fff'; g.font = `700 18px ${UIF}`; g.textAlign = 'center'; g.fillText(label, 80, 60);
+  g.font = `600 10px ${UIF}`; g.fillText('CLUB CLOUD', 80, 76);
   return c;
 }
 async function makeDemos() {
   const specs = [
-    { id: 'demo1', title: 'Cloud Nine (Club Mix)', artist: 'Demo', bpm: 124, root: 57, bars: 44, first: 0.25, seed: 99, art: ['#ff3d6e', '#5a1cff', 'CLOUD NINE'] },
-    { id: 'demo2', title: 'Night Drive (Dub)', artist: 'Demo', bpm: 122, root: 50, bars: 44, first: 0.25, seed: 4242, art: ['#00b3ff', '#0a2a6b', 'NIGHT DRIVE'] },
+    { id: 'demo1', title: 'Cloud Nine (Club Mix)', artist: 'Club Cloud', bpm: 124, root: 57, bars: 44, first: 0.25, seed: 99, art: ['#ff3d6e', '#5a1cff', 'CLOUD NINE'] },
+    { id: 'demo2', title: 'Night Drive (Dub)', artist: 'Club Cloud', bpm: 122, root: 50, bars: 44, first: 0.25, seed: 4242, art: ['#00b3ff', '#0a2a6b', 'NIGHT DRIVE'] },
   ];
   for (const s of specs) {
     const buf = await renderDemo(s);

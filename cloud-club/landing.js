@@ -15,7 +15,7 @@ const BPM = 124, LOOK_BEATS = 16, FADE_S = 1.8;            // a new look every 1
 const canvas = document.getElementById('cv');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NoToneMapping; // keep the colours true
+renderer.toneMapping = THREE.NoToneMapping; // keep the C's true to the logo colours
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x03050a);
 const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -99,7 +99,7 @@ form.onsubmit = async (e) => {
       body: JSON.stringify({ email: v, source: 'website' }),
     });
     if (!r.ok && r.status !== 409) throw new Error('status ' + r.status); // 409: already signed up, which is fine
-    form.hidden = true; msg.innerHTML = 'YOU’RE ON THE LIST<small>We’ll email you when it opens.</small>'; msg.hidden = false;
+    form.hidden = true; msg.innerHTML = 'YOU’RE ON THE LIST<small>We’ll email you when Club Cloud opens.</small>'; msg.hidden = false;
   } catch (_) {
     err.textContent = 'Couldn’t sign you up just now. Please try again.'; err.hidden = false;
     done.disabled = false; done.textContent = 'SIGN UP';
