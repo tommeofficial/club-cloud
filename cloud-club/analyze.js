@@ -1,4 +1,4 @@
-/* Club Cloud track analysis worker: 3-band waveform, BPM, beat grid, key, first sound. */
+/* Track analysis worker: 3-band waveform, BPM, beat grid, key, first sound. */
 'use strict';
 self.onmessage = (e) => {
   const { id, mono, sr } = e.data;

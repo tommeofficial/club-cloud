@@ -109,7 +109,7 @@ export function screenMaterial(THREE, textTex, specTex) {
         col *= (1.0 - uDark) * (1.0 - 0.7*uTextDim);
         vec4 tx = texture2D(uText, vUv);
         col = col*(1.0 - tx.a) + tx.rgb;                       // the text sits on top, crisp
-        col = mix(col, vec3(1.0, 0.97, 0.92), uBlast);         // blinder blast
+        col = mix(col, vec3(1.0, 0.97, 0.92), uBlast * 0.7);         // blinder blast
         // LED dot grid: each pixel is a little round light with a dark gap round it
         vec2 cell = fract(vUv * 150.0) - 0.5;
         float dot_ = smoothstep(0.5, 0.25, length(cell));

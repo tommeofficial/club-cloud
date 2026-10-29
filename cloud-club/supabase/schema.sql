@@ -1,4 +1,4 @@
--- Cloud Club backend: profiles, room state and chat.
+-- Backend: profiles, room state and chat.
 -- Run in the Supabase SQL editor. Writes need a signed-in user (Supabase Auth);
 -- enable anonymous sign-ins in Auth settings, or use email sign-in.
 
