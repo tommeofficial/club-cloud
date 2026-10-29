@@ -22,12 +22,20 @@ const splash = document.getElementById('splash');
 const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // a scanned, rigged dancer who takes one spot at the front of the crowd
 // scanned, rigged people who take spots at the front; they have the full set of moves
-const FEATURED = [{ model: 'models/crowd_mia.glb', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
+const FEATURED = [{ model: 'models/crowd_mia.glb', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
 // friends stand together and turn to each other to talk, hug and high-five
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
 const RESTS = ['idle', 'lookaround', 'listen', 'talk']; // what people do between songs, so nobody stands in step
+// the dance floor's repertoire. Measured from the mocap: dance4 and dance5 are the small, low two-step grooves (feet
+// close and open, little arm), dance3 a shuffle, dance the wide hip-hop bounce, dance2 the big hip-swinging house move.
+// The two-step is what most people do most of the time; the wide hip-hop is kept to the lads and the hip-swinging one to the girls.
+const TIERS = {
+  calm: { m: ['dance4', 'dance4', 'dance4', 'dance5'], f: ['dance4', 'dance4', 'dance4', 'dance5'] },
+  mid:  { m: ['dance4', 'dance4', 'dance3', 'dance5'], f: ['dance4', 'dance4', 'dance3', 'dance2'] },
+  high: { m: ['dance4', 'dance4', 'dance3', 'dance'], f: ['dance4', 'dance4', 'dance3', 'dance2'] },
+};
 const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'dance4', 'dance5', 'hype']); // 2-beat clips locked to the music
 // where the crowd stands (x, z) — the DJ looks down -Z from the booth at z = 0
 // kept on the open floor: clear of the counter between the columns (z < -4.3) and the side tables (|x| > 2.2)
@@ -405,6 +413,13 @@ function crowdMoments(t, playing) {
   }
 }
 const _v = new THREE.Vector3(), DJ_HEAD = new THREE.Vector3(0, 1.85, 0);
+// pick a move that fits the music: energy (and tempo) set how big, the dancer's own sex which of the big ones they use
+function chooseDance(p, bpm) {
+  const e = brain.hype + p.bias + (bpm > 138 ? 8 : bpm < 108 ? -10 : 0);
+  const tier = e > 72 ? 'high' : e > 56 ? 'mid' : 'calm';
+  const pool = (TIERS[tier][p.sex] || TIERS[tier].m).filter((d) => p.dances.includes(d) && d !== p.dance);
+  return pool.length ? pick(pool) : p.dance;
+}
 function updatePeople(dt) {
   const c = cc(); if (!c) return;
   const t = clock.elapsedTime;
@@ -413,12 +428,13 @@ function updatePeople(dt) {
   const playing = !!M && brain.dead < 1;
   crowdMoments(t, playing);
   const phrase = beats != null ? Math.floor(beats / 16) : -1;
+  const tempo = M ? 60 / M.B : 125; // slow tunes get the easy grooves, fast ones the big moves
   const kickPulse = beats != null ? Math.pow(1 - (((beats % 1) + 1) % 1), 3) : 0;
   for (const p of people) {
     if (t > p.nextThink) { p.nextThink = t + rnd(3, 8); think1(p, t, playing); }
     if (p.hold && t > p.hold.until) { p.hold = null; p.yawTarget = 0; p.look = null; }
     // every new phrase, dancers may switch to another of their dances
-    if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.dance = pick(p.dances); }
+    if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.dance = chooseDance(p, tempo); }
     if (!playing && t > (p.restUntil || 0)) { p.restUntil = t + rnd(8, 20); if (p.rests.length > 1 && Math.random() < 0.5) p.rest = pick(p.rests); }
     let want = p.rest || 'idle';
     if (playing) { const e = brain.hype + p.bias; want = e > 74 && has(p, 'hype') && p.style !== 'chill' ? 'hype' : e > 48 ? p.dance || p.rest : p.rest; }
@@ -781,9 +797,11 @@ async function loadCrowd() {
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const p = { root, mixer, actions, hand, handL, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
-      bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: Math.floor(rnd(0, 16)), /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
+      bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || src.animations.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
-    p.dance = pick(p.dances);
+    p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
+    p.dances = p.dances.filter((d) => d !== (p.sex === 'f' ? 'dance' : 'dance2')); // the wide hip-hop bounce is the lads', the hip-swinging house move the girls'
+    p.dance = p.dances.includes('dance4') ? 'dance4' : pick(p.dances);
     p.rests = RESTS.filter((r) => actions[r]); p.rest = pick(p.rests) || 'idle';
     addProps(p);
     if (star.robot && p.head) { scene.updateMatrixWorld(true); p.robot = buildRobotHead(p.head, p); p.dances = p.dances.filter((d) => d !== 'dance3' || true); }
