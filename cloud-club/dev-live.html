@@ -1,0 +1,23 @@
+<!doctype html><meta charset=utf-8><title>live test</title>
+<body style="font:14px monospace;background:#111;color:#ddd;padding:16px"><pre id=o>starting</pre>
+<script type=module>
+import { createLive } from './live.js';
+const role = new URLSearchParams(location.search).get('role'), me = role + '-' + Math.random().toString(36).slice(2, 6);
+const bc = new BroadcastChannel('live-test'); const o = document.getElementById('o'); const log = (...a) => (o.textContent += '\n' + a.join(' '));
+let live;
+const channel = { send: (p) => bc.postMessage(p) };
+bc.onmessage = (e) => live && live.handle(e.data);
+if (role === 'dj') {
+  const ac = new AudioContext(); await ac.resume(); const dest = ac.createMediaStreamDestination(); const per = 60 / 128, t0 = ac.currentTime + 0.3;
+  for (let i = 0; i < 600; i++) { const osc = ac.createOscillator(), g = ac.createGain(); osc.frequency.setValueAtTime(140, t0 + i * per); osc.frequency.exponentialRampToValueAtTime(45, t0 + i * per + 0.12); g.gain.setValueAtTime(0.9, t0 + i * per); g.gain.exponentialRampToValueAtTime(0.001, t0 + i * per + 0.2); osc.connect(g).connect(dest); osc.start(t0 + i * per); osc.stop(t0 + i * per + 0.25); }
+  live = createLive({ channel, me, isDj: true, onState: (s) => log('dj state', JSON.stringify(s)) });
+  live.start(dest.stream); window.live = live; log('DJ live as', me);
+} else {
+  live = createLive({ channel, me, isDj: false, onState: (s) => log('fan state', JSON.stringify(s)), onListenStream: async (st) => {
+    if (!st) return; log('got stream, tracks', st.getAudioTracks().length);
+    const ac = new AudioContext(); await ac.resume(); const an = ac.createAnalyser(); ac.createMediaStreamSource(st).connect(an); const buf = new Float32Array(2048); window.peak = 0;
+    setInterval(() => { an.getFloatTimeDomainData(buf); let p = 0; for (const v of buf) p = Math.max(p, Math.abs(v)); window.peak = Math.max(window.peak * 0.9, p); }, 50);
+  } });
+  window.live = live; live.join(); log('fan joined as', me);
+}
+</script>

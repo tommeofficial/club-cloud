@@ -103,11 +103,15 @@ const ext = { ctx: null, analyser: null, stream: null, bufT: null, specBuf: null
 const live = createBeatTracker(); // finds the tempo and keeps the beat for a mic / line-in, where there is no beat grid
 
 async function useInput(deviceId) {
-  stopInput();
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   });
-  const ctx = new AudioContext();
+  return useStream(stream, true);
+}
+// a stream from anywhere: a mic, or a DJ's live broadcast that this listener is hearing (owned: we may stop its tracks)
+async function useStream(stream, owned = false) {
+  stopInput();
+  const ctx = new AudioContext(); ctx.resume().catch(() => {});
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.55;
@@ -119,13 +123,13 @@ async function useInput(deviceId) {
     node.port.onmessage = (e) => live.kickAt(ctx.currentTime, e.data.at);
     const mute = ctx.createGain(); mute.gain.value = 0; src.connect(node); node.connect(mute).connect(ctx.destination);
   } catch (e) { console.warn('worklet unavailable, timing kicks per frame', e); }
-  Object.assign(ext, { node, ctx, analyser, stream, bufT: new Float32Array(analyser.fftSize), specBuf: new Float32Array(analyser.frequencyBinCount) });
+  Object.assign(ext, { owned, node, ctx, analyser, stream, bufT: new Float32Array(analyser.fftSize), specBuf: new Float32Array(analyser.frequencyBinCount) });
   live.reset();
   inputMode = true;
 }
 
 function stopInput() {
-  if (ext.stream) ext.stream.getTracks().forEach((t) => t.stop());
+  if (ext.stream && ext.owned) ext.stream.getTracks().forEach((t) => t.stop());
   if (ext.ctx) ext.ctx.close();
   Object.assign(ext, { node: null, ctx: null, analyser: null, stream: null });
   live.reset();
@@ -1988,4 +1992,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { live, useInput, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { live, useInput, useStream, stopInput, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };

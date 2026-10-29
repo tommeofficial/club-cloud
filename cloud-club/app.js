@@ -575,6 +575,7 @@ async function initAudio() {
   const lp = master.lim;
   lp.threshold.value = -1.5; lp.knee.value = 0; lp.ratio.value = 20; lp.attack.value = 0.002; lp.release.value = 0.12;
   master.level.connect(lp);
+  master.tap = ctx.createMediaStreamDestination(); lp.connect(master.tap); // the mix as a stream, for going live (before the chat ducking, so shout-outs do not dip it)
   master.duck = ctx.createGain(); lp.connect(master.duck); master.duck.connect(ctx.destination); // chat shout-outs duck the music here
   master.split = ctx.createChannelSplitter(2); lp.connect(master.split);
   master.anL = ctx.createAnalyser(); master.anR = ctx.createAnalyser();

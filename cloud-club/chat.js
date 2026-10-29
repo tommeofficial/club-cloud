@@ -5,12 +5,15 @@
 // Rooms: open the app plainly and you are the DJ in your own room (your username).
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
+import { createLive } from './live.js?v=1';
+
 const panel = document.getElementById('chatpanel');
 const log = document.getElementById('chatlog');
 const input = document.getElementById('chatin');
 const status = panel.querySelector('.cstatus');
 const nameRow = panel.querySelector('.cname');
 const djRow = panel.querySelector('.cdj');
+const listenRow = panel.querySelector('.clisten');
 const modal = document.getElementById('chatmodal');
 
 const SHOUT_MAX = 15; // seconds of recording
@@ -84,6 +87,7 @@ async function connect() {
   } catch (e) { setStatus('room not found'); system(`There's no room called ${S.room}.`, 'err'); return; }
   S.backend.subscribeChat(S.room, showMessage);
   S.ch = S.backend.openClubChannel(S.room, onEvent);
+  setupLive();
   setStatus('');
   // you, at the top of the chat
   panel.querySelector('.cmename').textContent = '@' + S.me.username;
@@ -169,6 +173,7 @@ let onEvent = function (ev) {
   } else if (ev.type === 'shoutout') {
     playShout(ev);
   } else if (ev.type.startsWith('mg-')) meetEvent(ev);
+  else if (ev.type.startsWith('lv-')) S.live && S.live.handle(ev);
 };
 
 // ------------------------------------------------------------------ ducking: mute or lower the music and crowd
@@ -220,6 +225,32 @@ function playShout(ev) {
   flashScreen('SHOUT OUT', '@' + ev.from, SHOUT_MAX * 1000);
   a.onended = a.onerror = () => duck(1, 1, 1.2);
   a.play().catch(() => duck(1, 1));
+}
+
+// ------------------------------------------------------------------ going live
+// The DJ's button sends the mix straight from their browser to anyone in the room who presses LISTEN LIVE (see live.js).
+function setupLive() {
+  const goBtn = djRow.querySelector('.cgolive'), listenBtn = listenRow.querySelector('button');
+  S.live = createLive({
+    channel: S.ch, me: S.me.username, isDj: S.isDj,
+    onState: (st) => {
+      goBtn.classList.toggle('on', st.on); goBtn.textContent = st.on ? `LIVE · ${st.listeners} LISTENING` : 'GO LIVE';
+      listenRow.hidden = S.isDj || (!st.on && !st.listening);
+      listenBtn.classList.toggle('on', st.listening); listenBtn.textContent = st.listening ? 'STOP LISTENING' : st.full ? 'ROOM FULL, TRY LATER' : 'LISTEN LIVE';
+    },
+    // what a listener hears is also what their club reacts to: lights, crowd and screen follow the stream
+    onListenStream: (stream) => { if (stream) window.__club?.useStream(stream); else window.__club?.stopInput(); },
+  });
+  goBtn.onclick = () => {
+    if (S.live.on) { S.live.stop(); system('You are off air.', 'sys'); return; }
+    window.__cc?.unlock?.();
+    const tap = window.__cc?.master?.tap;
+    if (!tap) { system('The audio engine has not started yet. Press play on a deck first, then try again.', 'err'); return; }
+    S.live.start(tap.stream); system('You are live. Everyone in the room can press LISTEN LIVE.', 'ok');
+  };
+  listenBtn.onclick = () => { if (S.live.listening) S.live.leave(); else S.live.join(); };
+  if (!S.isDj) setTimeout(() => S.live.ask(), 1200); // is the DJ already on air?
+  addEventListener('pagehide', () => { if (S.isDj) S.live.stop(); else S.live.leave(); });
 }
 
 // ------------------------------------------------------------------ meet & greets: 30-second video calls after the set
