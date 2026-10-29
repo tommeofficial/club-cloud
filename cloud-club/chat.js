@@ -6,6 +6,7 @@
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
 import { createLive } from './live.js?v=2';
+import { createLobby } from './lobby.js?v=1';
 
 const panel = document.getElementById('chatpanel');
 const log = document.getElementById('chatlog');
@@ -14,6 +15,7 @@ const status = panel.querySelector('.cstatus');
 const nameRow = panel.querySelector('.cname');
 const djRow = panel.querySelector('.cdj');
 const listenRow = panel.querySelector('.clisten');
+const backBtn = document.getElementById('backstreams');
 const modal = document.getElementById('chatmodal');
 
 const SHOUT_MAX = 15; // seconds of recording
@@ -78,14 +80,25 @@ async function claim() {
   connect();
 }
 
-async function connect() {
-  S.room = urlRoom || S.me.username;
+// leave whatever room we are in: stop broadcasting or listening, close its channels, clear its chat
+function teardownRoom() {
+  if (S.live) { if (S.isDj) { S.live.stop(); S.lobby?.withdraw(); } else S.live.leave(); }
+  clearInterval(S.syncTimer); clearInterval(S.annTimer); clearTimeout(S.listenTimer);
+  S.unsubChat?.(); S.ch?.close();
+  S.unsubChat = null; S.ch = null; S.live = null;
+  window.__club?.stopInput(); window.__club?.endSync();
+  log.innerHTML = '';
+}
+async function connect(roomName) {
+  teardownRoom();
+  S.room = roomName || urlRoom || S.me.username;
   S.isDj = S.room === S.me.username;
-  djRow.hidden = !S.isDj;
+  djRow.hidden = !S.isDj; backBtn.hidden = S.isDj;
+  if (!S.lobby) { S.lobby = createLobby({ backend: S.backend, me: S.me.username, enter: enterRoom }); window.__lobby = S.lobby; }
   try {
     for (const m of await S.backend.loadRecentChat(S.room, 30)) showMessage(m);
-  } catch (e) { setStatus('room not found'); system(`There's no room called ${S.room}.`, 'err'); return; }
-  S.backend.subscribeChat(S.room, showMessage);
+  } catch (e) { setStatus('room not found'); system(`There's no room called ${S.room}.`, 'err'); return false; }
+  S.unsubChat = S.backend.subscribeChat(S.room, showMessage);
   S.ch = S.backend.openClubChannel(S.room, onEvent);
   setupLive();
   setStatus('');
@@ -99,9 +112,22 @@ async function connect() {
   if (!sessionStorage.getItem('cc-welcomed')) {
     sessionStorage.setItem('cc-welcomed', '1');
     document.querySelector('#tabs [data-mode=club]')?.click();
-    setTimeout(() => S.ch.send({ type: 'join', name: S.me.username }), 1500);
+    setTimeout(() => S.ch?.send({ type: 'join', name: S.me.username }), 1500);
   }
+  return true;
 }
+
+// pressing a card in the LIVE grid: into that DJ's room, straight to the club view, and start listening (no page reload)
+async function enterRoom(room) {
+  if (!S.me || room === S.room) return;
+  if (!(await connect(room))) return;
+  document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();
+  setTimeout(() => { if (S.live && !S.isDj) { S.live.join(); S.listenTimer = setTimeout(() => { if (S.live && !S.live.fanPc) { system('That DJ is not live right now.', 'err'); S.live.leave(); } }, 7000); } }, 700);
+}
+// the STREAMS button: leave the stream, back to your own room, and show the grid
+async function leaveToGrid() { await connect(S.me.username); S.lobby?.open(); }
+backBtn.addEventListener('click', leaveToGrid);
+addEventListener('pagehide', () => { try { if (S.live) { if (S.isDj) S.live.stop(); else S.live.leave(); } } catch (_) {} });
 
 input.disabled = true;
 panel.querySelector('.cgo').addEventListener('click', () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })));
@@ -234,6 +260,7 @@ function setupLive() {
   S.live = createLive({
     channel: S.ch, me: S.me.username, isDj: S.isDj,
     onState: (st) => {
+      if (S.isDj && st.on && S.liveListed && S.lobby?.mine && st.listeners !== S.lobby.mine.listeners) S.lobby.update({ listeners: st.listeners });
       goBtn.classList.toggle('on', st.on); goBtn.textContent = st.on ? `LIVE · ${st.listeners} LISTENING` : 'GO LIVE';
       listenRow.hidden = S.isDj || (!st.on && !st.listening);
       listenBtn.classList.toggle('on', st.listening); listenBtn.textContent = st.listening ? 'STOP LISTENING' : st.full ? 'ROOM FULL, TRY LATER' : 'LISTEN LIVE';
@@ -243,17 +270,24 @@ function setupLive() {
     // the DJ's beat clock and light state: the listener's club does the DJ's show
     onSync: (p) => window.__club?.applySync(p),
   });
+  const card = (title) => {
+    const d = window.__cc?.decks?.find((x) => x.master && x.playing) || window.__cc?.decks?.find((x) => x.playing);
+    return { room: S.room, title, since: S.liveSince, listeners: S.live?.count() || 0, track: d?.t?.title || '', bpm: window.__club?.syncPacket().bpm || 0 };
+  };
   goBtn.onclick = () => {
-    if (S.live.on) { S.live.stop(); clearInterval(S.syncTimer); system('You are off air.', 'sys'); return; }
+    if (S.live.on) { clearInterval(S.syncTimer); clearInterval(S.annTimer); S.live.stop(); S.lobby?.withdraw(); system('You are off air.', 'sys'); return; }
     window.__cc?.unlock?.();
     const tap = window.__cc?.master?.tap;
     if (!tap) { system('The audio engine has not started yet. Press play on a deck first, then try again.', 'err'); return; }
-    S.live.start(tap.stream); system('You are live. Everyone in the room can press LISTEN LIVE.', 'ok');
-    clearInterval(S.syncTimer); S.syncTimer = setInterval(() => { if (S.live.on) S.live.sendSync(window.__club.syncPacket()); else clearInterval(S.syncTimer); }, 100);
+    ask(`<h4>Go live</h4><label class="clab">Show title<input class="ctitle" maxlength="40" placeholder="Friday night house" value="${esc(S.liveTitle || '')}"></label><label class="cchk"><input type="checkbox" class="clisted" ${S.liveListed === false ? '' : 'checked'}> Show me in the LIVE grid so anyone can find me</label><p class="cnote">Up to 12 people can listen at once. They get your mix and your light show.</p>`, 'GO LIVE', (m) => {
+      S.liveTitle = m.querySelector('.ctitle').value.trim().slice(0, 40) || 'Live set'; S.liveListed = m.querySelector('.clisted').checked; closeModal();
+      S.live.start(tap.stream); S.liveSince = Date.now(); system(S.liveListed ? 'You are live, and listed in the LIVE grid.' : 'You are live. Share your room link: only people with it can listen.', 'ok');
+      clearInterval(S.syncTimer); S.syncTimer = setInterval(() => { if (S.live?.on) S.live.sendSync(window.__club.syncPacket()); }, 100);
+      if (S.liveListed && S.lobby) { S.lobby.announce(card(S.liveTitle)); clearInterval(S.annTimer); S.annTimer = setInterval(() => { if (S.live?.on) S.lobby.update(card(S.liveTitle)); }, 5000); }
+    });
   };
   listenBtn.onclick = () => { if (S.live.listening) S.live.leave(); else S.live.join(); };
   if (!S.isDj) setTimeout(() => S.live.ask(), 1200); // is the DJ already on air?
-  addEventListener('pagehide', () => { if (S.isDj) S.live.stop(); else S.live.leave(); });
 }
 
 // ------------------------------------------------------------------ meet & greets: 30-second video calls after the set

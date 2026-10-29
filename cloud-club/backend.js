@@ -111,3 +111,21 @@ export function openClubChannel(room, onEvent) {
     close: () => db.removeChannel(channel),
   };
 }
+
+// The lobby: one shared channel that every browser joins. A DJ who is live (and chose to be listed) puts a small card on it with
+// presence; presence is dropped the moment they leave, so the list never holds a stream that has ended.
+export function openLobby(me, onList) {
+  const db = requireBackend();
+  const channel = db.channel('lobby', { config: { presence: { key: me } } });
+  const emit = () => {
+    const list = [];
+    for (const [dj, metas] of Object.entries(channel.presenceState())) { const m = metas[metas.length - 1]; if (m && m.live) list.push({ ...m, dj }); }
+    onList(list);
+  };
+  channel.on('presence', { event: 'sync' }, emit).subscribe();
+  return {
+    announce: (card) => channel.track({ ...card, live: true }),
+    withdraw: () => channel.untrack(),
+    close: () => db.removeChannel(channel),
+  };
+}
