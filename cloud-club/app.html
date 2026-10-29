@@ -267,6 +267,14 @@ canvas.cv { position: absolute; pointer-events: none; }
 #backstreams[hidden] { display: none; } #backstreams:hover { border-color: #41e7ff; }
 #tabs [data-act=live] .lnum:not(:empty) { margin-left: 5px; background: #ff3b5c; color: #fff; font: 700 10px/1 var(--label); padding: 2px 5px; border-radius: 8px; }
 #tabs [data-act=live].on { background: #163a5c; color: #8fe9ff; }
+#timepill { font: 700 10px var(--label); letter-spacing: 1px; color: #8fe9ff; background: rgba(65,231,255,.1); border: 1px solid rgba(65,231,255,.35); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+#timepill.low { color: #ffd479; border-color: rgba(255,212,121,.5); background: rgba(255,212,121,.1); } #timepill.out { color: #fff; border-color: #ff4d6a; background: rgba(255,60,80,.25); }
+#timeshop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(2,4,8,.78); backdrop-filter: blur(4px); } #timeshop[hidden] { display: none; }
+#timeshop .tsbox { width: min(440px, 90%); background: #0b0f18; border: 1px solid #24304a; border-radius: 14px; padding: 22px; color: #e9eaec; font-family: var(--ui); }
+#timeshop h3 { margin: 0 0 8px; font: 700 16px var(--label); letter-spacing: 2px; } #timeshop p { font: 500 13px/1.5 var(--ui); color: #b8c6da; margin: 8px 0; }
+#timeshop .tsopts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
+#timeshop .tsopts button { display: flex; flex-direction: column; gap: 3px; align-items: center; padding: 10px 4px; color: #e9eaec; background: rgba(255,255,255,.05); border: 1px solid rgba(120,150,200,.25); border-radius: 10px; cursor: pointer; font: 600 12px var(--ui); } #timeshop .tsopts button i { font-style: normal; color: #41e7ff; font-weight: 700; } #timeshop .tsopts button:hover { border-color: #41e7ff; }
+#timeshop .tsnote { font-size: 11px; color: #7f93a8; } #timeshop .tsclose { margin-top: 6px; width: 100%; padding: 9px; font: 700 11px var(--label); letter-spacing: 1.5px; color: #c9d6ea; background: transparent; border: 1px solid rgba(120,150,200,.25); border-radius: 8px; cursor: pointer; }
 #clubhud { position: absolute; left: 12px; top: 10px; background: rgba(5,8,14,.6); border: 1px solid #22304a; border-radius: 10px; padding: 7px 10px 8px; min-width: 150px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 #clubhud .lbl { font: 700 10px/1 var(--label); letter-spacing: 2px; color: #7fd0ff; }
 #clubhud .bar { position: relative; height: 6px; border-radius: 3px; background: #1a2232; margin: 6px 0 5px; overflow: hidden; }
@@ -378,6 +386,7 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-zoom="d2" title="Deck 2">2</button>
     </div>
     <div class="tools grp">
+      <button id="timepill" data-act="time" hidden></button>
       <button data-act="live" title="Streams that are on air right now">LIVE<span class="lnum"></span></button>
       <button data-act="lib" title="Library">LIBRARY</button>
       <button data-act="lights" title="Lights, effects and sound">SETTINGS</button>
@@ -399,10 +408,11 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=112"></script>
+<script src="app.js?v=113"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=143"></script>
 <script type="module" src="chat.js?v=102"></script>
+<script type="module" src="billing.js?v=1"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {
   const js = document.createElement('script'); js.type = 'module'; js.src = 'advert/shot.js?v=10'; document.head.appendChild(js);
 }
