@@ -135,6 +135,35 @@ if hat_glb:
     mod = hat.modifiers.new('Armature', 'ARMATURE'); mod.object = arm
     print('HAT placed: scale %.3f, body z %.2f..%.2f' % (k, rz0, rz1))
 
+# optional scan clean-up (CLEAN_K=6.5 blender ...): drop the stretched triangles that bridge gaps in a scan (a ragged sleeve ribbon),
+# the thin slivers along torn edges, and any small floating scraps. Done to the mesh before it is exported.
+CLEAN_K = float(os.environ.get('CLEAN_K', '0'))
+if CLEAN_K and base_fbx:
+    import bmesh, statistics
+    for o in [o for o in bpy.data.objects if o.type == 'MESH' and o.parent is arm and o.name != 'hat' and len(o.data.vertices) > 2000]:
+        bm = bmesh.new(); bm.from_mesh(o.data); bm.edges.ensure_lookup_table(); bm.faces.ensure_lookup_table()
+        med = statistics.median(e.calc_length() for e in bm.edges)
+        bad = []
+        for f in bm.faces:
+            ls = [e.calc_length() for e in f.edges]; ar = f.calc_area()
+            if max(ls) > CLEAN_K * med or (ar > 0 and max(ls) ** 2 / (2 * ar) > 14): bad.append(f)
+        bmesh.ops.delete(bm, geom=bad, context='FACES_ONLY')
+        # then small floating pieces
+        seen, drop = set(), []
+        for v in bm.verts:
+            if v.index in seen: continue
+            part, st = [v], [v]; seen.add(v.index)
+            while st:
+                x = st.pop()
+                for e in x.link_edges:
+                    w = e.other_vert(x)
+                    if w.index not in seen: seen.add(w.index); st.append(w); part.append(w)
+            if len(part) < 120: drop += part
+        bmesh.ops.delete(bm, geom=drop, context='VERTS')
+        loose = [v for v in bm.verts if not v.link_faces]; bmesh.ops.delete(bm, geom=loose, context='VERTS')
+        print('CLEAN %s: %d bad faces, %d scrap verts removed' % (o.name, len(bad), len(drop)))
+        bm.to_mesh(o.data); bm.free()
+
 FINGERS = ('Thumb', 'Index', 'Middle', 'Ring', 'Pinky')
 def curves_of(action):
     c = getattr(action, 'fcurves', None)
