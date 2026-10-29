@@ -65,6 +65,39 @@ if MIN_PART:
         if len(part) < MIN_PART: drop += part
     bmesh.ops.delete(bm, geom=drop, context='VERTS'); bm.to_mesh(obj.data); bm.free()
     print('CLEAN removed %d verts in loose scraps' % len(drop))
+# a big hat upsets Mixamo's rigger: take it off (found by colour: pale and unsaturated up at head height), save it on its
+# own with the bare body's size and place, and it goes back on the rigged head afterwards (see build_mixamo.py)
+HAT_Z = float(args[4]) if len(args) > 4 else 0
+if HAT_Z:
+    import json
+    img = next(i for i in bpy.data.images if i.size[0] > 4)
+    W, H = img.size; px = list(img.pixels)
+    me = obj.data; uvd = me.uv_layers.active.data
+    acc = [[0, 0, 0, 0] for _ in me.vertices]
+    for l in me.loops:
+        u, v = uvd[l.index].uv; x = min(W - 1, max(0, int(u * W))); y = min(H - 1, max(0, int(v * H))); i = (y * W + x) * 4
+        c = acc[l.vertex_index]; c[0] += px[i]; c[1] += px[i + 1]; c[2] += px[i + 2]; c[3] += 1
+    hatv = set()
+    for v in me.vertices:
+        c = acc[v.index]
+        if not c[3] or v.co.z < HAT_Z: continue
+        r, g, b = c[0] / c[3], c[1] / c[3], c[2] / c[3]; mx, mn = max(r, g, b), min(r, g, b)
+        if mx > 0.35 and (mx - mn) / max(mx, 1e-5) < 0.25: hatv.add(v.index)
+    bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
+    hatf = [f.index for f in bm.faces if sum(v.index in hatv for v in f.verts) >= 2]
+    hbm = bm.copy(); hbm.faces.ensure_lookup_table(); hs = set(hatf)
+    bmesh.ops.delete(hbm, geom=[f for f in hbm.faces if f.index not in hs], context='FACES')
+    bmesh.ops.delete(bm, geom=[bm.faces[i] for i in hatf], context='FACES')
+    bm.to_mesh(me); bm.free()
+    hm = me.copy(); hbm.to_mesh(hm); hbm.free()
+    hobj = bpy.data.objects.new('hat', hm); bpy.context.collection.objects.link(hobj)
+    ps = [v.co for v in me.vertices]
+    json.dump(dict(zmin=min(p.z for p in ps), zmax=max(p.z for p in ps), cx=(min(p.x for p in ps) + max(p.x for p in ps)) / 2, cy=(min(p.y for p in ps) + max(p.y for p in ps)) / 2, hatverts=len(hatv)), open(dst.rsplit('.', 1)[0] + '_hat.json', 'w'))
+    bpy.ops.object.select_all(action='DESELECT'); hobj.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=dst.rsplit('.', 1)[0] + '_hat.glb', use_selection=True, export_format='GLB', export_image_format='JPEG')
+    bpy.data.objects.remove(hobj, do_unlink=True)
+    bpy.ops.object.select_all(action='DESELECT'); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+    print('HAT removed %d verts' % len(hatv))
 low = min((obj.matrix_world @ v.co).z for v in obj.data.vertices)
 obj.location.z -= low
 bpy.ops.object.transform_apply(location=True)
