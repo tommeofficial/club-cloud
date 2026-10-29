@@ -400,8 +400,10 @@ function placeStage(animate) {
   stage.style.transform = `translate(${tx}px,${ty}px) scale(${s})`;
   if (Math.abs(oldS - s) > 1e-4 || !canvases[0] || canvases[0].k === 1) sizeCanvases();
   for (const b of tabs.querySelectorAll('[data-zoom]')) b.classList.toggle('on', b.dataset.zoom === L.zoom);
-  const shown = L.mode === 'club' ? (L.cam === 'booth' ? 'djview' : L.cam === 'pan' ? 'club2' : 'club') : L.mode;
+  const shown = L.mode === 'club' ? (L.cam === 'booth' ? 'djview' : 'club') : L.mode;
   for (const b of tabs.querySelectorAll('[data-mode]')) b.classList.toggle('on', b.dataset.mode === shown);
+  // CLUB is one tab: the first press is the fixed view (1), pressing it again moves to the next (2)
+  const cb = tabs.querySelector('[data-mode=club]'); if (cb) cb.textContent = shown === 'club' ? (L.cam === 'pan' ? 'CLUB 2' : 'CLUB 1') : 'CLUB';
 }
 
 function setZoom(z) { L.zoom = L.zoom === z ? 'all' : z; placeStage(true); } // pressing the open side again goes back to both decks
@@ -488,6 +490,7 @@ tabs.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   unlockAudio();
   if (b.dataset.zoom) setZoom(b.dataset.zoom);
+  else if (b.dataset.mode === 'club') setMode(L.mode === 'club' && L.cam === 'crowd' ? 'club2' : 'club'); // again: next camera, round to 1
   else if (b.dataset.mode) setMode(b.dataset.mode);
   else if (b.dataset.act === 'lib') openLibrary(null);
   else if (b.dataset.act === 'help') openHelp();
