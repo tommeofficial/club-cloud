@@ -497,6 +497,7 @@ function buildScene() {
     l.position.set(-3 + i * 2, TRUSS_Y - 0.2, -4.6); l.target.position.set(-2 + i * 1.3, 0, -3.6);
     scene.add(l, l.target); washes.push(l);
   }
+  buildBeamLights();
 }
 
 // ------------------------------------------------------------------ the room
@@ -504,7 +505,7 @@ const ROOM = { w: 11, z0: 2.5, z1: -13.5, h: 4.4 };
 const TRUSS_Y = 3.9;
 function buildRoom() {
   const { w, z0, z1, h } = ROOM, d = z0 - z1, zc = (z0 + z1) / 2;
-  const concrete = new THREE.MeshStandardMaterial({ color: 0x16171a, roughness: 0.55, metalness: 0.15 });
+  const concrete = new THREE.MeshStandardMaterial({ color: 0x16171a, roughness: 0.28, metalness: 0.35 });
   const wall = new THREE.MeshStandardMaterial({ color: 0x0c0c0f, roughness: 0.92 });
   const panel = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 1 });
   const black = new THREE.MeshStandardMaterial({ color: 0x060607, roughness: 0.8 });
@@ -724,7 +725,7 @@ function buildBooth() {
 const beamMat = () => new THREE.ShaderMaterial({
   uniforms: { color: { value: new THREE.Color(1, 1, 1) }, opacity: { value: 0 } },
   vertexShader: 'varying float vy; varying vec3 vn; varying vec3 vv; void main(){ vy = uv.y; vn = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vv = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
-  fragmentShader: 'uniform vec3 color; uniform float opacity; varying float vy; varying vec3 vn; varying vec3 vv; void main(){ float edge = pow(abs(dot(vn, vv)), 1.6); float along = pow(vy, 1.8); gl_FragColor = vec4(color * opacity * edge * along, 1.0); }',
+  fragmentShader: 'uniform vec3 color; uniform float opacity; varying float vy; varying vec3 vn; varying vec3 vv; void main(){ float edge = pow(abs(dot(vn, vv)), 1.6); float along = pow(vy, 1.8); gl_FragColor = vec4(color * opacity * edge * along * 0.7, 1.0); }',
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
 });
 function movingHead(x, y, z) {
@@ -1094,11 +1095,8 @@ function lights(t, dt) {
   });
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
-  // the haze picks up whatever colour the rig is throwing
-  haze.forEach((h, i) => {
-    h.material.color.setHex(colours[(i + step) % colours.length]).multiplyScalar(dark ? 0 : (0.05 + 0.08 * energy + (strobe ? 0.08 : 0)) * F);
-    h.position.x = Math.sin(t * 0.05 + i * 2) * 0.8;
-  });
+  // the haze picks up whatever the rig is throwing, shaft by shaft
+  updateAtmos(t, colours, step, energy, strobe, dark, F);
   // the giant C's double as blinders: they blast white on a hit, strobe on a drop, and stay glowing through a blackout
   const flick = ((beat * 4) % 1 + 1) % 1 < 0.5 ? 1 : 0.15;
   const want = !light.on || !light.fx.blinders ? 0 : hitOn ? 1 : cut ? 0.25 : drop ? 0.8 * flick : 0;
@@ -1143,7 +1141,7 @@ function buildLasers() {
   laser.geo = new LineSegmentsGeometry();
   laser.geo.setPositions(laser.pos); laser.geo.setColors(laser.col);
   const mat = (w, o) => new LineMaterial({ linewidth: w, vertexColors: true, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, worldUnits: false });
-  laser.core = new LineSegments2(laser.geo, mat(1.6, 1)); laser.glow = new LineSegments2(laser.geo, mat(6, 0.14));
+  laser.core = new LineSegments2(laser.geo, mat(1.6, 1)); laser.glow = new LineSegments2(laser.geo, mat(LITE ? 6 : 8, 0.14));
   laser.core.frustumCulled = laser.glow.frustumCulled = false;
   laser.core.visible = laser.glow.visible = false;
   g.add(laser.glow, laser.core);
@@ -1155,12 +1153,13 @@ function updateLasers(t, beat, dark) {
   if (!laser.core) return;
   const mode = dark ? null : auto.laser;
   laser.core.visible = laser.glow.visible = !!mode;
+  if (atmos.dots) atmos.dots.visible = !!mode;
   if (!mode) return;
   const P = laser.pos, C = laser.col, c = new THREE.Color();
   const hit = Math.pow(1 - (((beat % 1) + 1) % 1), 3);
-  let k = 0;
+  let k = 0, nd = 0;
   // each beam is brightest at the source and thins out into the haze towards the far end
-  const seg = (a, b, col, lvl, fade = 0.2) => { a.toArray(P, k * 6); b.toArray(P, k * 6 + 3); c.setHex(col).multiplyScalar(lvl * (light.adFade ?? 1)); c.toArray(C, k * 6); c.multiplyScalar(fade).toArray(C, k * 6 + 3); k++; };
+  const seg = (a, b, col, lvl, fade = 0.2) => { const hitWall = lvl > 0.01 && clipToRoom(a, b); a.toArray(P, k * 6); b.toArray(P, k * 6 + 3); c.setHex(col).multiplyScalar(lvl * (light.adFade ?? 1)); c.toArray(C, k * 6); if (hitWall && atmos.dots) { b.toArray(atmos.dotPos, nd * 3); c.toArray(atmos.dotCol, nd * 3); nd++; } c.multiplyScalar(fade).toArray(C, k * 6 + 3); k++; };
   const sheetMode = mode === 'sheet', coneMode = mode === 'cone';
   // fan: emitters spaced round the circle, firing horizontally out over the crowd towards the back wall
   for (let i = 0; i < FAN; i++) {
@@ -1203,27 +1202,192 @@ function updateLasers(t, beat, dark) {
     } else seg(_a.set(0, 0, 0), _a, 0, 0);
   }
   laser.geo.setPositions(P); laser.geo.setColors(C);
+  // real lasers shimmer as they cut through moving haze
+  laser.core.material.opacity = 0.82 + 0.18 * Math.random();
+  laser.glow.material.opacity = 0.12 + 0.06 * Math.sin(t * 23) * Math.sin(t * 7.3);
+  if (atmos.dots) { atmos.dots.geometry.setDrawRange(0, nd); for (const a of ['position', 'color']) atmos.dots.geometry.attributes[a].needsUpdate = true; }
 }
 
-// ------------------------------------------------------------------ haze
-const haze = [];
+// ------------------------------------------------------------------ atmosphere
+// Real club light only reads because there is haze in the air: the beams, washes and lasers are drawn through it,
+// the beams throw pools of light on the floor, and the CO2 sinks into a low fog. Phones get a lighter version.
+const LITE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
+const MAX_SHAFTS = 12; // light shafts the haze knows about: the moving heads first, then the washes
+
+// 3D value noise, a few octaves: the drifting body of the haze
+const NOISE_GLSL = `
+  float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+  float n3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+               mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+  float fbm3(vec3 p){ float v = 0.0, a = 0.55; for (int i = 0; i < 3; i++){ v += a * n3(p); p = p * 2.1 + 7.3; a *= 0.5; } return v; }
+  float hazeAt(vec3 p, float t){
+    float d = fbm3(p * 0.34 + vec3(t * 0.022, t * 0.011, -t * 0.017));
+    d = 0.22 + 1.05 * d * d;
+    return d * mix(1.0, 0.6, smoothstep(2.6, 4.4, p.y));   // it pools a little lower than the ceiling
+  }`;
+
+// the haze itself: slices facing the camera at increasing depths, each sampling the noise at its own point in the
+// room and adding the light of every shaft that passes nearby. Viewed from any angle it reads as one volume.
+const atmos = { group: null, slices: [], uni: null, pools: [], spots: [], dots: null, dotPos: null, dotCol: null, dotN: 0 };
 function buildHaze() {
-  const g = new THREE.Group();
-  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
-  const x = cv.getContext('2d');
-  for (let i = 0; i < 60; i++) {
-    const px = Math.random() * 256, py = Math.random() * 256, r = 30 + Math.random() * 70;
-    const gr = x.createRadialGradient(px, py, 0, px, py, r);
-    gr.addColorStop(0, 'rgba(255,255,255,.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-    x.fillStyle = gr; x.fillRect(0, 0, 256, 256);
+  const n = LITE ? 9 : 22;
+  const uni = atmos.uni = {
+    uTime: { value: 0 }, uTint: { value: new THREE.Color(0, 0, 0) }, uN: { value: 0 },
+    uO: { value: Array.from({ length: MAX_SHAFTS }, () => new THREE.Vector3()) },
+    uD: { value: Array.from({ length: MAX_SHAFTS }, () => new THREE.Vector3(0, -1, 0)) },
+    uC: { value: Array.from({ length: MAX_SHAFTS }, () => new THREE.Color(0, 0, 0)) },
+    uR: { value: Array.from({ length: MAX_SHAFTS }, () => new THREE.Vector3(0.06, 0.086, 8)) }, // start radius, spread, length
+    uBox0: { value: new THREE.Vector3(-ROOM.w / 2, 0, ROOM.z1) }, uBox1: { value: new THREE.Vector3(ROOM.w / 2, ROOM.h, ROOM.z0) },
+  };
+  const vs = 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }';
+  const fs = `${NOISE_GLSL}
+    #define M ${MAX_SHAFTS}
+    uniform float uTime, uWeight; uniform int uN; uniform vec3 uTint, uBox0, uBox1;
+    uniform vec3 uO[M], uD[M], uC[M], uR[M];
+    varying vec3 vW;
+    void main(){
+      if (any(lessThan(vW, uBox0)) || any(greaterThan(vW, uBox1))) discard;   // only inside the room
+      float dens = hazeAt(vW, uTime);
+      vec3 col = uTint;
+      for (int i = 0; i < M; i++){
+        if (i >= uN) break;
+        vec3 rp = vW - uO[i]; float t = dot(rp, uD[i]);
+        if (t <= 0.0 || t >= uR[i].z) continue;
+        float r = uR[i].x + uR[i].y * t, rad = length(rp - uD[i] * t);
+        float g = 1.0 - smoothstep(r * 0.15, r * 1.2, rad);
+        col += uC[i] * g * g / (1.0 + t * 0.32);
+      }
+      gl_FragColor = vec4(col * dens * uWeight, 1.0);
+    }`;
+  const g = atmos.group = new THREE.Group();
+  const plane = new THREE.PlaneGeometry(2, 2);
+  for (let i = 0; i < n; i++) {
+    const a = i / (n - 1), d = 0.7 * Math.pow(17 / 0.7, a);              // closer slices are packed tighter
+    const next = 0.7 * Math.pow(17 / 0.7, Math.min(1, (i + 1) / (n - 1)));
+    const m = new THREE.ShaderMaterial({ vertexShader: vs, fragmentShader: fs, uniforms: { ...uni, uWeight: { value: Math.max(0.15, next - d) * (LITE ? 0.16 : 0.12) } },
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    const s = new THREE.Mesh(plane, m); s.userData.d = d; s.frustumCulled = false; s.renderOrder = -1;
+    g.add(s); atmos.slices.push(s);
   }
-  const tex = new THREE.CanvasTexture(cv);
-  for (const z of [-2, -4.5, -7.5]) {
-    const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0 });
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(10, 4), m); p.position.set(0, 2, z);
-    g.add(p); haze.push(p);
+  g.add(buildPools(), buildLaserDots());
+  return g;
+}
+// keep the slices in front of the camera, each just big enough to fill the view at its depth
+function syncHaze() {
+  if (!atmos.group || !camera) return;
+  camera.updateMatrixWorld();
+  const k = Math.tan((camera.fov * Math.PI) / 360) * 1.08;
+  for (const s of atmos.slices) {
+    const d = s.userData.d, h = d * k;
+    s.position.copy(camera.position).add(_v.set(0, 0, -d).applyQuaternion(camera.quaternion));
+    s.quaternion.copy(camera.quaternion);
+    s.scale.set(h * camera.aspect, h, 1);
+  }
+}
+
+// pools of light where the beams meet the floor: an ellipse stretched by how low the beam is raking
+const poolMat = () => new THREE.ShaderMaterial({
+  uniforms: { color: { value: new THREE.Color(0, 0, 0) } },
+  vertexShader: 'varying vec2 vU; void main(){ vU = uv - 0.5; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'uniform vec3 color; varying vec2 vU; void main(){ float r = length(vU) * 2.0; float a = pow(max(0.0, 1.0 - r), 1.8); gl_FragColor = vec4(color * a, 1.0); }',
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+});
+function buildPools() {
+  const g = new THREE.Group();
+  for (let i = 0; i < 8; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), poolMat());
+    m.rotation.order = 'YXZ'; m.visible = false; g.add(m); atmos.pools.push(m);
   }
   return g;
+}
+// beam spotlights so the colour actually lands on people as the heads sweep over them (desktop only: they cost)
+function buildBeamLights() {
+  if (LITE) return;
+  for (let i = 0; i < 8; i++) {
+    const l = new THREE.SpotLight(0xffffff, 0, 13, 0.13, 0.65, 1.3);
+    scene.add(l, l.target); atmos.spots.push(l);
+  }
+}
+
+// laser hit dots: a sharp spot of light wherever a beam meets a wall, the ceiling or the floor
+function buildLaserDots() {
+  const n = FAN + CURTAIN + EXTRA;
+  atmos.dotPos = new Float32Array(n * 3); atmos.dotCol = new Float32Array(n * 3);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(atmos.dotPos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(atmos.dotCol, 3));
+  g.setDrawRange(0, 0);
+  const m = new THREE.ShaderMaterial({
+    uniforms: { scale: { value: 600 } },
+    vertexShader: 'attribute vec3 color; varying vec3 vC; uniform float scale; void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = clamp(0.09 * scale / -mv.z, 2.0, 40.0); gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'varying vec3 vC; void main(){ float r = length(gl_PointCoord - 0.5) * 2.0; float a = pow(max(0.0, 1.0 - r), 2.2) + 0.9 * pow(max(0.0, 1.0 - r * 3.0), 2.0); gl_FragColor = vec4(vC * a, 1.0); }',
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+  });
+  atmos.dots = new THREE.Points(g, m); atmos.dots.frustumCulled = false;
+  return atmos.dots;
+}
+// shorten a laser to where it first meets the room, and remember where it hit
+function clipToRoom(a, b) {
+  const lo = [-ROOM.w / 2 + 0.06, 0.02, ROOM.z1 + 0.06], hi = [ROOM.w / 2 - 0.06, ROOM.h - 0.03, ROOM.z0 - 0.06];
+  const d = [b.x - a.x, b.y - a.y, b.z - a.z], p = [a.x, a.y, a.z];
+  let tMin = 1;
+  for (let k = 0; k < 3; k++) {
+    if (d[k] > 1e-6) tMin = Math.min(tMin, (hi[k] - p[k]) / d[k]);
+    else if (d[k] < -1e-6) tMin = Math.min(tMin, (lo[k] - p[k]) / d[k]);
+  }
+  if (tMin < 1 && tMin > 0) b.set(a.x + d[0] * tMin, a.y + d[1] * tMin, a.z + d[2] * tMin);
+  return tMin <= 1;
+}
+
+const _o = new THREE.Vector3(), _dir = new THREE.Vector3(), _col = new THREE.Color();
+// every frame: feed the haze the shafts of light, place the floor pools, and point the beam lights
+function updateAtmos(t, colours, step, energy, strobe, dark, F) {
+  if (!atmos.uni) return;
+  const u = atmos.uni; u.uTime.value = t;
+  // a faint glow of the rig's colour through the whole room, brighter on the drops
+  const amb = dark ? 0 : (0.018 + 0.03 * energy + (strobe ? 0.035 : 0)) * F;
+  u.uTint.value.setHex(colours[step % colours.length]).lerp(_col.setRGB(0.6, 0.62, 0.7), 0.45).multiplyScalar(amb);
+  let n = 0;
+  beams.forEach((b, i) => {
+    b.updateMatrixWorld(true);
+    _o.set(0, -0.15, 0).applyMatrix4(b.matrixWorld);
+    _dir.set(0, -1, 0).transformDirection(b.matrixWorld);
+    const lvl = dark ? 0 : b.material.opacity;
+    if (n < MAX_SHAFTS) {
+      u.uO.value[n].copy(_o); u.uD.value[n].copy(_dir);
+      u.uC.value[n].copy(b.material.color).multiplyScalar(lvl * 0.9);
+      u.uR.value[n].set(0.06, 0.086, 8.2); n++;
+    }
+    // floor pool
+    const pool = atmos.pools[i];
+    if (pool) {
+      const tHit = _dir.y < -0.05 ? -_o.y / _dir.y : Infinity;
+      pool.visible = lvl > 0.01 && tHit < 8.2;
+      if (pool.visible) {
+        const r = (0.06 + 0.086 * tHit) * 1.15, rake = Math.min(3, 1 / Math.max(0.33, -_dir.y));
+        pool.position.set(_o.x + _dir.x * tHit, 0.012, _o.z + _dir.z * tHit);
+        pool.rotation.set(-Math.PI / 2, Math.atan2(_dir.x, _dir.z), 0);
+        pool.scale.set(r * 2, r * 2 * rake, 1);
+        pool.material.uniforms.color.value.copy(b.material.color).multiplyScalar(lvl * 0.55 / (1 + tHit * 0.08));
+      }
+    }
+    const sp = atmos.spots[i];
+    if (sp) {
+      sp.position.copy(_o); sp.target.position.copy(_o).addScaledVector(_dir, 6);
+      sp.color.copy(b.material.color); sp.intensity = lvl * 60;
+    }
+  });
+  // the washes are wide soft cones from the truss: they light the haze too
+  for (const l of washes) {
+    if (n >= MAX_SHAFTS) break;
+    _dir.copy(l.target.position).sub(l.position).normalize();
+    u.uO.value[n].copy(l.position); u.uD.value[n].copy(_dir);
+    u.uC.value[n].copy(l.color).multiplyScalar(dark ? 0 : l.intensity * 0.0038);
+    u.uR.value[n].set(0.12, Math.tan(l.angle) * 0.85, 7.5); n++;
+  }
+  u.uN.value = n;
+  if (atmos.dots) atmos.dots.material.uniforms.scale.value = renderer ? renderer.domElement.height : 600;
 }
 
 // ------------------------------------------------------------------ room lights
@@ -1255,7 +1419,7 @@ function setRoom(f) {
 // ------------------------------------------------------------------ CO2 cannons
 // two jets in the top corners spray down and in, then the cloud drifts and fades
 const CO2_MAX = 2600;
-const co2 = { pts: null, pos: null, vel: null, life: null, max: null, size: null, alpha: null };
+const co2 = { fog: null, pts: null, pos: null, vel: null, life: null, max: null, size: null, alpha: null };
 // two cannons on the front edge of the stage, either side of the booth, blasting up and out over the front of the crowd
 const NOZZLES = [
   { p: new THREE.Vector3(-1.45, 0.95, -1.15), d: new THREE.Vector3(0.15, 0.55, -0.82).normalize() },
@@ -1278,14 +1442,14 @@ function buildCo2() {
   const g = new THREE.BufferGeometry();
   co2.pos = new Float32Array(CO2_MAX * 3); co2.vel = new Float32Array(CO2_MAX * 3);
   co2.life = new Float32Array(CO2_MAX); co2.max = new Float32Array(CO2_MAX).fill(1);
-  co2.size = new Float32Array(CO2_MAX); co2.alpha = new Float32Array(CO2_MAX);
+  co2.size = new Float32Array(CO2_MAX); co2.alpha = new Float32Array(CO2_MAX); co2.fog = new Uint8Array(CO2_MAX);
   g.setAttribute('position', new THREE.BufferAttribute(co2.pos, 3));
   g.setAttribute('size', new THREE.BufferAttribute(co2.size, 1));
   g.setAttribute('alpha', new THREE.BufferAttribute(co2.alpha, 1));
   const m = new THREE.ShaderMaterial({
     vertexShader: 'attribute float size; attribute float alpha; varying float va; uniform float scale; void main(){ va = alpha; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = size * scale / -mv.z; gl_Position = projectionMatrix * mv; }',
-    uniforms: { scale: { value: 600 }, map: { value: smokeTexture() } },
-    fragmentShader: 'uniform sampler2D map; varying float va; void main(){ vec4 c = texture2D(map, gl_PointCoord); if (c.a < 0.01) discard; gl_FragColor = vec4(vec3(0.78, 0.8, 0.84), c.a * va); }',
+    uniforms: { scale: { value: 600 }, map: { value: smokeTexture() }, uTint: { value: new THREE.Color(0.78, 0.8, 0.84) } },
+    fragmentShader: 'uniform sampler2D map; uniform vec3 uTint; varying float va; void main(){ vec4 c = texture2D(map, gl_PointCoord); if (c.a < 0.01) discard; gl_FragColor = vec4(uTint, c.a * va); }',
     transparent: true, depthWrite: false,
   });
   co2.pts = new THREE.Points(g, m); co2.pts.frustumCulled = false;
@@ -1301,6 +1465,9 @@ function updateCo2(dt, t) {
   const firing = (light.sfx.co2 || 0) > t;
   let spawn = firing ? Math.round(dt * 600) : 0;
   const drag = Math.exp(-2.8 * dt);
+  // the gas takes on the colour of the light passing through it
+  const tint = co2.pts.material.uniforms.uTint.value;
+  tint.setRGB(0.8, 0.8, 0.82); if (beams[0] && beams[0].material.opacity > 0.02) tint.lerp(beams[0].material.color, 0.3);
   for (let i = 0; i < CO2_MAX; i++) {
     const j = i * 3;
     if (co2.life[i] <= 0) {
@@ -1309,11 +1476,21 @@ function updateCo2(dt, t) {
       const n = NOZZLES[i % 2], sp = rnd(10, 14);
       co2.pos[j] = n.p.x; co2.pos[j + 1] = n.p.y; co2.pos[j + 2] = n.p.z;
       co2.vel[j] = (n.d.x + rnd(-0.07, 0.07)) * sp; co2.vel[j + 1] = (n.d.y + rnd(-0.07, 0.07)) * sp; co2.vel[j + 2] = (n.d.z + rnd(-0.07, 0.07)) * sp;
-      co2.life[i] = co2.max[i] = rnd(2.2, 3.4);
+      co2.life[i] = co2.max[i] = rnd(2.2, 3.4); co2.fog[i] = 0;
     }
     co2.life[i] -= dt;
     if (co2.life[i] <= 0) { co2.alpha[i] = 0; continue; }
-    const age = 1 - co2.life[i] / co2.max[i]; // 0 at the nozzle, 1 when it's gone
+    let age = 1 - co2.life[i] / co2.max[i]; // 0 at the nozzle, 1 when it's gone
+    // once it has sunk to knee height it stops being a jet and spreads out into a low fog that lingers
+    if (!co2.fog[i] && age > 0.4 && co2.pos[j + 1] < 0.55) { const x = rnd(2.5, 4.5); co2.fog[i] = 1; co2.life[i] += x; co2.max[i] += x; age = 1 - co2.life[i] / co2.max[i]; }
+    if (co2.fog[i]) {
+      const f = Math.exp(-1.2 * dt);
+      co2.vel[j] = co2.vel[j] * f + rnd(-1, 1) * 0.6 * dt; co2.vel[j + 1] = co2.vel[j + 1] * 0.5 * f; co2.vel[j + 2] = co2.vel[j + 2] * f + rnd(-1, 1) * 0.6 * dt;
+      co2.pos[j] += co2.vel[j] * dt; co2.pos[j + 1] = Math.max(0.12, co2.pos[j + 1] + co2.vel[j + 1] * dt - 0.04 * dt); co2.pos[j + 2] += co2.vel[j + 2] * dt;
+      co2.size[i] = Math.min(2.2, co2.size[i] + dt * 0.35);
+      co2.alpha[i] = Math.min(0.16, co2.alpha[i] + dt) * Math.min(1, co2.life[i] / 1.5) * (light.adFade ?? 1);
+      continue;
+    }
     // slows down fast, churns, and the cold gas sinks
     co2.vel[j] = co2.vel[j] * drag + rnd(-1, 1) * 2.2 * dt;
     co2.vel[j + 1] = co2.vel[j + 1] * drag + rnd(-1, 1) * 1.2 * dt - 1.1 * dt; // cold gas sinks back down onto the crowd
@@ -1590,6 +1767,7 @@ function frame() {
   lights(t, dt);
   sfx.bed(brain.playing, brain.hype);
   if (window.__adFrame) window.__adFrame(camera, dt, t);
+  syncHaze();
   composer.render();
   updateDj(dt, t);
   // two-sided meter: grows left from the middle when angry, right when happy
@@ -1666,7 +1844,7 @@ async function start() {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const fxPass = new RenderPass(fx, camera); fxPass.clear = false; fxPass.clearDepth = false; composer.addPass(fxPass);
-  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.86); composer.addPass(bloom);
+  bloom = LITE ? new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.86) : new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.55, 0.82); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   resize();
   try { await loadCrowd(); await loadDj(); resize(); loadMsg.hidden = true; }
