@@ -490,6 +490,40 @@ function syncPacket() {
     style: light.style, k: light.intensity, col: light.colours.map(Boolean), on: light.on, fx: { ...light.fx }, look: look.name,
     laser: auto.laser || null, laserLeft: auto.laser ? Math.max(0, auto.laserEnd - curBeat) : 0, blindLeft: Math.max(0, auto.blindUntil - curBeat), co2: Math.max(0, (light.sfx.co2 || 0) - t) };
 }
+// In the standing poses (idle, look around, talk) the scanned bodies let their hands drift in and overlap in front of the
+// body, which reads as crossed arms. Swing both upper arms a little out from the sides, eased in and out so nothing pops.
+const SPREAD_CLIPS = new Set(['idle', 'lookaround', 'talk']);
+const _sq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _ax = new THREE.Vector3(), _lv = new THREE.Vector3(), _rv = new THREE.Vector3();
+function spreadArms(p, dt) {
+  if (!p.armL || !p.armR) return;
+  p.spread += ((SPREAD_CLIPS.has(p.loopName) && !p.busy ? 1 : 0) - p.spread) * Math.min(1, dt * 4);
+  if (p.spread < 0.01) return;
+  if (p.armSide == null) {
+    p.root.updateMatrixWorld(true); p.armL.getWorldPosition(_lv); p.armR.getWorldPosition(_rv);
+    p.armSide = p.root.worldToLocal(_lv).x > p.root.worldToLocal(_rv).x ? 1 : -1;
+    p.foreL = p.armL.children.find((c) => c.isBone); p.foreR = p.armR.children.find((c) => c.isBone); p.armAng = 0.26;
+  }
+  _ax.set(0, 0, 1).applyQuaternion(p.root.quaternion);
+  const swing = (bone, side, ang) => {
+    _sq.setFromAxisAngle(_ax, side * ang);
+    bone.parent.getWorldQuaternion(_pq);
+    bone.quaternion.premultiply(_pq.clone().invert().multiply(_sq).multiply(_pq));
+  };
+  const apply = () => {
+    const ang = p.armAng * p.spread;
+    swing(p.armL, p.armSide, ang); swing(p.armR, -p.armSide, ang);
+    if (p.foreL && p.foreR) { swing(p.foreL, p.armSide, ang * 0.6); swing(p.foreR, -p.armSide, ang * 0.6); }
+  };
+  apply();
+  // if the hands still end up together, open the arms a little more until they clear; relax again when they do
+  if (p.hand && p.handL) {
+    p.root.updateMatrixWorld(true); p.hand.getWorldPosition(_lv); p.handL.getWorldPosition(_rv);
+    const gap = _lv.distanceTo(_rv);
+    if (gap < 0.22) p.armAng = Math.min(0.8, p.armAng + dt * 1.2);
+    else if (gap > 0.32) p.armAng = Math.max(0.26, p.armAng - dt * 0.4);
+  }
+}
+
 function updatePeople(dt) {
   const c = cc(); if (!c) return;
   const t = clock.elapsedTime;
@@ -528,6 +562,7 @@ function updatePeople(dt) {
     if (p.chest && p.chestQ) p.chest.quaternion.copy(p.chestQ);
     if (p.head && p.headQ) p.head.quaternion.copy(p.headQ);
     p.mixer.update(dt);
+    spreadArms(p, dt);
     if (p.chest) (p.chestQ ||= new THREE.Quaternion()).copy(p.chest.quaternion);
     if (p.head) (p.headQ ||= new THREE.Quaternion()).copy(p.head.quaternion);
     // turn towards a friend when talking, drift a little on the spot, breathe, and keep an eye on the DJ
@@ -891,7 +926,8 @@ async function loadCrowd() {
     for (const clip of src.animations) if (clip.name !== 'listen') actions[clip.name] = mixer.clipAction(clip);   // 'listen' (Old Man Idle) crossed the arms, which looked creepy
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
-    const p = { root, mixer, actions, hand, handL, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
+    const armL = bone(/^mixamorigLeftArm$/i), armR = bone(/^mixamorigRightArm$/i);
+    const p = { root, mixer, actions, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
       bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || src.animations.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
