@@ -888,7 +888,7 @@ async function loadCrowd() {
     scene.add(root);
     const mixer = new THREE.AnimationMixer(root);
     const actions = {};
-    for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
+    for (const clip of src.animations) if (clip.name !== 'listen') actions[clip.name] = mixer.clipAction(clip);   // 'listen' (Old Man Idle) crossed the arms, which looked creepy
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const p = { root, mixer, actions, hand, handL, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
