@@ -20,7 +20,15 @@ const modal = document.getElementById('chatmodal');
 
 const SHOUT_MAX = 15; // seconds of recording
 const MEET_SECS = 30;
-const PRICES = { shout: 5, song: 5, meet: 30 };
+// This room's prices in pounds, set by its DJ (see applyPrices). Entry is shown and confirmed now, and enforced once real payments are connected.
+const PRICES = { shout: 5, song: 5, meet: 30, tipMin: 1, entry: 0 };
+const gbp = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+const money = (n) => (n > 0 ? '£' + gbp(n) : 'Free');
+function applyPrices(p) {
+  Object.assign(PRICES, { shout: p.shout_pence / 100, song: p.song_pence / 100, meet: p.meet_pence / 100, tipMin: Math.max(p.tip_min_pence / 100, 0), entry: p.entry_pence / 100 });
+  const set = (q, text) => { const el = panel.querySelector(`.cquick [data-q=${q}] i`); if (el) el.textContent = text; };
+  set('shout', money(PRICES.shout)); set('song', money(PRICES.song)); set('meet', money(PRICES.meet)); set('tip', PRICES.tipMin > 0 ? 'from £' + gbp(PRICES.tipMin) : 'any');
+}
 const urlRoom = new URLSearchParams(location.search).get('room');
 const S = { backend: null, me: null, room: null, isDj: false, ch: null, lastSent: 0, unread: 0, requests: new Map(), meetQueue: [], call: null };
 
@@ -107,6 +115,7 @@ async function connect(roomName) {
   try {
     for (const m of await S.backend.loadRecentChat(S.room, 30)) showMessage(m);
   } catch (e) { setStatus('room not found'); system(`There's no room called ${S.room}.`, 'err'); return false; }
+  S.backend.loadPrices(S.room).then(applyPrices).catch(() => applyPrices(S.backend.DEFAULT_PRICES));
   S.unsubChat = S.backend.subscribeChat(S.room, showMessage);
   S.ch = S.backend.openClubChannel(S.room, onEvent);
   setupLive();
@@ -128,6 +137,14 @@ async function connect(roomName) {
 
 // pressing a card in the LIVE grid: into that DJ's room, straight to the club view, and start listening (no page reload)
 async function enterRoom(room) {
+  const target = await S.backend.loadPrices(room).catch(() => S.backend.DEFAULT_PRICES);
+  if (target.entry_pence > 0 && room !== S.me?.username) {   // a priced room: confirm before going in (payments are a free test for now)
+    const ok = await new Promise((res) => {
+      ask(`<h4>${esc(room)}'s room costs £${gbp(target.entry_pence / 100)} to enter</h4><p>Pay once to watch this DJ's stream and join their club.</p>${testNote}`, `PAY £${gbp(target.entry_pence / 100)} & ENTER`, () => { closeModal(); res(true); });
+      modal.querySelector('.ccancel').onclick = () => { closeModal(); res(false); };
+    });
+    if (!ok) return;
+  }
   if (!S.me) { setMin(false); nameRow.hidden = false; system('Pick a name to chat first, then choose the stream again.', 'err'); return; }
   if (room === S.room) return;
   if (!(await connect(room))) return;
@@ -168,15 +185,15 @@ const testNote = '<p class="cnote">Payments aren\'t live yet, so this runs as a 
 panel.querySelector('.cquick').addEventListener('click', (e) => {
   const q = e.target.closest('button')?.dataset.q; if (!q) return;
   if (!S.ch) { system('Chat is not connected yet.', 'err'); return; }
-  if (q === 'shout') ask(`<h4>Shout-out · £${PRICES.shout}</h4><p>Ask the DJ for a shout-out. If they accept, you'll record up to ${SHOUT_MAX} seconds and it plays to everyone in the club, with your name on the big screen.</p>${testNote}`, 'REQUEST', () => request('shout'));
-  if (q === 'song') ask(`<h4>Song request · £${PRICES.song}</h4><p class="cwarn">The DJ may not have this song, or it may not fit the set. They choose whether to play it.</p><input maxlength="80" placeholder="Artist – song">${testNote}`, 'REQUEST', (m) => {
+  if (q === 'shout') ask(`<h4>Shout-out · ${money(PRICES.shout)}</h4><p>Ask the DJ for a shout-out. If they accept, you'll record up to ${SHOUT_MAX} seconds and it plays to everyone in the club, with your name on the big screen.</p>${testNote}`, 'REQUEST', () => request('shout'));
+  if (q === 'song') ask(`<h4>Song request · ${money(PRICES.song)}</h4><p class="cwarn">The DJ may not have this song, or it may not fit the set. They choose whether to play it.</p><input maxlength="80" placeholder="Artist – song">${testNote}`, 'REQUEST', (m) => {
     const t = m.querySelector('input').value.trim(); if (!t) return; request('song', t);
   });
-  if (q === 'tip') ask(`<h4>Tip the DJ</h4><p>Any amount.</p><div class="cmoney">£<input type="number" min="1" max="500" step="1" value="5"></div>${testNote}`, 'SEND TIP', (m) => {
-    const v = Math.round(+m.querySelector('input').value); if (!(v >= 1 && v <= 500)) return;
+  if (q === 'tip') ask(`<h4>Tip the DJ</h4><p>${PRICES.tipMin > 0 ? 'From £' + gbp(PRICES.tipMin) + '.' : 'Any amount.'}</p><div class="cmoney">£<input type="number" min="${Math.max(PRICES.tipMin, 1)}" max="500" step="1" value="${Math.max(5, Math.ceil(PRICES.tipMin))}"></div>${testNote}`, 'SEND TIP', (m) => {
+    const v = Math.round(+m.querySelector('input').value); if (!(v >= Math.max(PRICES.tipMin, 1) && v <= 500)) return;
     closeModal(); S.ch.send({ type: 'tip', from: S.me.username, amount: v }); send(`💸 tipped £${v}`);
   });
-  if (q === 'meet') ask(`<h4>Meet & greet · £${PRICES.meet}</h4><p>After the set, you'll get a ${MEET_SECS}-second video call with the DJ. Keep this page open; your camera and mic are needed when it's your turn.</p>${testNote}`, 'BOOK', () => request('meet'));
+  if (q === 'meet') ask(`<h4>Meet & greet · ${money(PRICES.meet)}</h4><p>After the set, you'll get a ${MEET_SECS}-second video call with the DJ. Keep this page open; your camera and mic are needed when it's your turn.</p>${testNote}`, 'BOOK', () => request('meet'));
 });
 function request(kind, text = '') {
   closeModal();
@@ -283,7 +300,18 @@ function setupLive() {
   });
   const card = (title) => {
     const d = window.__cc?.decks?.find((x) => x.master && x.playing) || window.__cc?.decks?.find((x) => x.playing);
-    return { room: S.room, title, since: S.liveSince, listeners: S.live?.count() || 0, track: d?.t?.title || '', bpm: window.__club?.syncPacket().bpm || 0 };
+    return { room: S.room, title, entry: PRICES.entry, since: S.liveSince, listeners: S.live?.count() || 0, track: d?.t?.title || '', bpm: window.__club?.syncPacket().bpm || 0 };
+  };
+  const pricesBtn = djRow.querySelector('.cgoprices');
+  if (pricesBtn) pricesBtn.onclick = () => {
+    const f = (id, label, v, hint) => `<label class="clab">${label}${hint ? ` <i class="chint">${hint}</i>` : ''}<span class="cmoney">£<input data-k="${id}" type="number" min="0" max="500" step="0.5" value="${gbp(v)}"></span></label>`;
+    ask(`<h4>Your prices</h4><p class="cnote">What people pay in your room. Set 0 for free. Prices in pounds.</p>${f('entry', 'Room entry', PRICES.entry, '0 = free to watch')}${f('song', 'Song request', PRICES.song)}${f('shout', 'Shout-out', PRICES.shout)}${f('meet', 'Meet & greet', PRICES.meet)}${f('tip', 'Smallest tip', PRICES.tipMin)}${testNote}<p class="cerr"></p>`, 'SAVE PRICES', async (m) => {
+      const v = (k) => Math.round(parseFloat(m.querySelector(`[data-k=${k}]`).value) * 100);
+      const p = { entry_pence: v('entry'), song_pence: v('song'), shout_pence: v('shout'), meet_pence: v('meet'), tip_min_pence: v('tip') };
+      if (Object.values(p).some((x) => !Number.isFinite(x) || x < 0 || x > 50000)) { m.querySelector('.cerr').textContent = 'Enter prices from 0 to 500.'; return; }
+      try { await S.backend.savePrices(S.room, p); applyPrices(p); closeModal(); system('Your prices are saved.', 'ok'); if (S.lobby?.mine) S.lobby.update({ entry: p.entry_pence / 100 }); }
+      catch (e) { console.warn('prices', e); m.querySelector('.cerr').textContent = 'Couldn\u2019t save your prices. Try again in a moment.'; }
+    });
   };
   goBtn.onclick = () => {
     if (S.live.on) { clearInterval(S.syncTimer); clearInterval(S.annTimer); S.live.stop(); S.lobby?.withdraw(); system('You are off air.', 'sys'); return; }

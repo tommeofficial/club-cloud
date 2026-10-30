@@ -123,19 +123,40 @@ function showShop(why) {
     ${why === 'rec' ? '<p>Recording your set and downloading it is for Pro members. Pro is £9.99 a month, with unlimited deck time and going live. Pay-as-you-go hours do not unlock it.</p>' : ''}
     ${why === 'golive' ? '<p>Going live is for Pro members. Pro is £9.99 a month, with unlimited deck time. Pay-as-you-go hours do not unlock it.</p>' : ''}
     <div class="tspro"><div><b>PRO · £${PRO_PRICE} a month</b><span>Unlimited deck time, going live and recording, and no tag over your sound.</span></div><button data-pro="30">${B.pro ? 'EXTEND' : 'GO PRO'}</button></div>
+    <div class="tscode"><input class="tscodein" placeholder="Have a code? Enter it here" autocomplete="off" autocapitalize="characters" spellcheck="false"><button data-code>APPLY</button></div><p class="tscodemsg"></p>
     <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
     <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
     <p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>
     <button class="tsclose">${why === 'grace' ? 'KEEP PLAYING' : B.free + B.paid > 0 ? 'CLOSE' : 'NOT NOW'}</button></div>`;
   shop.hidden = false;
+  shop.querySelector('.tscodein')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') redeemCode(); });
 }
 function hideShop() { if (shop) shop.hidden = true; }
 async function onShopClick(e) {
-  if (e.target.closest('.tsclose')) { hideShop(); if (B.inGrace) { warn(); } return; }   // in the grace minutes, 'keep playing' shrinks the offer to the small bar
+  if (e.target.closest('.tsclose')) { hideShop(); if (B.inGrace) { warn(); } return; }
+  if (e.target.closest('[data-code]')) { await redeemCode(); return; }   // in the grace minutes, 'keep playing' shrinks the offer to the small bar
   const b = e.target.closest('[data-h], [data-pro]'); if (!b || B.busy) return;
   B.busy = true; b.disabled = true;
   try { take(b.dataset.pro ? await rpc('test_set_pro', { p_days: +b.dataset.pro }) : await rpc('test_buy_hours', { p_hours: +b.dataset.h })); B.locked = false; hideShop(); check(); pill(); }
   catch (err) { console.warn('could not add hours', err); b.disabled = false; }
+  B.busy = false;
+}
+
+// a promo code: one-time, gives Pro for a while (see supabase/promo_codes.sql)
+async function redeemCode() {
+  const input = shop.querySelector('.tscodein'), msg = shop.querySelector('.tscodemsg'), code = input.value.trim();
+  const say = (t, bad) => { msg.textContent = t; msg.className = 'tscodemsg' + (bad ? ' err' : ' ok'); };
+  if (code.length < 6) { say('Enter your code.', true); return; }
+  if (window.__auth && !(await window.__auth.require('use a code'))) return;       // codes belong to an account
+  if (B.busy) return; B.busy = true; say('Checking…');
+  try {
+    take(await rpc('redeem_promo', { p_code: code }));
+    B.locked = false; check(); pill(); say(`Code accepted. Pro is on until ${B.proUntil ? B.proUntil.toLocaleDateString() : 'later'}.`);
+    setTimeout(hideShop, 2200);
+  } catch (err) {
+    const m = String(err && err.message || '');
+    say(/already used/i.test(m) ? 'That code has already been used.' : /invalid/i.test(m) ? 'That code isn\u2019t valid. Check it and try again.' : /sign in/i.test(m) ? 'Sign in first, then enter the code.' : 'Couldn\u2019t check that code. Try again in a moment.', true);
+  }
   B.busy = false;
 }
 

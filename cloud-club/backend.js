@@ -129,3 +129,18 @@ export function openLobby(me, onList) {
     close: () => db.removeChannel(channel),
   };
 }
+
+// A DJ's prices, in pence. A room with no row of its own uses the defaults.
+export const DEFAULT_PRICES = { entry_pence: 0, song_pence: 500, shout_pence: 500, meet_pence: 3000, tip_min_pence: 100 };
+export async function loadPrices(room) {
+  const db = requireBackend();
+  const { data, error } = await db.from('dj_prices').select('*').eq('room', room).maybeSingle();
+  if (error) return { ...DEFAULT_PRICES };            // before dj_prices.sql is run, everyone just gets the defaults
+  return { ...DEFAULT_PRICES, ...(data || {}) };
+}
+export async function savePrices(room, p) {
+  const db = requireBackend();
+  const row = { room, entry_pence: p.entry_pence, song_pence: p.song_pence, shout_pence: p.shout_pence, meet_pence: p.meet_pence, tip_min_pence: p.tip_min_pence, updated_at: new Date().toISOString() };
+  const { error } = await db.from('dj_prices').upsert(row, { onConflict: 'room' });
+  if (error) throw error;
+}

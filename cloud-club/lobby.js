@@ -22,7 +22,7 @@ export function createLobby({ backend, me, enter }) {
         <span class="lbadge">${full ? 'FULL' : mine ? 'YOU' : 'LIVE'}</span>
         <b class="ltitle">${esc(c.title || 'Live set')}</b>
         <i class="lname">@${esc(c.dj)}${c.house ? ' · HOUSE DJ' : ''}</i>
-        <span class="lmeta">${c.track ? '♪ ' + esc(c.track) : 'on air'}${c.bpm ? ' · ' + Math.round(c.bpm) + ' BPM' : ''}</span>
+        <span class="lmeta">${c.track ? '♪ ' + esc(c.track) : 'on air'}${c.bpm ? ' · ' + Math.round(c.bpm) + ' BPM' : ''}${c.entry > 0 ? ' · £' + (Number.isInteger(c.entry) ? c.entry : Number(c.entry).toFixed(2)) + ' entry' : ''}</span>
         <span class="lfoot"><span>${since(c.since || Date.now())}</span><span class="lcount">${c.listeners || 0}/${MAX}</span></span>
       </button>`;
     }).join('');
