@@ -2,7 +2,7 @@
 // The browser's own recorder writes compressed audio as it goes (about 60-85 MB an hour), so a long set is fine.
 // Format depends on the browser: WebM/Opus in Chrome, Edge and Firefox; M4A/AAC in Safari.
 const MAX_HOURS = 4;                     // a safety stop: a set longer than this is saved and a new one can be started
-const BITRATE = 192000;
+const BITRATE = 320000;                // Pro recordings are high quality (320 kbps)
 const btn = document.getElementById('recbtn');
 const R = { rec: null, chunks: [], t0: 0, timer: null, bytes: 0, mime: '' };
 const toast = (m, s = 4) => { const el = document.getElementById('toast'); if (el) { el.textContent = m; el.hidden = false; clearTimeout(R.toastT); R.toastT = setTimeout(() => { el.hidden = true; }, s * 1000); } };
