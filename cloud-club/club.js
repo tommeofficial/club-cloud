@@ -28,7 +28,7 @@ const FEATURED = [{ model: 'models/crowd_mia.glb', sex: 'f', spot: 1, scale: 0.9
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
-const RESTS = ['idle', 'lookaround', 'listen', 'talk']; // what people do between songs, so nobody stands in step
+const RESTS = ['idle', 'lookaround', 'talk']; // what people do between songs, so nobody stands in step
 // the dance floor's repertoire. Measured from the mocap: dance4 and dance5 are the small, low two-step grooves (feet
 // close and open, little arm), dance3 a shuffle, dance the wide hip-hop bounce, dance2 the big hip-swinging house move.
 // The two-step is what most people do most of the time; the wide hip-hop is kept to the lads and the hip-swinging one to the girls.
