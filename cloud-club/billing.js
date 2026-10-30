@@ -3,12 +3,13 @@
 // The clock only runs while a deck is playing. The balance lives on the server (see supabase/billing.sql); this file reports playing time
 // in small chunks, shows the balance, and locks the decks when the time runs out.
 // If the backend is not available (local testing, offline) nothing is locked.
+const TAG_EVERY = 600;     // seconds of deck time between the Club Cloud tag on non-Pro accounts
 const GRACE = 120;       // seconds the music carries on after the time runs out, while the offer is on screen
 const FLUSH_EVERY = 15;  // seconds of playing between reports to the server
 const PRICE = 1;         // GBP per hour
 
 const PRO_PRICE = 9.99; // GBP a month: unlimited deck time, and the only way to go live
-const B = { inGrace: false, grace: 0, ready: false, pro: false, proUntil: null, free: 300, paid: 0, resets: null, locked: false, pending: 0, sinceFlush: 0, backend: null, busy: false };
+const B = { tagClock: 0, inGrace: false, grace: 0, ready: false, pro: false, proUntil: null, free: 300, paid: 0, resets: null, locked: false, pending: 0, sinceFlush: 0, backend: null, busy: false };
 const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fmtH = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 const decks = () => (window.__cc && window.__cc.decks) || [];
@@ -85,6 +86,7 @@ function tick() {
   if (B.pro) return;                      // Pro members use no deck time
   if (B.inGrace) { if (playing()) B.grace--; graceUi(); if (B.grace <= 0) lockDecks(); return; }
   if (playing()) {
+    if (++B.tagClock >= TAG_EVERY) { B.tagClock = 0; window.__cc?.watermark?.(); }   // the tag: a short jingle over the mix, every 10 minutes
     B.pending++; B.sinceFlush++;
     if (B.free > 0) B.free--; else if (B.paid > 0) B.paid--;     // show the balance falling right away; the server confirms it
     if (B.sinceFlush >= FLUSH_EVERY) flush();
@@ -120,8 +122,8 @@ function showShop(why) {
     ${why === 'grace' ? `<p class="tsgrace">You can keep playing for <b>${fmt(B.grace)}</b>. Add time now to carry on without a break.</p>` : ''}
     ${why === 'rec' ? '<p>Recording your set and downloading it is for Pro members. Pro is £9.99 a month, with unlimited deck time and going live. Pay-as-you-go hours do not unlock it.</p>' : ''}
     ${why === 'golive' ? '<p>Going live is for Pro members. Pro is £9.99 a month, with unlimited deck time. Pay-as-you-go hours do not unlock it.</p>' : ''}
-    <div class="tspro"><div><b>PRO · £${PRO_PRICE} a month</b><span>Unlimited deck time, and the only way to go live.</span></div><button data-pro="30">${B.pro ? 'EXTEND' : 'GO PRO'}</button></div>
-    <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. ${resets}</p>
+    <div class="tspro"><div><b>PRO · £${PRO_PRICE} a month</b><span>Unlimited deck time, going live and recording, and no tag over your sound.</span></div><button data-pro="30">${B.pro ? 'EXTEND' : 'GO PRO'}</button></div>
+    <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
     <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
     <p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>
     <button class="tsclose">${why === 'grace' ? 'KEEP PLAYING' : B.free + B.paid > 0 ? 'CLOSE' : 'NOT NOW'}</button></div>`;
@@ -145,9 +147,12 @@ async function init() {
     await B.backend.ensureSession();
     take(await rpc('wallet_status'));
   } catch (e) { console.warn('deck time is not metered here', e); return; }
+  try { B.tagClock = Math.min(TAG_EVERY - 1, +localStorage.getItem('cc-tag-clock') || 0); } catch (_) {}
+  window.__cc?.loadTag?.();   // get the voice tag ready, if there is one
   B.ready = true; pill(); check();
   setInterval(tick, 1000);
-  addEventListener('pagehide', () => { if (B.pending) flush(); });
+  setInterval(() => { try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} }, 5000); // so reloading the page does not reset the 10 minutes
+  addEventListener('pagehide', () => { if (B.pending) flush(); try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} });
   document.addEventListener('click', (e) => { if (e.target.closest('#timepill')) showShop(B.inGrace ? 'grace' : B.free + B.paid <= 0 ? 'out' : 'info'); });
 }
 window.__billing = { state: B, get locked() { return B.locked; }, showShop, flush, lowCheck, tick, check };

@@ -516,6 +516,37 @@ document.addEventListener('fullscreenchange', () => setTimeout(() => layout(fals
 let ctx = null, worklet = false, audioReady = false;
 const engineInfo = { audio: 'starting…', analysis: 'not used yet' };
 const master = {};
+// The Club Cloud tag: a short, unmistakable jingle played over the mix every 10 minutes of deck time on non-Pro accounts (see billing.js).
+// It goes into the master output, so anything that captures the sound (a screen or audio recorder) captures the tag too.
+// If sounds/club-cloud-tag.mp3 exists (a recorded voice saying "Thank you for using Club Cloud"), that is played; otherwise the jingle below.
+let tagBuf = null, tagTried = false;
+async function loadTag() {
+  if (tagTried) return; tagTried = true;
+  try { const r = await fetch('sounds/club-cloud-tag.mp3'); if (!r.ok) return; tagBuf = await ctx.decodeAudioData(await r.arrayBuffer()); } catch (_) {}
+}
+function playWatermark() {
+  if (!ctx || !master.duck) return;
+  if (tagBuf) { const s = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = 0.9; s.buffer = tagBuf; s.connect(g).connect(master.duck); s.start(ctx.currentTime + 0.05); return; }
+  const t0 = ctx.currentTime + 0.05, out = ctx.createGain(); out.gain.value = 0.55; out.connect(master.duck);
+  // a rising swell of filtered noise leads in
+  const nb = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.7), ctx.sampleRate), nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const ns = ctx.createBufferSource(); ns.buffer = nb;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.5; bp.frequency.setValueAtTime(500, t0); bp.frequency.exponentialRampToValueAtTime(6000, t0 + 0.65);
+  const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.5, t0 + 0.62); ng.gain.linearRampToValueAtTime(0, t0 + 0.7);
+  ns.connect(bp).connect(ng).connect(out); ns.start(t0); ns.stop(t0 + 0.72);
+  // then four rising notes and a held chord: E5, G#5, B5, E6
+  const bell = (f, at, len, vol) => {
+    for (const [mult, v, type] of [[1, 1, 'sine'], [2, 0.35, 'triangle'], [3.01, 0.12, 'sine']]) {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = f * mult;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol * v, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      o.connect(g).connect(out); o.start(at); o.stop(at + len + 0.05);
+    }
+  };
+  [659.25, 830.61, 987.77, 1318.51].forEach((f, i) => bell(f, t0 + 0.72 + i * 0.17, 0.9, 0.5));
+  for (const f of [659.25, 830.61, 987.77, 1318.51]) bell(f, t0 + 1.42, 1.5, 0.32);
+  setTimeout(() => out.disconnect(), 4000);
+}
 function unlockAudio() {
   if (!ctx) return;
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
@@ -2309,6 +2340,6 @@ async function boot() {
 }
 $('#signOut')?.addEventListener('click', () => { location.href = '/api/signout'; });
 
-window.__cc = { engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout, bubble, optWheel, zoomBox(box) { ZOOMS.ad = box; L.zoom = 'ad'; placeStage(false); } };
+window.__cc = { watermark: playWatermark, loadTag, engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout, bubble, optWheel, zoomBox(box) { ZOOMS.ad = box; L.zoom = 'ad'; placeStage(false); } };
 boot();
 })();
