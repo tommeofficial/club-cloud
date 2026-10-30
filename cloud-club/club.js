@@ -1726,13 +1726,7 @@ const sfx = (() => {
       n.connect(bp).connect(g).connect(place(side * (0.55 + Math.random() * 0.25)));
       env(g, t, 0.18, 0.1 * size, 0.5 * size, 1.4); n.start(t); n.stop(t + 3 * size);
     }
-    for (let i = 0; i < 4 + 4 * size; i++) {
-      const o = ac.createOscillator(), f = ac.createBiquadFilter(), v = ac.createGain(), s0 = t + Math.random() * 0.4;
-      o.type = 'sawtooth'; const base = 220 + Math.random() * 260;
-      o.frequency.setValueAtTime(base, s0); o.frequency.exponentialRampToValueAtTime(base * (1.4 + Math.random() * 0.4), s0 + 0.35);
-      f.type = 'bandpass'; f.frequency.value = 900 + Math.random() * 500; f.Q.value = 4;
-      o.connect(f).connect(v).connect(place(rndPan(0.92))); env(v, s0, 0.06, 0.022, 0.25, 0.5); o.start(s0); o.stop(s0 + 1.2);
-    }
+    // (the synthesized gliding "woo" voices were removed: they sounded like a scream)
   }
   function whistle() {
     if (!ready()) return;
