@@ -7,7 +7,7 @@ const since = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000
 
 export function createLobby({ backend, me, enter }) {
   const root = document.getElementById('lobby'), grid = root.querySelector('.lgrid'), empty = root.querySelector('.lempty');
-  const L = { list: [], isOpen: false, mine: null };
+  const L = { me, list: [], isOpen: false, mine: null };
   const chan = backend.openLobby(me, (list) => { L.list = list; if (L.isOpen) render(); count(); });
 
   function count() { document.querySelectorAll('[data-act=live] .lnum').forEach((el) => { const n = L.list.filter((c) => c.dj !== me).length; el.textContent = n ? n : ''; }); }
@@ -17,6 +17,7 @@ export function createLobby({ backend, me, enter }) {
     grid.innerHTML = cards.map((c) => {
       const mine = c.dj === me, full = (c.listeners || 0) >= MAX && !mine;
       return `<button class="lcard${mine ? ' mine' : ''}${full ? ' full' : ''}" data-room="${esc(c.room)}" ${mine || full ? 'disabled' : ''}>
+        <span class="lthumb" style="background-image:${c.thumb ? `url(${esc(c.thumb)})` : `linear-gradient(135deg, hsl(${hue(c.dj)} 55% 28%), hsl(${(hue(c.dj) + 60) % 360} 60% 14%))`}"></span>
         <span class="lav" style="background:hsl(${hue(c.dj)} 80% 62%)">${esc(c.dj[0].toUpperCase())}</span>
         <span class="lbadge">${full ? 'FULL' : mine ? 'YOU' : 'LIVE'}</span>
         <b class="ltitle">${esc(c.title || 'Live set')}</b>
@@ -33,7 +34,13 @@ export function createLobby({ backend, me, enter }) {
   L.update = (patch) => { if (L.mine) { L.mine = { ...L.mine, ...patch }; chan.announce(L.mine); } };
   L.withdraw = () => { L.mine = null; chan.withdraw(); };
   L.destroy = () => { chan.close(); };
-  grid.addEventListener('click', (e) => { const b = e.target.closest('.lcard'); if (!b || b.disabled) return; L.close(); enter(b.dataset.room); });
+  grid.addEventListener('click', async (e) => {
+    const b = e.target.closest('.lcard'); if (!b || b.disabled) return;
+    if (!(await window.__auth?.require?.('watch this stream'))) return;   // watching needs an account
+    L.close(); enter(b.dataset.room);
+  });
+  root.querySelector('.lplay')?.addEventListener('click', () => { L.close(); document.querySelector('#tabs [data-mode=normal]')?.click(); });
+  root.querySelector('.lprobtn')?.addEventListener('click', () => window.__billing?.showShop('info'));
   root.querySelector('.lclose').addEventListener('click', L.close);
   setInterval(() => { if (L.isOpen) render(); }, 30000); // keep the "x min" times fresh
   return L;

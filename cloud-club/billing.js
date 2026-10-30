@@ -142,7 +142,7 @@ async function onShopClick(e) {
 // ------------------------------------------------------------------ start
 async function init() {
   try {
-    B.backend = await import('./backend.js');
+    B.backend = await import('./backend.js?v=2');
     if (!B.backend.supabase) return;
     await B.backend.ensureSession();
     take(await rpc('wallet_status'));

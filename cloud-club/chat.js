@@ -61,10 +61,12 @@ window.addEventListener('cc-view', (e) => { if (autoHide) setMin(e.detail.mode !
 async function start() {
   setStatus('connecting…');
   try {
-    S.backend = await import('./backend.js');
+    S.backend = await import('./backend.js?v=2');
     if (!S.backend.supabase) throw new Error('not configured');
     S.me = await S.backend.getMyProfile();
   } catch (e) { console.warn('chat offline', e); setStatus('offline'); return; }
+  makeLobby();
+  if (!sessionStorage.getItem('cc-home-seen') && !urlRoom) { sessionStorage.setItem('cc-home-seen', '1'); S.lobby.open(); }   // each visit starts on the home screen
   if (!S.me) { nameRow.hidden = false; setStatus(''); return; }
   connect();
 }
@@ -89,12 +91,19 @@ function teardownRoom() {
   window.__club?.stopInput(); window.__club?.endSync();
   log.innerHTML = '';
 }
+// the home screen's stream list is open to everyone: guests join the lobby under a temporary name, then under their username once they have one
+function makeLobby() {
+  const me = S.me?.username || S.guestKey || (S.guestKey = 'guest-' + uid());
+  if (S.lobby && S.lobby.me === me) return;
+  S.lobby?.destroy();
+  S.lobby = createLobby({ backend: S.backend, me, enter: enterRoom }); window.__lobby = S.lobby;
+}
 async function connect(roomName) {
   teardownRoom();
   S.room = roomName || urlRoom || S.me.username;
   S.isDj = S.room === S.me.username;
   djRow.hidden = !S.isDj; backBtn.hidden = S.isDj;
-  if (!S.lobby) { S.lobby = createLobby({ backend: S.backend, me: S.me.username, enter: enterRoom }); window.__lobby = S.lobby; }
+  makeLobby();
   try {
     for (const m of await S.backend.loadRecentChat(S.room, 30)) showMessage(m);
   } catch (e) { setStatus('room not found'); system(`There's no room called ${S.room}.`, 'err'); return false; }
@@ -119,7 +128,8 @@ async function connect(roomName) {
 
 // pressing a card in the LIVE grid: into that DJ's room, straight to the club view, and start listening (no page reload)
 async function enterRoom(room) {
-  if (!S.me || room === S.room) return;
+  if (!S.me) { setMin(false); nameRow.hidden = false; system('Pick a name to chat first, then choose the stream again.', 'err'); return; }
+  if (room === S.room) return;
   if (!(await connect(room))) return;
   document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();
   setTimeout(() => { if (S.live && !S.isDj) { S.live.join(); S.listenTimer = setTimeout(() => { if (S.live && !S.live.fanPc) { system('That DJ is not live right now.', 'err'); S.live.leave(); } }, 7000); } }, 700);
@@ -287,7 +297,15 @@ function setupLive() {
       S.liveTitle = m.querySelector('.ctitle').value.trim().slice(0, 40) || 'Live set'; S.liveListed = m.querySelector('.clisted').checked; closeModal();
       S.live.start(tap.stream); S.liveSince = Date.now(); system(S.liveListed ? 'You are live, and listed in the LIVE grid.' : 'You are live. Share your room link: only people with it can listen.', 'ok');
       clearInterval(S.syncTimer); S.syncTimer = setInterval(() => { if (S.live?.on) S.live.sendSync(window.__club.syncPacket()); }, 100);
-      if (S.liveListed && S.lobby) { S.lobby.announce(card(S.liveTitle)); clearInterval(S.annTimer); S.annTimer = setInterval(() => { if (S.live?.on) S.lobby.update(card(S.liveTitle)); }, 5000); }
+      if (S.liveListed && S.lobby) {
+        S.lobby.announce(card(S.liveTitle)); clearInterval(S.annTimer); let n = 0;
+        S.annTimer = setInterval(async () => {
+          if (!S.live?.on) return;
+          const patch = card(S.liveTitle);
+          if (n++ % 6 === 0) { const t = await window.__club?.snapshot?.(); if (t) patch.thumb = t; }   // a small picture of the club for the home screen, every 30 seconds
+          S.lobby.update(patch);
+        }, 5000);
+      }
     });
   };
   listenBtn.onclick = () => { if (S.live.listening) S.live.leave(); else S.live.join(); };

@@ -1167,6 +1167,9 @@ function resize() {
 // the moving heads run one look at a time, changing every 8 beats: chases and still downlights when it's calm,
 // sweeps and fans when the crowd is up, and always a sweep or fan on a drop
 const look = { name: 'sweep', block: -1 };
+// a small picture of the club for the home screen: taken right after a frame is drawn, so the canvas still holds it
+let snapReq = null;
+function snapshot() { return new Promise((res) => { if (!renderer || mode !== 'club') { res(null); return; } snapReq = res; setTimeout(() => { if (snapReq === res) { snapReq = null; res(null); } }, 2000); }); }
 let curBeat = 0, curBpm = 120; // the beat the rig is running on, shared with the camera and sent to listeners
 let buildStart = null; // the beat a build-up began on
 function pickLook(beat, drop) {
@@ -1909,7 +1912,7 @@ if (lightMenu) {
 let room = null; // { name, author, backend, lastPush, unsub }
 // roomName: the room to publish to and chat in. author: the signed-in user's profile username.
 async function connectRoom(roomName, author) {
-  const backend = await import('./backend.js').catch((e) => { console.warn('backend unavailable', e); return null; });
+  const backend = await import('./backend.js?v=2').catch((e) => { console.warn('backend unavailable', e); return null; });
   if (!backend || !backend.supabase) return false;
   await backend.ensureSession();
   if (room) room.unsub();
@@ -1941,6 +1944,7 @@ function frame() {
   if (window.__adFrame) window.__adFrame(camera, dt, t);
   syncHaze();
   composer.render();
+  if (snapReq) { const r = snapReq; snapReq = null; try { const cv = document.createElement('canvas'); cv.width = 224; cv.height = 126; cv.getContext('2d').drawImage(renderer.domElement, 0, 0, 224, 126); r(cv.toDataURL('image/jpeg', 0.55)); } catch (_) { r(null); } }
   updateDj(dt, t);
   // two-sided meter: grows left from the middle when angry, right when happy
   const hv = brain.hype;
@@ -2032,4 +2036,4 @@ window.addEventListener('cc-view', (e) => {
   requestAnimationFrame(() => renderer && resize());
 });
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { snapshot, live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
