@@ -30,10 +30,14 @@ exports.userFromToken = async (token) => {
   return u && u.id && u.email && !u.is_anonymous ? u : null;
 };
 
+// Supabase's newer secret keys (sb_secret_...) are not JWTs and go in the apikey header only; the older service_role key is a JWT and also goes in Authorization
+const serviceHeaders = () => { const k = env('SUPABASE_SERVICE_ROLE_KEY'); return k.startsWith('eyJ') ? { apikey: k, Authorization: `Bearer ${k}` } : { apikey: k }; };
+exports.serviceHeaders = serviceHeaders;
+
 // call a database function as the server (service role)
 exports.rpc = async (fn, args) => {
   const r = await fetch(`${env('SUPABASE_URL')}/rest/v1/rpc/${fn}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: env('SUPABASE_SERVICE_ROLE_KEY'), Authorization: `Bearer ${env('SUPABASE_SERVICE_ROLE_KEY')}` }, body: JSON.stringify(args),
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...serviceHeaders() }, body: JSON.stringify(args),
   });
   if (!r.ok) throw new Error(`database ${fn} ${r.status}: ${await r.text()}`);
 };
