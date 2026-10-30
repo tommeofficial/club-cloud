@@ -47,4 +47,4 @@ addEventListener('cc-auth', render);
 render();
 
 // sign-in needs auth.js; load it here so every page can use it
-const s = document.createElement('script'); s.type = 'module'; s.src = 'auth.js?v=3'; document.head.appendChild(s);
+const s = document.createElement('script'); s.type = 'module'; s.src = 'auth.js?v=4'; document.head.appendChild(s);

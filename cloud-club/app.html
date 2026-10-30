@@ -294,6 +294,8 @@ canvas.cv { position: absolute; pointer-events: none; }
 #signin { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(2,4,8,.78); backdrop-filter: blur(4px); } #signin[hidden] { display: none; }
 #signin .sbox { position: relative; width: min(400px, 90%); background: #0b0f18; border: 1px solid #24304a; border-radius: 14px; padding: 22px; color: #e9eaec; font-family: var(--ui); } #signin h3 { margin: 0 24px 8px 0; font: 700 15px var(--label); letter-spacing: 1.5px; } #signin p { font: 500 13px/1.5 var(--ui); color: #b8c6da; margin: 8px 0; }
 #signin .sclose { position: absolute; right: 12px; top: 12px; width: 28px; height: 28px; color: #8a94a6; background: transparent; border: 0; cursor: pointer; } #signin input { width: 100%; box-sizing: border-box; margin: 6px 0 10px; padding: 11px 12px; font: 500 14px var(--ui); color: #e9eaec; background: rgba(255,255,255,.06); border: 1px solid rgba(120,150,200,.28); border-radius: 9px; }
+#signin .stabs { display: flex; gap: 6px; margin: 10px 0 4px; } #signin .stabs button { flex: 1; padding: 9px 6px; white-space: nowrap; font: 700 11px var(--font, sans-serif); letter-spacing: .02em; color: #9fb2c6; background: transparent; border: 1px solid rgba(120,150,200,.25); border-radius: 8px; cursor: pointer; } #signin .stabs button.on { color: #07121d; background: #8fe9ff; border-color: #8fe9ff; }
+#signin .sfoot { margin: 6px 0 0; font-size: 13px; } #signin .sfoot a { color: #8fe9ff; }
 #signin .ssend { width: 100%; padding: 11px; font: 700 12px var(--label); letter-spacing: 1.5px; color: #07121d; background: linear-gradient(90deg, #8fe9ff, #7fb6ff); border: 0; border-radius: 9px; cursor: pointer; } #signin .ssend:disabled { opacity: .6; } #signin .smsg.err { color: #ff8a9b; } #signin [hidden] { display: none; }
 #clubhud { position: absolute; left: 12px; top: 10px; background: rgba(5,8,14,.6); border: 1px solid #22304a; border-radius: 10px; padding: 7px 10px 8px; min-width: 150px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 #clubhud .lbl { font: 700 10px/1 var(--label); letter-spacing: 2px; color: #7fd0ff; }
@@ -437,13 +439,13 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=117"></script>
+<script src="app.js?v=118"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=145"></script>
 <script type="module" src="chat.js?v=110"></script>
 <script type="module" src="billing.js?v=13"></script>
 <script type="module" src="record.js?v=4"></script>
-<script type="module" src="auth.js?v=3"></script>
+<script type="module" src="auth.js?v=4"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {
   const js = document.createElement('script'); js.type = 'module'; js.src = 'advert/shot.js?v=10'; document.head.appendChild(js);
 }

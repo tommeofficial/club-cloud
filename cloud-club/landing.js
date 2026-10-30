@@ -88,26 +88,3 @@ const cta = document.getElementById('heroCta');
 const label = () => { cta.textContent = window.__auth && window.__auth.signedIn ? 'ENTER THE CLUB' : 'SIGN IN'; };
 cta.onclick = () => { const A = window.__auth; if (A && A.signedIn) location.href = '/app'; else if (A) A.require('Club Cloud'); else location.href = '/app'; };
 addEventListener('cc-auth', label); label();
-
-// ------------------------------------------------------------ invite early: the password lets people into the app
-const gate = document.getElementById('gate'), gForm = gate.querySelector('form'), pw = gForm.querySelector('input');
-const gBtn = gForm.querySelector('button'), gErr = gate.querySelector('.err'), card = gate.querySelector('.card');
-const openGate = () => { gate.hidden = false; gErr.textContent = ''; pw.value = ''; pw.focus(); };
-const closeGate = () => { gate.hidden = true; };
-gate.querySelector('.x').onclick = closeGate;
-gate.onclick = (e) => { if (e.target === gate) closeGate(); };
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && !gate.hidden) closeGate(); });
-gForm.onsubmit = async (e) => {
-  e.preventDefault();
-  if (!pw.value) return;
-  gBtn.disabled = true; gErr.textContent = '';
-  try {
-    const r = await fetch('/api/unlock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw.value }) });
-    if (r.ok) { location.href = '/app'; return; }
-    gErr.textContent = r.status === 401 ? 'Wrong password.' : 'Something went wrong. Please try again.';
-  } catch (_) { gErr.textContent = 'Something went wrong. Please try again.'; }
-  gBtn.disabled = false;
-  card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
-  pw.select();
-};
-if (new URLSearchParams(location.search).has('invite')) openGate(); // sent here from /app without access

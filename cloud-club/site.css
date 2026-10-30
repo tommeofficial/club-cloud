@@ -60,4 +60,6 @@ h2.sec { font: 700 clamp(18px, 2.6vw, 26px)/1.2 var(--font); letter-spacing: .08
 #signin .sclose { position: absolute; right: 12px; top: 12px; width: 28px; height: 28px; color: #8a94a6; background: transparent; border: 0; cursor: pointer; }
 #signin input { width: 100%; margin: 6px 0 10px; padding: 12px; font: 500 16px var(--ui); color: #e9eaec; background: rgba(255,255,255,.06); border: 1px solid rgba(120,150,200,.28); border-radius: 9px; }
 #signin .ssend { width: 100%; padding: 13px; font: 700 12px var(--font); letter-spacing: .14em; color: #07121d; background: var(--blue); border: 0; border-radius: 9px; cursor: pointer; } #signin .ssend:disabled { opacity: .6; }
+#signin .stabs { display: flex; gap: 6px; margin: 10px 0 4px; } #signin .stabs button { flex: 1; padding: 9px 6px; white-space: nowrap; font: 700 11px var(--font, sans-serif); letter-spacing: .02em; color: #9fb2c6; background: transparent; border: 1px solid rgba(120,150,200,.25); border-radius: 8px; cursor: pointer; } #signin .stabs button.on { color: #07121d; background: #8fe9ff; border-color: #8fe9ff; }
+#signin .sfoot { margin: 6px 0 0; font-size: 13px; } #signin .sfoot a { color: #8fe9ff; }
 #signin .smsg.err { color: #ff8a9b; } #signin [hidden] { display: none; }
