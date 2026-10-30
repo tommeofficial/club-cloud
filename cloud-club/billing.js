@@ -9,7 +9,7 @@ const FLUSH_EVERY = 15;  // seconds of playing between reports to the server
 const PRICE = 1;         // GBP per hour
 
 const PRO_PRICE = 9.99; // GBP a month: unlimited deck time, and the only way to go live
-const B = { tagClock: 0, inGrace: false, grace: 0, ready: false, pro: false, proUntil: null, free: 300, paid: 0, resets: null, locked: false, pending: 0, sinceFlush: 0, backend: null, busy: false };
+const B = { live: false, tagClock: 0, inGrace: false, grace: 0, ready: false, pro: false, proUntil: null, free: 300, paid: 0, resets: null, locked: false, pending: 0, sinceFlush: 0, backend: null, busy: false };
 const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fmtH = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 const decks = () => (window.__cc && window.__cc.decks) || [];
@@ -55,7 +55,7 @@ function warn() {
       if (e.target.closest('.twx')) { dismissedAt = B.free + B.paid; warnEl.hidden = true; return; }
       const add = e.target.closest('.twadd'); if (!add || B.busy) return;
       B.busy = true; add.disabled = true;
-      try { take(await rpc('test_buy_hours', { p_hours: 1 })); flashUntil = Date.now() + 2500; prevLeft = B.free + B.paid; dismissedAt = null; pill(); }  // payments are a free test until they are connected
+      try { await buy('hours', 1); if (!B.live) { flashUntil = Date.now() + 2500; prevLeft = B.free + B.paid; dismissedAt = null; pill(); } }
       catch (err) { console.warn('could not add an hour', err); }
       add.disabled = false; B.busy = false; warnRefresh();
     });
@@ -111,7 +111,23 @@ function graceUi() {
   if (warnEl) warnRefresh();
 }
 
-// ------------------------------------------------------------------ the shop (free test purchase until real payments are connected)
+// ------------------------------------------------------------------ buying
+// With real payments switched on (api/config says so), buying goes to Stripe Checkout and the hours or Pro arrive when the payment completes.
+// Until then it is a free test purchase.
+async function checkout(kind, hours) {
+  if (window.__auth && !(await window.__auth.require('buy deck time'))) return;
+  const { data } = await B.backend.supabase.auth.getSession();
+  const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token }, body: JSON.stringify({ kind, hours }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.url) throw new Error(j.error || 'checkout failed');
+  location.href = j.url;     // Stripe's page; it brings them back here when done
+}
+async function buy(kind, arg) {
+  if (B.live) { await checkout(kind, arg); return; }
+  take(kind === 'pro' ? await rpc('test_set_pro', { p_days: 30 }) : await rpc('test_buy_hours', { p_hours: arg }));
+}
+
+// ------------------------------------------------------------------ the shop
 let shop = null;
 function showShop(why) {
   if (!shop) { shop = document.createElement('div'); shop.id = 'timeshop'; document.body.appendChild(shop); shop.addEventListener('click', onShopClick); }
@@ -126,7 +142,7 @@ function showShop(why) {
     <div class="tscode"><input class="tscodein" placeholder="Have a code? Enter it here" autocomplete="off" autocapitalize="characters" spellcheck="false"><button data-code>APPLY</button></div><p class="tscodemsg"></p>
     <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
     <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
-    <p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>
+    ${B.live ? '' : '<p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>'}
     <button class="tsclose">${why === 'grace' ? 'KEEP PLAYING' : B.free + B.paid > 0 ? 'CLOSE' : 'NOT NOW'}</button></div>`;
   shop.hidden = false;
   shop.querySelector('.tscodein')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') redeemCode(); });
@@ -137,7 +153,7 @@ async function onShopClick(e) {
   if (e.target.closest('[data-code]')) { await redeemCode(); return; }   // in the grace minutes, 'keep playing' shrinks the offer to the small bar
   const b = e.target.closest('[data-h], [data-pro]'); if (!b || B.busy) return;
   B.busy = true; b.disabled = true;
-  try { take(b.dataset.pro ? await rpc('test_set_pro', { p_days: +b.dataset.pro }) : await rpc('test_buy_hours', { p_hours: +b.dataset.h })); B.locked = false; hideShop(); check(); pill(); }
+  try { await buy(b.dataset.pro ? 'pro' : 'hours', +b.dataset.h); if (!B.live) { B.locked = false; hideShop(); check(); pill(); } }
   catch (err) { console.warn('could not add hours', err); b.disabled = false; }
   B.busy = false;
 }
@@ -170,6 +186,12 @@ async function init() {
   } catch (e) { console.warn('deck time is not metered here', e); return; }
   try { B.tagClock = Math.min(TAG_EVERY - 1, +localStorage.getItem('cc-tag-clock') || 0); } catch (_) {}
   window.__cc?.loadTag?.();   // get the voice tag ready, if there is one
+  try { B.live = !!(await (await fetch('/api/config', { cache: 'no-store' })).json()).payments; } catch (_) {}
+  if (new URLSearchParams(location.search).get('paid') === '1') {   // back from Stripe: the payment is confirmed by the webhook a moment later, so keep checking
+    const was = B.free + B.paid + (B.pro ? 1e9 : 0); let tries = 0;
+    const poll = setInterval(async () => { try { take(await rpc('wallet_status')); pill(); if (B.free + B.paid + (B.pro ? 1e9 : 0) !== was || ++tries > 15) { clearInterval(poll); check(); } } catch (_) { clearInterval(poll); } }, 2000);
+    history.replaceState(null, '', location.pathname);
+  }
   B.ready = true; pill(); check();
   setInterval(tick, 1000);
   setInterval(() => { try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} }, 5000); // so reloading the page does not reset the 10 minutes
