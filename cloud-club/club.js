@@ -1868,7 +1868,6 @@ function syncLightMenu() {
   lightMenu.querySelector('[data-lm=power]').classList.toggle('on', light.on);
   lightMenu.querySelector('[data-lm=power]').textContent = light.on ? 'ON' : 'OFF';
   lightMenu.querySelectorAll('[data-col]').forEach((b) => b.classList.toggle('on', light.colours[+b.dataset.col]));
-  lightMenu.querySelector('[data-lm=all]').classList.toggle('on', light.colours.every(Boolean));
   lightMenu.querySelectorAll('[data-fx]').forEach((b) => b.classList.toggle('on', light.fx[b.dataset.fx]));
   lightMenu.querySelectorAll('[data-style]').forEach((b) => b.classList.toggle('on', light.style === b.dataset.style));
   const m = lightMenu.querySelector('[data-lm=mute]'); m.classList.toggle('muted', !sfx.on);

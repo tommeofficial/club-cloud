@@ -500,6 +500,15 @@ tabs.addEventListener('click', (e) => {
   else if (b.dataset.act === 'help') openHelp();
   else if (b.dataset.act === 'fs') toggleFullscreen();
 });
+// the menu: library, settings, help and account tuck away here; HOME, REC and GO LIVE stay on the bar
+const moreBtn = $('#morebtn'), moreMenu = $('#moremenu'), goTop = $('#golivebtn');
+const closeMore = () => { moreMenu.hidden = true; moreBtn.setAttribute('aria-expanded', 'false'); };
+moreBtn.addEventListener('click', (e) => { e.stopPropagation(); moreMenu.hidden = !moreMenu.hidden; moreBtn.setAttribute('aria-expanded', String(!moreMenu.hidden)); });
+moreMenu.addEventListener('click', closeMore);
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#moremenu, #morebtn')) closeMore(); });
+// GO LIVE up here drives the chat panel's own button, so the same checks (Pro, rights) apply
+goTop.addEventListener('click', () => document.querySelector('.cgolive')?.click());
+setInterval(() => { const g = document.querySelector('.cgolive'); goTop.hidden = !g || !!g.closest('[hidden]'); if (g) { goTop.classList.toggle('on', g.classList.contains('on')); goTop.textContent = g.classList.contains('on') ? 'LIVE' : 'GO LIVE'; } }, 800);
 function toggleFullscreen() {
   const d = document;
   if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); return; }

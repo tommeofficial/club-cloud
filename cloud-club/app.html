@@ -31,7 +31,7 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #app { position: fixed; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #16171a 0%, #060607 70%); }
 #tabs { position: absolute; display: flex; gap: 4px; z-index: 5; align-items: center; }
 #tabs.h { left: 0; right: 0; top: 0; height: 44px; padding: 0 10px; display: grid; grid-template-columns: 1fr auto 1fr; }
-#tabs.h > .grp:not(.zooms):not(.tools) { grid-column: 2; } /* the view tabs centre on the screen, whatever the tools weigh */
+#tabs.h > .grp:not(.zooms):not(.tools):not(.home) { grid-column: 2; } #tabs.h .home { grid-column: 1; justify-self: start; } /* the view tabs centre on the screen, whatever the tools weigh */
 #tabs.h .tools { grid-column: 3; justify-self: end; margin: 0; }
 #tabs.v { left: 0; top: 0; bottom: 0; width: 64px; flex-direction: column; justify-content: center; padding: 8px 0; }
 #tabs .brand { font: 700 13px/1 var(--label); letter-spacing: 2px; color: #e9eaec; margin-right: auto; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
@@ -61,6 +61,11 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #tabs .tools { margin-left: auto; display: flex; gap: 3px; }
 #tabs.v .tools { margin: auto 0 0; flex-direction: column; }
+#tabs .tools { position: relative; }
+#tabs #golivebtn { background: #3a1620; color: #ff8a9b; } #tabs #golivebtn.on { background: #ff3b5c; color: #fff; }
+#moremenu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 170px; display: flex; flex-direction: column; gap: 2px; padding: 5px; background: rgba(10,12,18,.97); border: 1px solid #24262a; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 8; }
+#moremenu button { text-align: left; }
+#tabs.v #moremenu { right: auto; left: calc(100% + 6px); top: auto; bottom: 0; }
 #view { position: absolute; overflow: hidden; touch-action: none; }
 #stage { position: absolute; left: 0; top: 0; width: 1840px; height: 964px; transform-origin: 0 0; font-family: var(--label); }
 #stage.anim { transition: transform .28s cubic-bezier(.2,.7,.2,1); }
@@ -397,6 +402,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <div id="app">
   <div id="tabs" class="h">
+    <div class="grp home"><button data-act="live" title="Home: streams that are on air right now">HOME<span class="lnum"></span></button></div>
     <div class="grp" role="tablist" aria-label="View">
       <button data-mode="normal" class="on">DECKS</button>
       <button data-mode="split">SPLIT</button>
@@ -409,13 +415,16 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-zoom="d2" title="Deck 2">2</button>
     </div>
     <div class="tools grp">
-      <button data-act="live" title="Home: streams that are on air right now">HOME<span class="lnum"></span></button>
-      <button data-act="lib" title="Library">LIBRARY</button>
-      <button id="recbtn" title="Record your mix and download it when you stop"><i></i>REC</button>
       <button id="timepill" data-act="time" hidden></button>
-      <button data-act="lights" title="Lights, effects and sound">SETTINGS</button>
-      <button data-act="help" title="How to use">HELP</button>
-      <button id="signinbtn" data-act="signin" title="Sign in to watch streams and play the decks">SIGN IN</button>
+      <button id="recbtn" title="Record your mix and download it when you stop"><i></i>REC</button>
+      <button id="golivebtn" title="Go live: broadcast your mix to listeners" hidden>GO LIVE</button>
+      <button id="morebtn" aria-haspopup="menu" aria-expanded="false" title="Library, settings, help and your account">MENU &#9662;</button>
+      <div id="moremenu" role="menu" hidden>
+        <button data-act="lib" role="menuitem" title="Library">LIBRARY</button>
+        <button data-act="lights" role="menuitem" title="Lights, effects and sound">SETTINGS</button>
+        <button data-act="help" role="menuitem" title="How to use">HELP</button>
+        <button id="signinbtn" data-act="signin" role="menuitem" title="Sign in to watch streams and play the decks">SIGN IN</button>
+      </div>
     </div>
   </div>
   <div id="lightmenu" hidden><div class="row"><span>LIGHTS</span><button data-lm="power" class="on">ON</button><div class="swatches"></div></div><div class="row"><span>AUTO</span><button data-style="chill" title="Slow sweeps and soft glowing colour that melts from one to the next. No flashing or strobes">CHILL</button><button data-style="energetic" title="Fast chases, hits on every kick, strobes and blinders on the drops">ENERGETIC</button><button data-style="rave" title="Lasers all the way, the moving heads kept low, and a white burst on the last beat of every bar. Contains flashing lights">RAVE</button></div><div class="row"><span>INTENSITY</span><input type="range" id="lightIntensity" min="0" max="100" value="50" title="How fast the lights move and how hard they react to drops"></div><div class="row"><span>AUTO FX</span><button data-fx="laser" title="Lasers come in at random on drops, breakdowns and the kick">LASER</button><button data-fx="co2" title="CO2 cannons fire on big drops">CO2</button><button data-fx="blackout" title="Lights go dark when the music cuts out">BLACKOUT</button><button data-fx="blinders" title="The big C's blast white like blinders on some drops, strobe on drops and glow through a blackout">STROBE</button></div><hr><div class="row"><span>CROWD</span><button data-lm="mute" class="icon" title="Mute crowd sound" aria-label="Mute crowd sound"></button><input type="range" id="crowdVol" min="0" max="100" value="70" title="Crowd sound volume: cheers, chatter, shouts, whistles, CO2"></div><hr><div class="row"><span>CHAT</span><button id="chatAuto" class="on" title="Open the chat in the club views and tuck it away in DECKS and SPLIT. Turn off to keep it however you leave it.">AUTO HIDE ON</button></div><hr><div class="row"><span>AUDIO IN</span><button id="inputBtn" title="Listen to an outside audio input instead of the app's decks">CHOOSE</button><select id="inputSel" hidden></select></div><hr><div class="row"><span>ACCESS</span><button id="signOut" title="Sign out and go back to the Club Cloud website">SIGN OUT</button></div></div>
@@ -438,9 +447,9 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=118"></script>
+<script src="app.js?v=119"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
-<script type="module" src="club.js?v=148"></script>
+<script type="module" src="club.js?v=149"></script>
 <script type="module" src="chat.js?v=110"></script>
 <script type="module" src="billing.js?v=13"></script>
 <script type="module" src="record.js?v=4"></script>
