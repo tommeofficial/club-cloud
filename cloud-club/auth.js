@@ -58,7 +58,8 @@ A.require = async (reason) => {
 A.signOut = async () => { await backend.supabase.auth.signOut(); await refresh(); };
 
 async function init() {
-  try { backend = await import('./backend.js?v=2'); if (!backend.supabase) return; await backend.ensureSession(); } catch (e) { console.warn('sign-in is not available here', e); return; }
+  /* no guest session is made here: visitors to the website should not each become an account */
+  try { backend = await import('./backend.js?v=2'); if (!backend.supabase) return; } catch (e) { console.warn('sign-in is not available here', e); return; }
   ready = true; A.ready = true;
   backend.supabase.auth.onAuthStateChange(() => { setTimeout(refresh, 0); });   // not inside the callback itself: calling the auth client from there can deadlock
   await refresh();

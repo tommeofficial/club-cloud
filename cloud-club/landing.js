@@ -1,11 +1,10 @@
-// The website: the club's stage backdrop and LED screen on their own, big in the middle, looping through every look.
+// The website's hero: the club's stage backdrop and LED screen, big in the middle, looping through every look, with the sign-in button on it.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { screenMaterial } from './screen.js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { screenMaterial } from './screen.js?v=7';
 
 // ------------------------------------------------------------ the screen (same build as the club's backdrop)
 const R = 1.95, TUBE = 0.13, GAP = 0.1, OUTER = R + TUBE;   // metres; OUTER is the backdrop's outer edge
@@ -38,9 +37,9 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.7); 
 composer.addPass(new OutputPass());
 
 // fit: the screen, the line under it and the links are sized together so the whole stack fits any window, centred
-const root = document.documentElement, tagEl = document.getElementById('tag');
+const hero = document.getElementById('hero'), root = hero, tagEl = document.getElementById('tag');
 function fit() {
-  const w = innerWidth, h = innerHeight, GAP1 = 22, GAP2 = 14, LINKS = 44, PAD = 20;
+  const w = hero.clientWidth, h = hero.clientHeight, GAP1 = 22, GAP2 = 14, LINKS = 46, PAD = 18;
   // the line's size follows the screen (4.6% of it), capped so its longest row fits the width
   const fsFor = (d) => Math.max(13, Math.min(34, d * 0.046, (w - 32) / 23.5));
   let d = Math.min(w * 0.88, 760);
@@ -58,12 +57,14 @@ function fit() {
   root.style.setProperty('--tag', cy + d / 2 + GAP1 + 'px');
   root.style.setProperty('--below', cy + d / 2 + GAP1 + tagH + GAP2 + 'px');
 }
-addEventListener('resize', fit); fit();
+addEventListener('resize', fit); new ResizeObserver(fit).observe(hero); fit();
 
 // the loop: a steady beat drives the kick, colours step every 8 beats, the six looks take turns in order
 const clock = new THREE.Clock(), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let look = -1, fadeFrom = 0;
+let visible = true; new IntersectionObserver((e) => { visible = e[0].isIntersecting; }, { threshold: 0 }).observe(hero);
 function frame() {
+  if (!visible) { requestAnimationFrame(frame); return; }
   const t = clock.getElapsedTime(), beat = (t * BPM) / 60, pulse = still ? 0.3 : Math.pow(1 - (beat % 1), 3);
   const n = Math.floor(beat / LOOK_BEATS);
   if (n !== look) { look = n; u.uModeA.value = u.uModeB.value; u.uModeB.value = n % 6; fadeFrom = t; }
@@ -82,36 +83,17 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-// ------------------------------------------------------------ sign up: the button becomes an email bar
-const su = document.getElementById('signup'), openBtn = su.querySelector('.su-open'), form = su.querySelector('.su-form');
-const email = form.querySelector('input'), done = form.querySelector('button'), msg = su.querySelector('.su-msg'), err = su.querySelector('.su-err');
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-openBtn.onclick = () => { openBtn.hidden = true; form.hidden = false; email.focus(); };
-form.onsubmit = async (e) => {
-  e.preventDefault();
-  const v = email.value.trim().toLowerCase();
-  if (!EMAIL.test(v) || v.length > 254) { err.textContent = 'That email doesn’t look right.'; err.hidden = false; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); return; }
-  err.hidden = true; done.disabled = true; done.textContent = '…';
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/signups`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ email: v, source: 'website' }),
-    });
-    if (!r.ok && r.status !== 409) throw new Error('status ' + r.status); // 409: already signed up, which is fine
-    form.hidden = true; msg.innerHTML = 'YOU’RE ON THE LIST<small>We’ll email you when Club Cloud opens.</small>'; msg.hidden = false;
-  } catch (_) {
-    err.textContent = 'Couldn’t sign you up just now. Please try again.'; err.hidden = false;
-    done.disabled = false; done.textContent = 'SIGN UP';
-  }
-};
+// ------------------------------------------------------------ sign in: the button on the screen opens the shared email sign-in; once signed in it takes you to the app
+const cta = document.getElementById('heroCta');
+const label = () => { cta.textContent = window.__auth && window.__auth.signedIn ? 'ENTER THE CLUB' : 'SIGN IN'; };
+cta.onclick = () => { const A = window.__auth; if (A && A.signedIn) location.href = '/app'; else if (A) A.require('Club Cloud'); else location.href = '/app'; };
+addEventListener('cc-auth', label); label();
 
 // ------------------------------------------------------------ invite early: the password lets people into the app
 const gate = document.getElementById('gate'), gForm = gate.querySelector('form'), pw = gForm.querySelector('input');
 const gBtn = gForm.querySelector('button'), gErr = gate.querySelector('.err'), card = gate.querySelector('.card');
 const openGate = () => { gate.hidden = false; gErr.textContent = ''; pw.value = ''; pw.focus(); };
-const closeGate = () => { gate.hidden = true; document.querySelector('#below .invite').focus(); };
-document.querySelector('#below .invite').onclick = openGate;
+const closeGate = () => { gate.hidden = true; };
 gate.querySelector('.x').onclick = closeGate;
 gate.onclick = (e) => { if (e.target === gate) closeGate(); };
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && !gate.hidden) closeGate(); });

@@ -132,6 +132,12 @@ async function connect(roomName) {
     document.querySelector('#tabs [data-mode=club]')?.click();
     setTimeout(() => S.ch?.send({ type: 'join', name: S.me.username }), 1500);
   }
+  // arriving from a stream card on the website (?room=name&listen=1): start listening straight away
+  if (urlRoom && !S.isDj && !S.autoListened && new URLSearchParams(location.search).get('listen') === '1') {
+    S.autoListened = true;
+    document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();
+    setTimeout(() => { if (S.live && !S.isDj) { S.live.join(); S.listenTimer = setTimeout(() => { if (S.live && !S.live.fanPc) { system('That DJ is not live right now.', 'err'); S.live.leave(); } }, 7000); } }, 900);
+  }
   return true;
 }
 

@@ -193,6 +193,10 @@ async function init() {
     history.replaceState(null, '', location.pathname);
   }
   B.ready = true; pill(); check();
+  if (new URLSearchParams(location.search).has('shop')) {   // the website's pricing buttons: open the buy screen straight away
+    history.replaceState(null, '', location.pathname);
+    setTimeout(async () => { if (!window.__auth || await window.__auth.require('buy deck time')) showShop('info'); }, 600);
+  }
   setInterval(tick, 1000);
   setInterval(() => { try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} }, 5000); // so reloading the page does not reset the 10 minutes
   addEventListener('pagehide', () => { if (B.pending) flush(); try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} });
