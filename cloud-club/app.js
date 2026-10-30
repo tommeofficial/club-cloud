@@ -802,7 +802,6 @@ class Deck {
   // ---------------------------------------------------------------- transport
   play() {
     if (!this.loaded) return;
-    if (window.__auth && window.__auth.isReady && !window.__auth.signedIn) { window.__auth.require('play the decks'); return; } // playing the decks needs an account
     if (window.__billing && window.__billing.locked) { window.__billing.showShop('out'); return; } // out of deck time: buy more to play
     if (this.pos >= this.dur - 0.05) this.seek(this.cue);
     const M = masterDeck();

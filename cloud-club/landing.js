@@ -85,6 +85,6 @@ requestAnimationFrame(frame);
 
 // ------------------------------------------------------------ sign in: the button on the screen opens the shared email sign-in; once signed in it takes you to the app
 const cta = document.getElementById('heroCta');
-const label = () => { cta.textContent = window.__auth && window.__auth.signedIn ? 'ENTER THE CLUB' : 'SIGN IN'; };
-cta.onclick = () => { const A = window.__auth; if (A && A.signedIn) location.href = '/app'; else if (A) A.require('Club Cloud'); else location.href = '/app'; };
+const label = () => { cta.textContent = 'ENTER THE CLUB'; };
+cta.onclick = () => { location.href = '/app'; };    // anyone can come in and try it; an account is asked for when they want more
 addEventListener('cc-auth', label); label();

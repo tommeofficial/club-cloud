@@ -6,7 +6,7 @@
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
 import { createLive } from './live.js?v=2';
-import { createLobby } from './lobby.js?v=1';
+import { createLobby } from './lobby.js?v=2';
 
 const panel = document.getElementById('chatpanel');
 const log = document.getElementById('chatlog');
@@ -169,6 +169,7 @@ input.addEventListener('keydown', async (e) => {
   if (e.key !== 'Enter' || !S.ch) return;
   const body = input.value.trim().slice(0, 200);
   if (!body) return;
+  if (window.__auth?.isReady && !window.__auth.signedIn) { window.__auth.require('chat'); return; }   // guests can read the chat; saying something needs an account
   if (performance.now() - S.lastSent < 1000) { system('Slow down a little.', 'err'); return; }
   S.lastSent = performance.now();
   input.value = '';
@@ -191,6 +192,7 @@ const testNote = '<p class="cnote">Payments aren\'t live yet, so this runs as a 
 panel.querySelector('.cquick').addEventListener('click', (e) => {
   const q = e.target.closest('button')?.dataset.q; if (!q) return;
   if (!S.ch) { system('Chat is not connected yet.', 'err'); return; }
+  if (window.__auth?.isReady && !window.__auth.signedIn) { window.__auth.require('send a request or a tip'); return; }   // paying and requests need an account
   if (q === 'shout') ask(`<h4>Shout-out · ${money(PRICES.shout)}</h4><p>Ask the DJ for a shout-out. If they accept, you'll record up to ${SHOUT_MAX} seconds and it plays to everyone in the club, with your name on the big screen.</p>${testNote}`, 'REQUEST', () => request('shout'));
   if (q === 'song') ask(`<h4>Song request · ${money(PRICES.song)}</h4><p class="cwarn">The DJ may not have this song, or it may not fit the set. They choose whether to play it.</p><input maxlength="80" placeholder="Artist – song">${testNote}`, 'REQUEST', (m) => {
     const t = m.querySelector('input').value.trim(); if (!t) return; request('song', t);

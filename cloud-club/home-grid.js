@@ -28,8 +28,6 @@ function render(list) {
 
 grid.addEventListener('click', async (e) => {
   const b = e.target.closest('.lcard'); if (!b || b.disabled) return;
-  const A = window.__auth;
-  if (A && !(await A.require('watch this stream'))) return;       // watching needs an account
   location.href = `/app?room=${encodeURIComponent(b.dataset.room)}&listen=1`;
 });
 

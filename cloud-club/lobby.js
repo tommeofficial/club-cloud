@@ -36,7 +36,6 @@ export function createLobby({ backend, me, enter }) {
   L.destroy = () => { chan.close(); };
   grid.addEventListener('click', async (e) => {
     const b = e.target.closest('.lcard'); if (!b || b.disabled) return;
-    if (!(await window.__auth?.require?.('watch this stream'))) return;   // watching needs an account
     L.close(); enter(b.dataset.room);
   });
   root.querySelector('.lplay')?.addEventListener('click', () => { L.close(); document.querySelector('#tabs [data-mode=normal]')?.click(); });

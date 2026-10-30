@@ -130,6 +130,11 @@ async function buy(kind, arg) {
 // ------------------------------------------------------------------ the shop
 let shop = null;
 function showShop(why) {
+  if ((why === 'out' || why === 'grace') && window.__auth?.isReady && !window.__auth.signedIn && !showShop.asking) {   // a guest's 5 minutes are up: an account comes first
+    showShop.asking = true;
+    window.__auth.require('keep playing').then((ok) => { showShop.asking = false; if (ok) showShop(why); });
+    return;
+  }
   if (!shop) { shop = document.createElement('div'); shop.id = 'timeshop'; document.body.appendChild(shop); shop.addEventListener('click', onShopClick); }
   const resets = B.resets && B.free <= 0 ? `Your 5 free minutes come back ${B.resets.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.` : '';
   shop.className = why === 'grace' ? 'grace' : '';
