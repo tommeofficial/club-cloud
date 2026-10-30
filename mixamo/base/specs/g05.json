@@ -1,0 +1,29 @@
+{
+ "sex": "female",
+ "skin": "middleage_african_female",
+ "hair": "braid01",
+ "hair_color": {
+  "hue": 0.03,
+  "val": 0.8
+ },
+ "macro": {
+  "height": 0.5,
+  "weight": 0.52,
+  "muscle": 0.42,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "toigo_cut_out_dress",
+   "color": {}
+  },
+  {
+   "name": "toigo_stiletto_booties",
+   "color": {
+    "sat": 0.1,
+    "val": 0.3
+   }
+  }
+ ],
+ "outfit": "leopard"
+}

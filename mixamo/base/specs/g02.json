@@ -1,0 +1,34 @@
+{
+ "sex": "female",
+ "skin": "young_african_female",
+ "hair": "bob01",
+ "hair_color": {},
+ "macro": {
+  "height": 0.43,
+  "weight": 0.47,
+  "muscle": 0.45,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "skalldyrssuppe_tube_top_funky_colors",
+   "color": {
+    "hue": 0.3
+   }
+  },
+  {
+   "name": "frankyaye_mini_skirt_01",
+   "color": {
+    "hue": 0.55
+   }
+  },
+  {
+   "name": "scailman_gogo_platform_boots",
+   "color": {
+    "sat": 0.1,
+    "val": 0.3
+   }
+  }
+ ],
+ "outfit": "tubemini"
+}

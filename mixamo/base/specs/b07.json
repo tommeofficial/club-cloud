@@ -1,0 +1,31 @@
+{
+ "sex": "male",
+ "skin": "middleage_african_male",
+ "hair": "short02",
+ "hair_color": {
+  "val": 0.35
+ },
+ "macro": {
+  "height": 0.57,
+  "weight": 0.43,
+  "muscle": 0.7,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "male_casualsuit03",
+   "color": {
+    "val": 0.5,
+    "sat": 0.5
+   }
+  },
+  {
+   "name": "shoes02",
+   "color": {
+    "val": 0.3,
+    "sat": 0.3
+   }
+  }
+ ],
+ "outfit": "striped"
+}

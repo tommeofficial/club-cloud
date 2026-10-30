@@ -1,0 +1,41 @@
+{
+ "sex": "female",
+ "skin": "young_caucasian_female2",
+ "hair": "bob02",
+ "hair_color": {
+  "tint": [
+   1.15,
+   1.0,
+   0.7
+  ]
+ },
+ "macro": {
+  "height": 0.51,
+  "weight": 0.39,
+  "muscle": 0.41,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "toigo_turtleneck_halter_top",
+   "color": {
+    "sat": 0.1,
+    "val": 0.3
+   }
+  },
+  {
+   "name": "frankyaye_mini_skirt_02",
+   "color": {
+    "hue": 0.0
+   }
+  },
+  {
+   "name": "toigo_stiletto_booties",
+   "color": {
+    "sat": 0.1,
+    "val": 0.3
+   }
+  }
+ ],
+ "outfit": "haltermini"
+}

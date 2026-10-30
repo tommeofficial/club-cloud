@@ -1,0 +1,44 @@
+{
+ "sex": "female",
+ "skin": "young_asian_female",
+ "hair": "ponytail01",
+ "hair_color": {
+  "val": 0.5
+ },
+ "macro": {
+  "height": 0.43,
+  "weight": 0.47,
+  "muscle": 0.41,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "toigo_bodice-style_top",
+   "color": {
+    "tint": [
+     0.25,
+     0.4,
+     1.0
+    ]
+   }
+  },
+  {
+   "name": "toigo_tiered_mini_skirt",
+   "color": {
+    "tint": [
+     0.25,
+     0.4,
+     1.0
+    ]
+   }
+  },
+  {
+   "name": "toigo_stiletto_booties",
+   "color": {
+    "sat": 0.1,
+    "val": 0.3
+   }
+  }
+ ],
+ "outfit": "bodice"
+}

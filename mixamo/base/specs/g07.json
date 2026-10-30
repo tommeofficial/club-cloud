@@ -1,0 +1,36 @@
+{
+ "sex": "female",
+ "skin": "young_asian_female",
+ "hair": "ponytail01",
+ "hair_color": {
+  "val": 0.35
+ },
+ "macro": {
+  "height": 0.54,
+  "weight": 0.45,
+  "muscle": 0.55,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "skalldyrssuppe_tube_top_funky_colors",
+   "color": {
+    "hue": 0.85
+   }
+  },
+  {
+   "name": "frankyaye_mini_skirt_01",
+   "color": {
+    "hue": 0.12
+   }
+  },
+  {
+   "name": "scailman_gogo_platform_boots",
+   "color": {
+    "sat": 0.1,
+    "val": 0.3
+   }
+  }
+ ],
+ "outfit": "tubemini"
+}

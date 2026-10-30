@@ -1,0 +1,38 @@
+{
+ "sex": "male",
+ "skin": "young_african_male",
+ "hair": "afro01",
+ "hair_color": {
+  "tint": [
+   1.15,
+   1.0,
+   0.7
+  ]
+ },
+ "macro": {
+  "height": 0.55,
+  "weight": 0.51,
+  "muscle": 0.61,
+  "age": 0.5
+ },
+ "items": [
+  {
+   "name": "male_elegantsuit01",
+   "color": {
+    "tint": [
+     0.8,
+     0.2,
+     0.3
+    ]
+   }
+  },
+  {
+   "name": "shoes02",
+   "color": {
+    "val": 0.2,
+    "sat": 0.3
+   }
+  }
+ ],
+ "outfit": "suit"
+}
