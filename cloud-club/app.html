@@ -65,6 +65,7 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #tabs #golivebtn { background: #3a1620; color: #ff8a9b; } #tabs #golivebtn.on { background: #ff3b5c; color: #fff; }
 #moremenu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 170px; display: flex; flex-direction: column; gap: 2px; padding: 5px; background: rgba(10,12,18,.97); border: 1px solid #24262a; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 8; }
 #moremenu button { text-align: left; }
+#moremenu #timepill { border-radius: 6px; font-size: 13px; letter-spacing: 1.2px; padding: 9px 15px; min-height: 34px; }
 #tabs.v #moremenu { right: auto; left: calc(100% + 6px); top: auto; bottom: 0; }
 #view { position: absolute; overflow: hidden; touch-action: none; }
 #stage { position: absolute; left: 0; top: 0; width: 1840px; height: 964px; transform-origin: 0 0; font-family: var(--label); }
@@ -415,11 +416,11 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-zoom="d2" title="Deck 2">2</button>
     </div>
     <div class="tools grp">
-      <button id="timepill" data-act="time" hidden></button>
       <button id="recbtn" title="Record your mix and download it when you stop"><i></i>REC</button>
       <button id="golivebtn" title="Go live: broadcast your mix to listeners" hidden>GO LIVE</button>
       <button id="morebtn" aria-haspopup="menu" aria-expanded="false" title="Library, settings, help and your account">MENU &#9662;</button>
       <div id="moremenu" role="menu" hidden>
+        <button id="timepill" data-act="time" role="menuitem" hidden></button>
         <button data-act="lib" role="menuitem" title="Library">LIBRARY</button>
         <button data-act="lights" role="menuitem" title="Lights, effects and sound">SETTINGS</button>
         <button data-act="help" role="menuitem" title="How to use">HELP</button>
@@ -447,7 +448,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=119"></script>
+<script src="app.js?v=120"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=149"></script>
 <script type="module" src="chat.js?v=110"></script>
