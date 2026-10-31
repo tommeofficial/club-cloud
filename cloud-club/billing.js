@@ -133,11 +133,11 @@ function graceUi() {
 // With real payments switched on (api/config says so), buying goes to Stripe Checkout and the hours or Pro arrive when the payment completes.
 // Until then it is a free test purchase.
 async function checkout(kind, hours) {
-  if (window.__auth && !(await window.__auth.require('buy deck time'))) return;
+  if (window.__auth && !(await window.__auth.require('buy deck time'))) throw new Error('Sign in or create an account first, then press pay again.');
   const { data } = await B.backend.supabase.auth.getSession();
   const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token }, body: JSON.stringify({ kind, hours }) });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || !j.url) throw new Error(j.error || 'checkout failed');
+  if (!r.ok || !j.url) throw new Error((j.error || 'Couldn\u2019t start the payment.') + (j.detail ? ' (' + j.detail + ')' : ''));
   location.href = j.url;     // Stripe's page; it brings them back here when done
 }
 async function buy(kind, arg) {
@@ -148,6 +148,7 @@ async function buy(kind, arg) {
 // ------------------------------------------------------------------ the shop
 let shop = null;
 function showShop(why) {
+  pickH = 1;
   if ((why === 'out' || why === 'grace') && window.__auth?.isReady && !window.__auth.signedIn && !showShop.asking) {   // a guest's 5 minutes are up: an account comes first
     showShop.asking = true;
     window.__auth.require('keep playing').then((ok) => { showShop.asking = false; if (ok) showShop(why); });
@@ -157,6 +158,7 @@ function showShop(why) {
   const resets = B.resets && B.free <= 0 ? `Your 5 free minutes come back ${B.resets.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.` : '';
   shop.className = why === 'grace' ? 'grace' : '';
   shop.innerHTML = `<div class="tsbox">
+    <p class="tserr" role="alert" hidden></p>
     <h3>${why === 'out' || why === 'grace' ? 'Your deck time is up' : why === 'golive' ? 'Going live is for Pro members' : why === 'rec' ? 'Recording is for Pro members' : 'Deck time'}</h3>
     ${why === 'grace' ? `<p class="tsgrace">You can keep playing for <b>${fmt(B.grace)}</b>. Add time now to carry on without a break.</p>` : ''}
     ${why === 'rec' ? '<p>Recording your set and downloading it is for Pro members. Pro is £9.99 a month, with unlimited deck time and going live. Pay-as-you-go hours do not unlock it.</p>' : ''}
@@ -164,21 +166,43 @@ function showShop(why) {
     <div class="tspro"><div><b>PRO · £${PRO_PRICE} a month</b><span>Unlimited deck time, going live and recording, and no tag over your sound.</span></div><button data-pro="30">${B.pro ? 'EXTEND' : 'GO PRO'}</button></div>
     <div class="tscode"><input class="tscodein" placeholder="Have a code? Enter it here" autocomplete="off" autocapitalize="characters" spellcheck="false"><button data-code>APPLY</button></div><p class="tscodemsg"></p>
     <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
-    <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
+    <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"${h === 1 ? ' class="on"' : ''}><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
+    <button class="tspay" data-pay>PAY £${PRICE}</button>
     ${B.live ? '' : '<p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>'}
     <button class="tsclose">${why === 'grace' ? 'KEEP PLAYING' : B.free + B.paid > 0 ? 'CLOSE' : 'NOT NOW'}</button></div>`;
   shop.hidden = false;
   shop.querySelector('.tscodein')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') redeemCode(); });
 }
 function hideShop() { if (shop) shop.hidden = true; }
+let pickH = 1;
+const tsErr = (t) => { const e = shop && shop.querySelector('.tserr'); if (e) { e.textContent = t || ''; e.hidden = !t; } };
+async function pay(kind, hours, btn) {
+  if (B.busy) return;
+  B.busy = true; tsErr(''); const label = btn.textContent; btn.disabled = true; btn.textContent = 'ONE MOMENT\u2026';
+  try {
+    await buy(kind, hours);
+    if (!B.live) { B.locked = false; hideShop(); check(); pill(); }
+  } catch (err) {
+    console.warn('payment did not start', err);
+    tsErr(String((err && err.message) || 'Something went wrong. Try again.'));
+    if (shop) shop.scrollTop = 0;
+  }
+  btn.disabled = false; btn.textContent = label; B.busy = false;      // if it worked, the page is already on its way to the payment screen
+}
 async function onShopClick(e) {
   if (e.target.closest('.tsclose')) { hideShop(); if (B.inGrace) { warn(); } return; }
   if (e.target.closest('[data-code]')) { await redeemCode(); return; }   // in the grace minutes, 'keep playing' shrinks the offer to the small bar
-  const b = e.target.closest('[data-h], [data-pro]'); if (!b || B.busy) return;
-  B.busy = true; b.disabled = true;
-  try { await buy(b.dataset.pro ? 'pro' : 'hours', +b.dataset.h); if (!B.live) { B.locked = false; hideShop(); check(); pill(); } }
-  catch (err) { console.warn('could not add hours', err); b.disabled = false; }
-  B.busy = false;
+  const hb = e.target.closest('[data-h]');
+  if (hb) {                                                              // choosing how many hours: highlight it and show the price on the PAY button
+    pickH = +hb.dataset.h; tsErr('');
+    shop.querySelectorAll('[data-h]').forEach((x) => x.classList.toggle('on', x === hb));
+    const p = shop.querySelector('[data-pay]'); if (p) p.textContent = `PAY \u00a3${PRICE * pickH}`;
+    return;
+  }
+  const payBtn = e.target.closest('[data-pay]');
+  if (payBtn) { await pay('hours', pickH, payBtn); return; }
+  const proBtn = e.target.closest('[data-pro]');
+  if (proBtn) { await pay('pro', 0, proBtn); return; }
 }
 
 // a promo code: one-time, gives Pro for a while (see supabase/promo_codes.sql)

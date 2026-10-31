@@ -24,5 +24,5 @@ module.exports = async (req, res) => {
         metadata: { user_id: user.id, kind: 'hours', hours: String(hours) } });
     } else return send(400, { error: 'Unknown purchase.' });
     send(200, { url: session.url });
-  } catch (e) { console.error('checkout', e.message); send(502, { error: 'Couldn’t start the payment. Try again.' }); }
+  } catch (e) { console.error('checkout', e.message); send(502, { error: 'Couldn’t start the payment.', detail: String(e.message || '').slice(0, 140) }); }
 };
