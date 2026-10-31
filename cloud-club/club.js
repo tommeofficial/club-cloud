@@ -11,7 +11,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
-import { screenMaterial, ledCopyMaterial } from './screen.js?v=8';
+import { screenMaterial, ledCopyMaterial } from './screen.js?v=9';
 import { createBeatTracker } from './beattrack.js?v=4';
 
 const el = document.getElementById('club');
@@ -821,7 +821,7 @@ function updateCs(v) {
   screen.blast = v;
 }
 // the screen glows softly in the rig's colours on the beat; every so often it flashes the Club Cloud name
-function updateScreen(t, beat, pulse, colours, step, dark) {
+function updateScreen(t, beat, pulse, colours, step, dark, flash) {
   if (!screen.g) return;
   const g = screen.g, S = 512, u = screen.mat.uniforms;
   const phrase = Math.floor(beat / 16);
@@ -843,6 +843,7 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   u.uTime.value = t; u.uBeat.value = beat; u.uPulse.value = pulse; screen.lastBeat = beat;
   u.uC1.value.setHex(colours[step % colours.length]); u.uC2.value.setHex(colours[(step + 1) % colours.length]); u.uC3.value.setHex(colours[(step + 2) % colours.length]);
   u.uDark.value = dark ? 1 : 0; u.uBlast.value = screen.blast || 0;
+  { const want = flash ? 1 : 0.58; u.uBright.value += (want - u.uBright.value) * (want > u.uBright.value ? 0.6 : 0.12); }   // full brightness only on strobes and blinder hits, otherwise a steady lower level
   u.uEnergy.value += ((brain.bassFast || 0) - u.uEnergy.value) * 0.2;
   if (screen.rt) {   // draw the main screen's picture into the shared copy for the side screens
     const prev = renderer.getRenderTarget(); u.uCopy.value = 1;
@@ -878,8 +879,9 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
     } else if (showing) {
       const a = idleLogo ? 1 : Math.min(1, (beat - screen.show) * 2) * Math.min(1, (4 - (beat - screen.show)) * 2);
       dim = 0.6 * a; g.globalAlpha = a;
-      g.shadowBlur = 30; g.shadowColor = '#ffffff'; g.fillStyle = '#ffffff'; g.font = font(150); g.fillText('club', S / 2, S / 2 + 20);
-      g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(58); g.fillText('C L O U D', S / 2, S / 2 + 100);
+      // the logo's own wordmark (the C's are the LED screens either side): crisp, with only a hair of glow so the dots keep their edges
+      g.shadowBlur = 5; g.shadowColor = '#ffffff'; g.fillStyle = '#f2fcff'; g.font = font(190); g.fillText('club', S / 2, S / 2 + 28);
+      g.shadowColor = '#41e7ff'; g.fillStyle = '#4cebff'; g.font = font(72); g.fillText('C L O U D', S / 2, S / 2 + 118);
       g.globalAlpha = 1;
     }
     g.shadowBlur = 0;
@@ -1447,7 +1449,7 @@ function lights(t, dt) {
   auto.blind = want > auto.blind ? want : Math.max(want, auto.blind - dt * 3);
   updateCs(auto.blind);
   if (bloom) bloom.strength = (LITE ? 0.6 : 0.75) * (1 - 0.6 * auto.blind); // a blinder hit blows out enough on its own: ease the glow so the crowd stays visible
-  updateScreen(t, beat, pulse, colours, step, scrDark);
+  updateScreen(t, beat, pulse, colours, step, scrDark, strobe || hitOn);
   updateLasers(t, beat, dark || calm < 0.2);
   updateCo2(dt, t);
 }

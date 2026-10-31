@@ -6,14 +6,14 @@ export function screenMaterial(THREE, textTex, specTex) {
       uTime: { value: 0 }, uBeat: { value: 0 }, uPulse: { value: 0 }, uEnergy: { value: 0 },
       uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uC3: { value: new THREE.Color() },
       uModeA: { value: 1 }, uModeB: { value: 1 }, uMix: { value: 1 },
-      uDark: { value: 0 }, uBlast: { value: 0 }, uTextDim: { value: 0 }, uCopy: { value: 0 },
+      uDark: { value: 0 }, uBlast: { value: 0 }, uBright: { value: 1 }, uTextDim: { value: 0 }, uCopy: { value: 0 },
       uText: { value: textTex }, uSpec: { value: specTex },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
       precision highp float;
       varying vec2 vUv;
-      uniform float uTime, uBeat, uPulse, uEnergy, uModeA, uModeB, uMix, uDark, uBlast, uTextDim, uCopy;
+      uniform float uTime, uBeat, uPulse, uEnergy, uModeA, uModeB, uMix, uDark, uBlast, uBright, uTextDim, uCopy;
       uniform vec3 uC1, uC2, uC3; uniform sampler2D uText, uSpec;
       #define PI 3.14159265
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
@@ -121,6 +121,7 @@ export function screenMaterial(THREE, textTex, specTex) {
         col *= (1.0 - uDark) * (1.0 - 0.7*uTextDim);
         vec4 tx = uCopy > 0.5 ? vec4(0.0) : texture2D(uText, vUv);
         col = col*(1.0 - tx.a) + tx.rgb;                       // the text sits on top, crisp
+        col *= uBright;                                              // the screen sits at a normal level; full brightness is for strobes and hits
         col = mix(col, vec3(1.0, 0.97, 0.92), uBlast * 0.7);         // blinder blast
         if (uCopy < 0.5) {
         // LED dot grid: each pixel is a little round light with a dark gap round it
