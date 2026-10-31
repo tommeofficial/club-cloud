@@ -291,11 +291,31 @@ function playShout(ev) {
 
 // ------------------------------------------------------------------ going live
 // The DJ's button sends the mix straight from their browser to anyone in the room who presses LISTEN LIVE (see live.js).
+// Watching a DJ's stream is free, but a guest gets 5 minutes a day: then they are asked to make a free account to keep watching.
+const WATCH_FREE = 300;
+const watchLoad = () => { try { const o = JSON.parse(localStorage.getItem('cc-watch') || '{}'); return o.t0 && Date.now() - o.t0 < 864e5 ? o : { t0: Date.now(), s: 0 }; } catch (_) { return { t0: Date.now(), s: 0 }; } };
+let watchTimer = null;
+function watchGuard(listening) {
+  if (!listening) { clearInterval(watchTimer); watchTimer = null; return; }
+  if (watchTimer || S.isDj) return;
+  watchTimer = setInterval(async () => {
+    const A = window.__auth;
+    if (!A || !A.isReady || A.signedIn) return;
+    const o = watchLoad(); o.s += 1; try { localStorage.setItem('cc-watch', JSON.stringify(o)); } catch (_) {}
+    if (o.s < WATCH_FREE) return;
+    clearInterval(watchTimer); watchTimer = null;
+    const ok = await A.require('keep watching');
+    if (ok) return;
+    system('Create a free account to keep watching.', 'err'); S.live?.leave();
+  }, 1000);
+}
+
 function setupLive() {
   const goBtn = djRow.querySelector('.cgolive'), listenBtn = listenRow.querySelector('button');
   S.live = createLive({
     channel: S.ch, me: S.me.username, isDj: S.isDj,
     onState: (st) => {
+      watchGuard(!!st.listening);
       if (S.isDj && st.on && S.liveListed && S.lobby?.mine && st.listeners !== S.lobby.mine.listeners) S.lobby.update({ listeners: st.listeners });
       goBtn.classList.toggle('on', st.on); goBtn.textContent = st.on ? `LIVE · ${st.listeners} LISTENING` : 'GO LIVE';
       listenRow.hidden = S.isDj || (!st.on && !st.listening);
