@@ -679,7 +679,7 @@ function buildSideCopies() {
   for (const side of [-1, 1]) {
     const mat = ledCopyMaterial(THREE, tex, { rect: side < 0 ? [0.2, 0.46, 0.6, 0.08] : [0.8, 0.46, -0.6, 0.08], grid: [L / CELL, H / CELL] });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
-    m.position.set(side * (w / 2 - 0.122), 2.05, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
+    m.position.set(side * (w / 2 - 0.122), 2.2, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
   // big C-shaped LED screens: exactly the shape, proportions and pixel size of the logo's own C's (ring 1.82 to 2.08 round the 1.95 centreline, the same gap), two on each side wall,
   // opening towards the stage, and showing the main screen's picture
