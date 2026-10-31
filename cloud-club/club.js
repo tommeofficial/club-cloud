@@ -11,7 +11,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
-import { screenMaterial } from './screen.js?v=7';
+import { screenMaterial, ledCopyMaterial } from './screen.js?v=8';
 import { createBeatTracker } from './beattrack.js?v=4';
 
 const el = document.getElementById('club');
@@ -676,42 +676,26 @@ function buildSideBar(side) {
     sideBars.segs.push({ mat, base, i, side });
   }
 }
-// Big C-shaped LED screens either side of the stage, the same way round as the logo: on the crowd's left they open to the right (white-C side),
-// on the right they open to the left (cyan-C side). They run the main screen's own look, with the same pixel size, as flat C's with parallel cut ends.
-const SIDE_CS = +(new URLSearchParams(location.search).get('cs') ?? 2);   // how many on each side (?cs=0 turns them off)
-function buildSideCs() {
-  const OUT = 0.76, IN = 0.5, PITCH = 3.26 / 150;    // metres; the main screen's pixel pitch (a 3.26 m disc across 150 cells)
-  const rc = ((IN + OUT) / 2) / OUT, hp = rc * Math.sin(0.1);
-  const blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1); blank.needsUpdate = true;
-  for (const view of [-1, 1]) for (let k = 0; k < SIDE_CS; k++) {      // view -1: the crowd's left (world +x), 1: the crowd's right (world -x)
-    const mat = screenMaterial(THREE, blank, screen.spec);
-    mat.uniforms = { ...screen.mat.uniforms, uText: { value: blank }, uTextDim: { value: 0 },
-      uGrid: { value: new THREE.Vector2(2 * OUT / PITCH, 2 * OUT / PITCH) }, uRing: { value: new THREE.Vector3(IN / OUT, hp, -view) } };
-    mat.transparent = true;
-    mat.fragmentShader = mat.fragmentShader
-      .replace('uniform vec3 uC1', 'uniform vec2 uGrid; uniform vec3 uRing; uniform vec3 uC1')
-      .replace('fract(vUv * 150.0)', 'fract(vUv * uGrid)')
-      .replace('col *= smoothstep(1.0, 0.92, length(p));', `float rr = length(p);
-        float m = smoothstep(1.0, 0.985, rr) * smoothstep(uRing.x, uRing.x + 0.015, rr) * smoothstep(0.0, 0.015, -p.x * uRing.z - uRing.y);
-        if (m < 0.02) discard;
-        col *= m;`);
+// Side screens. The main screen is drawn once a frame into a small texture (no text, no dots, see updateScreen), and these only show windows of it
+// through their own LED pixel grid: they copy the main screen's look, colours and beat, and cost almost nothing.
+const SIDE_CS = +(new URLSearchParams(location.search).get('cs') ?? 2);   // how many big C's on each side (?cs=0 turns them off)
+function buildSideCopies() {
+  const tex = screen.rt.texture, { w, z0, z1 } = ROOM;
+  // a long, thin LED screen down each side wall: a narrow slice through the middle of the main screen, mirrored on the other wall
+  const zA = z0 - 1.5, zB = z1 + 1.5, L = zA - zB, H = 0.42, CELL = 0.035;
+  for (const side of [-1, 1]) {
+    const mat = ledCopyMaterial(THREE, tex, { rect: side < 0 ? [0.2, 0.46, 0.6, 0.08] : [0.8, 0.46, -0.6, 0.08], grid: [L / CELL, H / CELL] });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
+    m.position.set(side * (w / 2 - 0.122), 2.05, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
+  }
+  // big C-shaped LED screens either side of the stage, the same way round as the logo (on the crowd's left they open to the right, on the right to the left),
+  // with the main screen's own pixel size, flat cut ends, showing the whole main screen picture through the C
+  const OUT = 0.76, IN = 0.5, PITCH = 3.26 / 150;
+  const hp = (((IN + OUT) / 2) / OUT) * Math.sin(0.1);
+  for (const view of [-1, 1]) for (let k = 0; k < SIDE_CS; k++) {            // view -1: the crowd's left (world +x), 1: the crowd's right (world -x)
+    const mat = ledCopyMaterial(THREE, tex, { rect: [0.2, 0.2, 0.6, 0.6], grid: [2 * OUT / PITCH, 2 * OUT / PITCH], ring: [IN / OUT, hp, -view], mode: 1, gain: 1.15 });   // the middle of the main picture runs through the C
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * OUT, 2 * OUT), mat);
     mesh.position.set(-view * (3.1 + k * 1.6), 2.32, 2.35); mesh.rotation.y = Math.PI; scene.add(mesh);
-  }
-}
-// A long, thin LED screen down each side wall that copies the main screen: it runs the same look, colours, beat and blinders (the main screen's
-// own shader and uniforms, seen through a narrow slice), so it moves with the rig.
-function buildSideScreens() {
-  const { w, z0, z1 } = ROOM, zA = z0 - 1.5, zB = z1 + 1.5, L = zA - zB, H = 0.42;
-  const blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1); blank.needsUpdate = true;
-  for (const side of [-1, 1]) {
-    const mat = screenMaterial(THREE, blank, screen.spec);
-    mat.uniforms = { ...screen.mat.uniforms, uText: { value: blank }, uTextDim: { value: 0 }, uGrid: { value: new THREE.Vector2(L / 0.035 / 0.6, H / 0.035 / 0.16) } };   // everything but the text is the main screen's own
-    mat.fragmentShader = mat.fragmentShader.replace('uniform vec3 uC1', 'uniform vec2 uGrid; uniform vec3 uC1').replace('fract(vUv * 150.0)', 'fract(vUv * uGrid)').replace('smoothstep(1.0, 0.92, length(p))', 'smoothstep(1.0, 0.9, abs(p.x) * 1.5)');
-    const geo = new THREE.PlaneGeometry(L, H), uv = geo.attributes.uv;
-    for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, side < 0 ? 0.2 + 0.6 * u : 0.8 - 0.6 * u, 0.46 + 0.08 * v); }   // a narrow slice through the middle of the main screen, mirrored on the other wall
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(side * (w / 2 - 0.122), 2.05, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
 }
 // tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
@@ -818,12 +802,16 @@ function buildBackdrop() {
   arc(white, -1);   // left C, opening to the right: ends cut flat and parallel
   arc(blue, 1);     // right C, opening to the left
   // round LED screen inside the C's
-  screen.cv = document.createElement('canvas'); screen.cv.width = screen.cv.height = 1024; // drawn at 2x so the logo and titles stay crisp screen.g = screen.cv.getContext('2d');
+  screen.cv = document.createElement('canvas'); screen.cv.width = screen.cv.height = 1024;   // drawn at 2x so the logo and titles stay crisp
+  screen.g = screen.cv.getContext('2d');
   screen.tex = new THREE.CanvasTexture(screen.cv); screen.tex.colorSpace = THREE.SRGBColorSpace;
   screen.spec = new THREE.DataTexture(new Uint8Array(64), 64, 1, THREE.RedFormat); screen.spec.needsUpdate = true;
   screen.mat = screenMaterial(THREE, screen.tex, screen.spec);
   const disc = new THREE.Mesh(new THREE.CircleGeometry(R - 0.32, 96), screen.mat);
-  buildSideScreens(); buildSideCs();
+  // the shared copy of the main screen (a texture the side screens read from)
+  screen.rt = new THREE.WebGLRenderTarget(512, 512, { type: THREE.HalfFloatType });
+  screen.rtScene = new THREE.Scene(); screen.rtScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), screen.mat)); screen.rtCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 3); screen.rtCam.position.z = 1;
+  buildSideCopies();
   disc.position.set(0, cy, -0.05); grp.add(disc); screen.parts.push(disc);
   // a dark rim around the screen and glow spilling onto the stage
   const rim = new THREE.Mesh(new THREE.RingGeometry(R - 0.32, R - 0.22, 64), new THREE.MeshStandardMaterial({ color: 0x0a0b0e, roughness: 0.4 }));
@@ -862,6 +850,10 @@ function updateScreen(t, beat, pulse, colours, step, dark) {
   u.uC1.value.setHex(colours[step % colours.length]); u.uC2.value.setHex(colours[(step + 1) % colours.length]); u.uC3.value.setHex(colours[(step + 2) % colours.length]);
   u.uDark.value = dark ? 1 : 0; u.uBlast.value = screen.blast || 0;
   u.uEnergy.value += ((brain.bassFast || 0) - u.uEnergy.value) * 0.2;
+  if (screen.rt) {   // draw the main screen's picture into the shared copy for the side screens
+    const prev = renderer.getRenderTarget(); u.uCopy.value = 1;
+    renderer.setRenderTarget(screen.rt); renderer.render(screen.rtScene, screen.rtCam); renderer.setRenderTarget(prev); u.uCopy.value = 0;
+  }
   // live spectrum for the ring look
   const sb = inputMode ? ext.specBuf : brain.specBuf, d = screen.spec.image.data;
   for (let i = 0; i < 64; i++) { const bin = sb ? Math.floor(Math.pow(i / 64, 1.7) * sb.length * 0.45) + 2 : 0; const v = sb ? (sb[bin] + 95) / 65 : 0; d[i] = Math.max(0, Math.min(255, v * 255)); }

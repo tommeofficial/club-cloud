@@ -6,14 +6,14 @@ export function screenMaterial(THREE, textTex, specTex) {
       uTime: { value: 0 }, uBeat: { value: 0 }, uPulse: { value: 0 }, uEnergy: { value: 0 },
       uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uC3: { value: new THREE.Color() },
       uModeA: { value: 1 }, uModeB: { value: 1 }, uMix: { value: 1 },
-      uDark: { value: 0 }, uBlast: { value: 0 }, uTextDim: { value: 0 },
+      uDark: { value: 0 }, uBlast: { value: 0 }, uTextDim: { value: 0 }, uCopy: { value: 0 },
       uText: { value: textTex }, uSpec: { value: specTex },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
       precision highp float;
       varying vec2 vUv;
-      uniform float uTime, uBeat, uPulse, uEnergy, uModeA, uModeB, uMix, uDark, uBlast, uTextDim;
+      uniform float uTime, uBeat, uPulse, uEnergy, uModeA, uModeB, uMix, uDark, uBlast, uTextDim, uCopy;
       uniform vec3 uC1, uC2, uC3; uniform sampler2D uText, uSpec;
       #define PI 3.14159265
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
@@ -119,16 +119,46 @@ export function screenMaterial(THREE, textTex, specTex) {
         vec2 p = vUv*2.0 - 1.0;
         vec3 col = mix(look(uModeA, p), look(uModeB, p), smoothstep(0.0, 1.0, uMix));
         col *= (1.0 - uDark) * (1.0 - 0.7*uTextDim);
-        vec4 tx = texture2D(uText, vUv);
+        vec4 tx = uCopy > 0.5 ? vec4(0.0) : texture2D(uText, vUv);
         col = col*(1.0 - tx.a) + tx.rgb;                       // the text sits on top, crisp
         col = mix(col, vec3(1.0, 0.97, 0.92), uBlast * 0.7);         // blinder blast
+        if (uCopy < 0.5) {
         // LED dot grid: each pixel is a little round light with a dark gap round it
         vec2 cell = fract(vUv * 150.0) - 0.5;
         float dot_ = smoothstep(0.5, 0.25, length(cell));
         col *= mix(0.25 + 0.95*dot_, 0.82 + 0.18*dot_, tx.a);   // text keeps its shape through the dots
         col *= smoothstep(1.0, 0.92, length(p));               // soft edge at the rim
+        }
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
+      }`,
+  });
+}
+
+
+// The side screens and C's do not run the look shaders again. The main screen is drawn once a frame into a texture (no text, no dots), and these
+// show a window of that texture through their own LED pixel grid, so they cost almost nothing.
+// rect = [x, y, w, h] of the texture shown across the surface (a negative w mirrors it); grid = LED cells across the surface;
+// ring = [inner radius, half gap, side] turns the surface into a flat C (mode 1), side +1 keeps the left, -1 the right.
+export function ledCopyMaterial(THREE, tex, { rect, grid, ring = [0, 0, 0], mode = 0, gain = 1 }) {
+  return new THREE.ShaderMaterial({
+    fog: false, transparent: mode === 1,
+    uniforms: { uTex: { value: tex }, uRect: { value: new THREE.Vector4(...rect) }, uGrid: { value: new THREE.Vector2(...grid) }, uRing: { value: new THREE.Vector3(...ring) }, uMode: { value: mode }, uGain: { value: gain } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `
+      precision highp float; varying vec2 vUv;
+      uniform sampler2D uTex; uniform vec4 uRect; uniform vec2 uGrid; uniform vec3 uRing; uniform float uMode, uGain;
+      void main(){
+        vec3 col = texture2D(uTex, uRect.xy + vUv * uRect.zw).rgb * uGain;
+        vec2 cell = fract(vUv * uGrid) - 0.5;
+        col *= 0.25 + 0.95 * smoothstep(0.5, 0.25, length(cell));
+        if (uMode > 0.5) {
+          vec2 p = vUv * 2.0 - 1.0; float rr = length(p);
+          float m = smoothstep(1.0, 0.985, rr) * smoothstep(uRing.x, uRing.x + 0.015, rr) * smoothstep(0.0, 0.015, -p.x * uRing.z - uRing.y);
+          if (m < 0.02) discard;
+          col *= m;
+        }
+        gl_FragColor = vec4(col, 1.0);
       }`,
   });
 }
