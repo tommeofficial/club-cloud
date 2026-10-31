@@ -1292,13 +1292,22 @@ function updatePanCam(beat) {
 }
 window.addEventListener('cc-clubzoom', (e) => { clubZoom = e.detail; aimCamera(); });
 
+// adaptive sharpness: if the frame rate sags the picture renders at a lower resolution, and climbs back when there is headroom
+let pxAuto = 1, pxMs = 0, pxN = 0, pxLast = 0;
+function adaptPx() {
+  const now = performance.now(); if (pxLast) { pxMs += Math.min(200, now - pxLast); pxN++; } pxLast = now;
+  if (pxN < 90) return;
+  const avg = pxMs / pxN; pxMs = 0; pxN = 0;
+  if (avg > 27 && pxAuto > 0.5) { pxAuto = Math.max(0.5, pxAuto * 0.85); resize(); }
+  else if (avg < 15 && pxAuto < 1) { pxAuto = Math.min(1, pxAuto * 1.1); resize(); }
+}
 function resize() {
   const w = el.clientWidth, h = el.clientHeight;
   if (!w || !h) return;
   djCanvas.hidden = mode === 'off';
   for (const k of ['left', 'top', 'width', 'height']) djCanvas.style[k] = el.style[k];
-  if (djRenderer) { djRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PX_CAP)); djRenderer.setSize(w, h, false); }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PX_CAP));
+  if (djRenderer) { djRenderer.setPixelRatio(Math.max(0.6, Math.min(window.devicePixelRatio || 1, PX_CAP) * pxAuto)); djRenderer.setSize(w, h, false); }
+  renderer.setPixelRatio(Math.max(0.6, Math.min(window.devicePixelRatio || 1, PX_CAP) * pxAuto));
   renderer.setSize(w, h, false);
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   laserRes(w, h);
@@ -1357,14 +1366,18 @@ function lights(t, dt) {
   const hitOn = !chill && light.fx.blinders && beat < auto.blindUntil;            // a blinder hit on a drop
   const scrDark = !light.on || cut || hitOn;
   const dark = scrDark || !!light.adDark; // the advert can hold the rig dark while the screen still plays
-  const F = light.adFade ?? 1; // the advert fades the whole rig in
+  // like a real rig: it eases down and slows through a build or a breakdown (nearly out just before the drop), then snaps to full the instant the drop lands
+  const calmWant = preDrop ? 0 : (drop || dropHit) ? 1 : buildAmt > 0.15 ? 0.14 + 0.22 * buildAmt : lull ? 0.18 : 1;
+  light.calm = calmWant > (light.calm ?? 1) ? ((drop || dropHit) ? 1 : Math.min(calmWant, (light.calm ?? 1) + dt * 0.5)) : Math.max(calmWant, (light.calm ?? 1) - dt * (preDrop ? 6 : 0.9));
+  const calm = light.calm;
+  const F = (light.adFade ?? 1) * calm; // the advert fades the whole rig in
   const pal = PALETTE.filter((_, i) => light.colours[i]);
   const colours = pal.length ? pal : PALETTE;
   const step = Math.floor(beat / Math.max(1, Math.round(8 - 6 * k))); // colour changes every 8 beats at low intensity, every 2 at high
-  const speed = (0.4 + 1.6 * k) * (chill ? 0.35 : 1);
+  const speed = (0.4 + 1.6 * k) * (chill ? 0.35 : 1) * (0.25 + 0.75 * calm);
   const strobe = !chill && ((drop && ((beat * 4) % 1 + 1) % 1 < 0.35)
     || (rave && energy > 0.45 && ((beat % 4) + 4) % 4 > 3 && ((beat * 2) % 1 + 1) % 1 < 0.4)      // rave: a burst on the last beat of every bar
-    || (buildAmt > 0.5 && ((beat * (2 + 4 * buildAmt)) % 1 + 1) % 1 < 0.3));                      // a build: flashes that speed up
+    );
   pickLook(beat, drop);
   beams.forEach((b, i) => {
     if (dark) { b.material.opacity = 0; b.userData.lens.material.color.setRGB(0.02, 0.02, 0.02); b.userData.ring.material.color.setRGB(0.03, 0.03, 0.03); return; }
@@ -1415,7 +1428,7 @@ function lights(t, dt) {
   updateCs(auto.blind);
   if (bloom) bloom.strength = (LITE ? 0.6 : 0.75) * (1 - 0.6 * auto.blind); // a blinder hit blows out enough on its own: ease the glow so the crowd stays visible
   updateScreen(t, beat, pulse, colours, step, scrDark);
-  updateLasers(t, beat, dark);
+  updateLasers(t, beat, dark || calm < 0.2);
   updateCo2(dt, t);
 }
 
@@ -2068,6 +2081,7 @@ function pushRoomState(t) {
 function frame() {
   if (!running) return;
   requestAnimationFrame(frame);
+  adaptPx();
   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
   think(dt, t);
   applyRemote(t);
