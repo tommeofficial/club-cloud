@@ -1,5 +1,9 @@
 # Music library (Epidemic Sound), switched OFF until you turn it on
 
+Private testing: add `MUSIC_ALLOWED_EMAILS` in Vercel (the email you sign in to Club Cloud with; several allowed, comma separated). Only those
+accounts see the MUSIC item and can call the API. Remove it later to open the library to every signed-in person.
+
+
 What it is: a MUSIC item in the app's MENU (shown only when switched on and the person is signed in). It lists genres (Tech House,
 Groovy House, Afro House, Techno, House, Minimal House) and tracks from the Epidemic Sound Partner API. ADD downloads a track into
 that browser tab and puts it in the library for the session. Tracks are never saved on the device (the API's terms limit caching

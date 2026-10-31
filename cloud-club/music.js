@@ -76,13 +76,16 @@ async function open() {
   if (!panel) build();
   panel.hidden = false;
 }
-(async function init() {
+async function init() {
   try {
-    const r = await fetch('/api/music?a=config', { cache: 'no-store' });
-    if (!r.ok || !(await r.json()).enabled) return;
     backend = await import('./backend.js?v=2');
     if (!backend.supabase) return;
-    const btn = document.getElementById('musicbtn'); if (!btn) return;
-    btn.hidden = false; btn.addEventListener('click', open);
+    const t = await token();
+    const r = await fetch('/api/music?a=config', { headers: t ? { Authorization: 'Bearer ' + t } : {}, cache: 'no-store' });
+    if (!r.ok || !(await r.json()).enabled) return;
+    const btn = document.getElementById('musicbtn'); if (!btn || btn.dataset.on) return;
+    btn.dataset.on = '1'; btn.hidden = false; btn.addEventListener('click', open);
   } catch (_) { /* not enabled here (local testing, offline): the button simply stays hidden */ }
-})();
+}
+init();
+addEventListener('cc-auth', () => setTimeout(init, 300));   // signing in (or out) changes who may see it
