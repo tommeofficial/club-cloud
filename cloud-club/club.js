@@ -1266,7 +1266,7 @@ function aimCamera() {
   if (!camera) return;
   const w = el.clientWidth, h = el.clientHeight;
   if (camView === 'pan') {
-    camera.fov = w / h < 1.3 ? 55 : 40; // CLUB 2: updatePanCam moves it every frame
+    camera.fov = w / h < 1.3 ? 48 : 32; // CLUB 2: updatePanCam moves it every frame (a longer lens: it shoots from the walls)
   } else if (camView === 'crowd') {
     // mounted on the back wall under the logo, looking over the crowd at the booth
     camera.fov = w / h < 1.3 ? 36 : 28;
@@ -1285,18 +1285,20 @@ function aimCamera() {
 // CLUB 2: a camera that drifts between shots on the beat: a new shot every 16 beats, every 8 when the crowd is flying
 const PAN = { shot: -1, block: -1 };
 const mix_ = THREE.MathUtils.lerp;
+// Camera B is a club's own cameras: mounted high on the walls and the bar-wall truss, on a long lens, never down in the crowd. Wide and medium shots, with a slow pan from high up.
 const PAN_SHOTS = [
-  (k) => [[mix_(-3.2, 3.2, k), 1.9, -1.0], [mix_(1.2, -1.2, k), 1.35, -4.2]],                                          // along the front of the stage, across the faces
-  (k) => [[mix_(-1.6, 1.6, k), 1.9, mix_(-8.8, -7.2, k)], [0, 1.8, -0.5]],                                             // over the crowd's shoulders to the DJ
-  (k) => { const a = mix_(-0.9, 0.9, k); return [[Math.sin(a) * 4.6, 3.5, -3.8 - Math.cos(a) * 4.4], [0, 1.0, -3.8]]; }, // high arc round the back of the floor
-  (k) => [[mix_(-2.4, -1.5, k), 1.9, mix_(-1.5, -2.3, k)], [0, 1.78, 0]],                                             // close on the DJ from the side
-  (k) => [[mix_(3.6, 2.3, k), 0.95, -5.4], [mix_(0.2, -0.6, k), 1.3, -3.4]],                                          // low among the dancers
-  (k) => [[mix_(4.8, 4.0, k), 3.2, -10.6], [0, 1.2, -3]],                                                              // wide from the back corner
+  (k) => [[mix_(-1.5, 1.5, k), 3.6, -12.6], [0, 1.7, 0]],                                                              // high at the bar wall, wide on the whole stage
+  (k) => [[mix_(-4.2, 4.2, k), 3.8, -11.4], [mix_(2.4, -2.4, k), 1.6, -1.0]],                                          // the pan: high across the back of the room, sweeping the stage
+  (k) => [[-5.0, 3.3, mix_(-7.5, -6.3, k)], [mix_(0.8, -0.4, k), 1.5, -0.5]],                                          // left wall mount, high, looking at the stage
+  (k) => [[5.0, 3.3, mix_(-7.5, -6.3, k)], [mix_(-0.8, 0.4, k), 1.5, -0.5]],                                           // right wall mount
+  (k) => [[mix_(-4.6, -3.8, k), 2.7, 1.6], [0, 1.4, -4.2]],                                                            // by the stage, high, looking down the room over the crowd
+  (k) => [[mix_(-4.4, -3.6, k), 2.4, 0.4], [0, 1.7, 0]],                                                               // the DJ from the side, at a distance
+  (k) => { const a = mix_(-0.9, 0.9, k); return [[Math.sin(a) * 4.6, 3.6, -3.8 - Math.cos(a) * 4.4], [0, 1.0, -3.8]]; }, // high arc round the back of the floor
 ];
 function updatePanCam(beat) {
   const hot = brain.playing && brain.hype > 66, len = hot ? 32 : 64; // a cut every 8 bars when it's hot, every 16 when calm: always on the downbeat of a bar
   const block = Math.floor(beat / len);
-  if (block !== PAN.block) { PAN.block = block; let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot); PAN.shot = n; PAN.drift = Math.random() < 0.15; }
+  if (block !== PAN.block) { PAN.block = block; let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot); PAN.shot = n; PAN.drift = n === 1 || Math.random() < 0.15; }
   const k = PAN.drift ? (((beat % len) + len) % len) / len : 0.5; // like a camera operator at a live event: mostly locked-off shots, now and then a slow move
   const [pos, look] = PAN_SHOTS[PAN.shot](k);
   camera.position.set(pos[0], pos[1], pos[2]); camera.lookAt(look[0], look[1], look[2]);
