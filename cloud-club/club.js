@@ -660,14 +660,29 @@ const ROOM = { w: 11, z0: 2.5, z1: -13.5, h: 4.4 };
 const sideBars = { segs: [], N: 14 };
 function buildSideBar(side) {
   const { w, z0, z1 } = ROOM, N = sideBars.N, zA = z0 - 1.5, zB = z1 + 1.5, len = (zA - zB) / N;
-  const x = side * (w / 2 - 0.13), base = side > 0 ? new THREE.Color(0xf2fcff) : new THREE.Color(0x4cebff);
-  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, zA - zB + 0.2), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6, metalness: 0.4 }));
-  housing.position.set(x - side * 0.03, 2.05, (zA + zB) / 2); scene.add(housing);
-  for (let i = 0; i < N; i++) {
+  const x = side * (w / 2 - 0.12), base = side > 0 ? new THREE.Color(0xf2fcff) : new THREE.Color(0x4cebff);   // the lights stand just in front of their housing
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.62, zA - zB + 0.2), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6, metalness: 0.4 }));
+  housing.position.set(side * (w / 2 - 0.05), 2.05, (zA + zB) / 2); scene.add(housing);
+  for (const dy of [0.27, -0.27]) for (let i = 0; i < N; i++) {      // a thin white (or cyan) trim line above and below the LED screen strip, chasing with the beat
     const mat = new THREE.MeshBasicMaterial({ color: base.clone().multiplyScalar(0.25) });
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, len - 0.08), mat);
-    m.position.set(x + side * 0.02, 2.05, zA - len * (i + 0.5)); scene.add(m);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, len - 0.08), mat);
+    m.position.set(x, 2.05 + dy, zA - len * (i + 0.5)); scene.add(m);
     sideBars.segs.push({ mat, base, i, side });
+  }
+}
+// A long, thin LED screen down each side wall that copies the main screen: it runs the same look, colours, beat and blinders (the main screen's
+// own shader and uniforms, seen through a narrow slice), so it moves with the rig.
+function buildSideScreens() {
+  const { w, z0, z1 } = ROOM, zA = z0 - 1.5, zB = z1 + 1.5, L = zA - zB, H = 0.42;
+  const blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1); blank.needsUpdate = true;
+  for (const side of [-1, 1]) {
+    const mat = screenMaterial(THREE, blank, screen.spec);
+    mat.uniforms = { ...screen.mat.uniforms, uText: { value: blank }, uTextDim: { value: 0 }, uGrid: { value: new THREE.Vector2(L / 0.035 / 0.6, H / 0.035 / 0.16) } };   // everything but the text is the main screen's own
+    mat.fragmentShader = mat.fragmentShader.replace('uniform vec3 uC1', 'uniform vec2 uGrid; uniform vec3 uC1').replace('fract(vUv * 150.0)', 'fract(vUv * uGrid)').replace('smoothstep(1.0, 0.92, length(p))', 'smoothstep(1.0, 0.9, abs(p.x) * 1.5)');
+    const geo = new THREE.PlaneGeometry(L, H), uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, side < 0 ? 0.2 + 0.6 * u : 0.8 - 0.6 * u, 0.46 + 0.08 * v); }   // a narrow slice through the middle of the main screen, mirrored on the other wall
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(side * (w / 2 - 0.122), 2.05, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
 }
 // tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
@@ -779,6 +794,7 @@ function buildBackdrop() {
   screen.spec = new THREE.DataTexture(new Uint8Array(64), 64, 1, THREE.RedFormat); screen.spec.needsUpdate = true;
   screen.mat = screenMaterial(THREE, screen.tex, screen.spec);
   const disc = new THREE.Mesh(new THREE.CircleGeometry(R - 0.32, 96), screen.mat);
+  buildSideScreens();
   disc.position.set(0, cy, -0.05); grp.add(disc); screen.parts.push(disc);
   // a dark rim around the screen and glow spilling onto the stage
   const rim = new THREE.Mesh(new THREE.RingGeometry(R - 0.32, R - 0.22, 64), new THREE.MeshStandardMaterial({ color: 0x0a0b0e, roughness: 0.4 }));
