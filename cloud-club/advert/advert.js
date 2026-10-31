@@ -80,8 +80,8 @@ async function prepare() {
   CL().sfx.volume = 0;                      // no crowd murmur over the black opening
   CL().light.fx.blackout = false;           // the club blacks out when music stops; the end card plays on after it
   const c = CC(), m = c.master;
-  const [ab, vip, glm] = await Promise.all(['advert/track.m4a', 'advert/vip.mp3', 'advert/girls-like-me.mp3'].map(decode));
-  const [adAn, vipAn, glmAn] = await Promise.all([ab, vip, glm].map((b) => c.analyzeBuffer(b)));
+  const [ab, vip] = await Promise.all(['advert/track.m4a', 'advert/vip.mp3'].map(decode));
+  const [adAn, vipAn] = await Promise.all([ab, vip].map((b) => c.analyzeBuffer(b)));
   adBuf = ab; beatGrid = { first: adAn.first || 0, B: 60 / (adAn.bpm || 120) };
   // the decks' mix goes into a silent output: it must stay connected or the browser stops running the decks
   const mute = c.ctx.createGain(); mute.gain.value = 0;
@@ -90,8 +90,8 @@ async function prepare() {
   [deck, deck2] = c.decks;
   await wait(() => deck.loaded && deck2.loaded); // the app puts its demos on the decks first; replace them
   deck.load({ id: 'ad-vip', title: 'Club Cloud VIP', artist: 'tommeofficial1', art: 'advert/vip.jpg', dur: vip.duration, ...vipAn }, vip, { pos: VIP_FROM, cue: VIP_FROM });
-  const cue = glmAn.first || 0;
-  deck2.load({ id: 'ad-glm', title: 'Girls Like Me (Extended Mix)', artist: 'TOMME & Aga Boryn', dur: glm.duration, ...glmAn }, glm, { pos: cue, cue });
+  const cue = vipAn.first || 0;   // deck 2 just sits cued and paused on the same track
+  deck2.load({ id: 'ad-vip2', title: 'Club Cloud VIP', artist: 'tommeofficial1', art: 'advert/vip.jpg', dur: vip.duration, ...vipAn }, vip, { pos: cue, cue });
   await wait(() => CL().ready);
   c.controls.get('m:chsel').set(5); // Beat FX on CH 2: deck 2 sits cued and paused, so the effects make no sound
   CL().setVeil(1);
