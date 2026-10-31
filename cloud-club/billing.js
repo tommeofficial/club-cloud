@@ -1,4 +1,4 @@
-// Deck time. Watching streams, the club and the chat are free; USING THE DECKS is metered:
+// Deck time. Watching DJ streams, the club and the chat are free; USING THE DECKS and WATCHING a Club Cloud 24/7 room are metered:
 //   5 free minutes per account per rolling 24 hours, then paid hours (GBP 1 each, any number, never expiring).
 // The clock only runs while a deck is playing. The balance lives on the server (see supabase/billing.sql); this file reports playing time
 // in small chunks, shows the balance, and locks the decks when the time runs out.
@@ -14,7 +14,7 @@ const B = { token: null, live: false, tagClock: 0, inGrace: false, grace: 0, rea
 const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fmtH = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 const decks = () => (window.__cc && window.__cc.decks) || [];
-const playing = () => decks().some((d) => d.loaded && d.playing);
+const playing = () => !!window.__houseOn || decks().some((d) => d.loaded && d.playing);   // a Club Cloud 24/7 room counts as playing while it is on
 
 // ------------------------------------------------------------------ the pill in the top bar
 function pill() {
@@ -34,7 +34,7 @@ function pill() {
   el.classList.toggle('out', left <= 0);
   el.classList.toggle('low', left > 0 && left <= 180);
   el.textContent = left <= 0 ? 'TIME’S UP' : B.paid > 0 ? fmtH(B.paid + B.free) : `FREE ${fmt(B.free)}`;
-  el.title = left <= 0 ? 'Buy deck time to keep playing' : 'Deck time left. Streams and chat are free; only playing the decks uses it.';
+  el.title = left <= 0 ? 'Buy time to keep going' : 'Time left. It counts down while a deck is playing or a Club Cloud 24/7 room is on. DJ streams and chat are free.';
 }
 
 // ------------------------------------------------------------------ the server
@@ -113,7 +113,7 @@ function tick() {
 }
 function check() {
   const out = !B.pro && B.free + B.paid <= 0;
-  if (!out) { if (B.locked || B.inGrace) { B.locked = false; B.inGrace = false; hideShop(); warnRefresh(); } return; }
+  if (!out) { if (B.locked || B.inGrace) { const wasLocked = B.locked; B.locked = false; B.inGrace = false; hideShop(); warnRefresh(); if (wasLocked) dispatchEvent(new Event('cc-timeback')); } return; }
   if (B.locked || B.inGrace) return;
   // out of time in the middle of a set: the music carries on for two minutes while a big offer is on screen; otherwise lock straight away
   if (playing()) { B.inGrace = true; B.grace = GRACE; flush(); showShop('grace'); }
@@ -163,7 +163,7 @@ function showShop(why) {
     ${why === 'golive' ? '<p>Going live is for Pro members. Pro is £9.99 a month, with unlimited deck time. Pay-as-you-go hours do not unlock it.</p>' : ''}
     <div class="tspro"><div><b>PRO · £${PRO_PRICE} a month</b><span>Unlimited deck time, going live and recording, and no tag over your sound.</span></div><button data-pro="30">${B.pro ? 'EXTEND' : 'GO PRO'}</button></div>
     <div class="tscode"><input class="tscodein" placeholder="Have a code? Enter it here" autocomplete="off" autocapitalize="characters" spellcheck="false"><button data-code>APPLY</button></div><p class="tscodemsg"></p>
-    <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
+    <p>Or pay as you go. Playing the decks, or watching a Club Cloud 24/7 room, uses time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing or a 24/7 room is on. Pro members watch free. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
     <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
     ${B.live ? '' : '<p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>'}
     <button class="tsclose">${why === 'grace' ? 'KEEP PLAYING' : B.free + B.paid > 0 ? 'CLOSE' : 'NOT NOW'}</button></div>`;

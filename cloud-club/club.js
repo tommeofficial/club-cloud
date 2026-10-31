@@ -50,6 +50,7 @@ const BUILT = [
   { model: 'models/crowd_b10.glb?v=2', sex: 'm', spot: 29, scale: 1, style: 'social', shared: true, hip: 1.1702 }
 ];
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const PX_CAP = +new URLSearchParams(location.search).get('px') || 1.75;   // ?px=1 renders at 1x (for capturing smooth footage)
 const HOUSE = new URLSearchParams(location.search).get('house');   // ?house=<id>: the 24/7 Club Cloud room, where the robot is the DJ
 const FEATURED = (LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT)).filter((f) => !(HOUSE && f.robot));
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9], [10, 11], [12, 13, 14], [15, 16], [17, 18], [19, 20], [21, 22, 23], [24, 25], [26, 27], [28, 29]]; // spot 0 and 5 are a pair
@@ -1276,8 +1277,8 @@ function resize() {
   if (!w || !h) return;
   djCanvas.hidden = mode === 'off';
   for (const k of ['left', 'top', 'width', 'height']) djCanvas.style[k] = el.style[k];
-  if (djRenderer) { djRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75)); djRenderer.setSize(w, h, false); }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  if (djRenderer) { djRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PX_CAP)); djRenderer.setSize(w, h, false); }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PX_CAP));
   renderer.setSize(w, h, false);
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   laserRes(w, h);

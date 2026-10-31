@@ -34,6 +34,7 @@ async function start(mix, ov) {
   src.connect(ctx.destination); src.connect(dest);
   el.currentTime = at();
   try { await el.play(); } catch (e) { btn.disabled = false; btn.textContent = 'TAP TO PLAY'; return; }
+  window.__houseOn = true;     // billing counts the time: 5 free minutes a day, then £1 an hour, free for Pro
   try { await window.__club.useStream(dest.stream); } catch (e) { console.warn('club could not follow the mix', e); }
   // keep everyone on the same moment: nudge back if this device has drifted
   setInterval(() => { const want = at(); let d = el.currentTime - want; if (d > dur / 2) d -= dur; else if (d < -dur / 2) d += dur; if (Math.abs(d) > 1.5) el.currentTime = want; }, 15000);
@@ -42,5 +43,8 @@ async function start(mix, ov) {
   const bar = document.createElement('div'); bar.id = 'househud';
   bar.innerHTML = `<span class="dot"></span><b>24/7</b> ${esc(mix.name || mix.id)}<a href="/">‹ LEAVE</a>`;
   document.body.appendChild(bar);
-  addEventListener('pagehide', () => { try { el.pause(); window.__club.stopInput(); } catch (_) {} });
+  addEventListener('pagehide', () => { window.__houseOn = false; try { el.pause(); window.__club.stopInput(); } catch (_) {} });
+  // out of time: the room stops until they add some (billing shows the shop, or asks a guest to sign up first)
+  addEventListener('cc-timeup', () => { window.__houseOn = false; el.pause(); });
+  addEventListener('cc-timeback', () => { el.currentTime = at(); el.play().then(() => { window.__houseOn = true; }).catch(() => {}); });
 }
