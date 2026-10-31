@@ -6,7 +6,8 @@
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
 import { createLive } from './live.js?v=2';
-import { createLobby } from './lobby.js?v=4';
+import { createLobby } from './lobby.js?v=5';
+import { viewers } from './house-cards.js?v=3';
 
 const panel = document.getElementById('chatpanel');
 const log = document.getElementById('chatlog');
@@ -479,7 +480,7 @@ setInterval(() => {
   }
 }, 700);
 // how many are here: the pretend regulars plus anyone who's joined
-let here = 24 + Math.floor(Math.random() * 7);
+let here = viewers();
 const showCount = () => { panel.querySelector('.ccount').textContent = `${here} here`; };
 showCount();
 // pretend fans arrive now and then, and get the same welcome
