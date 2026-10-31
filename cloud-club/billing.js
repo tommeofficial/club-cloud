@@ -87,8 +87,10 @@ function warnRefresh() {
   warnEl.classList.remove('ok'); warnEl.querySelector('.twadd').hidden = false;
   warnEl.querySelector('.twt').textContent = `\u23f1 ${fmt(left)} left`;
 }
+const TAG_AT_FREE = 150;   // the Club Cloud voice tag also plays once at 2:30 of the 5 free minutes, so free sets carry it too
 function lowCheck() {
   const left = B.free + B.paid;
+  if (!B.pro && B.paid === 0 && prevLeft !== null && prevLeft > TAG_AT_FREE && left <= TAG_AT_FREE) window.__cc?.watermark?.();
   if (!B.pro && left > 0 && prevLeft !== null) {
     for (const s of WARN_AT) if (prevLeft > s && left <= s) { dismissedAt = null; warn(); break; }
   }
