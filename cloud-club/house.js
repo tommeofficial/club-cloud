@@ -13,28 +13,36 @@ async function init() {
   document.body.classList.add('house');
   let mix = null;
   try { const r = await fetch('mixes.json', { cache: 'no-cache' }); const j = r.ok ? await r.json() : []; mix = (Array.isArray(j) ? j : j.mixes || []).find((m) => m.id === id); } catch (_) {}
+  if (!mix) return overlay(null);
+  // no entry screen: the club starts loading and the music starts with it. Browsers only let sound start without a tap sometimes, so if this one won't, a single TAP TO START appears.
+  document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();
+  start(mix, null);
+}
+function overlay(mix, btnText) {
   const ov = document.createElement('div'); ov.id = 'houseov';
   ov.innerHTML = `<div class="hbox"><div class="hbadge">24/7</div><h2>CLUB CLOUD</h2><h3>${esc(mix ? mix.name || mix.id : 'Not on yet')}</h3>
-    <p>${mix ? 'The Club Cloud robot is on the decks. The room starts when you do.' : 'This room isn’t on right now.'}</p>
-    ${mix ? '<button class="hgo">ENTER THE CLUB</button>' : ''}<a class="hback" href="/">‹ BACK</a></div>`;
+    ${mix ? '' : '<p>This room isn’t on right now.</p>'}${mix ? `<button class="hgo">${esc(btnText || 'TAP TO START')}</button>` : ''}<a class="hback" href="/">‹ BACK</a></div>`;
   document.body.appendChild(ov);
-  if (!mix) return;
-  ov.querySelector('.hgo').onclick = () => start(mix, ov);
+  if (mix) ov.querySelector('.hgo').onclick = () => start(mix, ov);
+  return ov;
 }
 
 async function start(mix, ov) {
-  const btn = ov.querySelector('.hgo'); btn.disabled = true; btn.textContent = 'STARTING…';
+  const btn = ov ? ov.querySelector('.hgo') : { textContent: '', disabled: false };
+  btn.disabled = true; btn.textContent = 'STARTING…';
   try { window.__cc?.unlock?.(); } catch (_) {}
   const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume().catch(() => {});
+  if (!ov && ctx.state !== 'running') { ctx.close().catch(() => {}); overlay(mix); return; }   // the browser wants a tap before it makes sound
   const master = ctx.createGain(), dest = ctx.createMediaStreamDestination();   // the audio goes to the speakers and to the club (lights, crowd and robot follow it)
   master.connect(ctx.destination); master.connect(dest);
   let room;
   try { room = mix.source === 'epidemic' ? await radio(mix, ctx, master, btn) : await hourMix(mix, ctx, master, btn); }
-  catch (e) { btn.disabled = false; btn.textContent = e.message || 'TRY AGAIN'; return; }
-  if (!room) { btn.disabled = false; btn.textContent = 'TRY AGAIN'; return; }
+  catch (e) { if (ov) { btn.disabled = false; btn.textContent = e.message || 'TRY AGAIN'; } else overlay(mix, e.message || 'TRY AGAIN'); return; }
+  if (!room) { if (ov) { btn.disabled = false; btn.textContent = 'TAP TO START'; } else overlay(mix); return; }
+  for (let n = 0; n < 150 && !(window.__club && window.__club.useStream); n++) await new Promise((r) => setTimeout(r, 200));   // the club may still be loading: the music is already playing
   try { await window.__club.useStream(dest.stream); } catch (e) { console.warn('club could not follow the mix', e); }
   document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();
-  ov.remove();
+  ov?.remove();
   const bar = document.createElement('div'); bar.id = 'househud';
   bar.innerHTML = `<span class="dot"></span><b>${esc(mix.name || mix.id)}</b>${room.now ? ' <span class="hnow"></span>' : ''}${mix.source === 'epidemic' ? ' <small>Music by <a href="https://www.epidemicsound.com" target="_blank" rel="noopener">Epidemic Sound</a></small>' : ''}<a href="/">‹ LEAVE</a>`;
   document.body.appendChild(bar);
