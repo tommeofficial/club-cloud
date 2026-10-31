@@ -24,7 +24,7 @@ const splash = document.getElementById('splash');
 const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // a scanned, rigged dancer who takes one spot at the front of the crowd
 // scanned, rigged people who take spots at the front; they have the full set of moves
-const FEATURED_SCANNED = [{ model: 'models/crowd_mia.glb', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/robot.glb', spot: 8, scale: 0.84, style: 'robot', robot: true }];
+const FEATURED_SCANNED = [{ model: 'models/crowd_mia.glb', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/dj.glb', sex: 'f', spot: 8, scale: 0.9, style: 'raver', rename: { play: 'dance4', idle: 'idle', hype: 'hype', wave: 'handsup', kiss: 'clap' } }];
 // friends stand together and turn to each other to talk, hug and high-five
 // the built characters (free MPFB bodies, 5 outfits each in several colours). They share one set of moves with the scanned crowd (the same skeleton), so they carry no animation of their own.
 const BUILT = [
@@ -52,7 +52,7 @@ const BUILT = [
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const PX_CAP = +new URLSearchParams(location.search).get('px') || 1.75;   // ?px=1 renders at 1x (for capturing smooth footage)
 const HOUSE = new URLSearchParams(location.search).get('house');   // ?house=<id>: the 24/7 Club Cloud room, where the robot is the DJ
-const FEATURED = (LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT)).filter((f) => !(HOUSE && f.robot));
+const FEATURED = (LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT));
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9], [10, 11], [12, 13, 14], [15, 16], [17, 18], [19, 20], [21, 22, 23], [24, 25], [26, 27], [28, 29]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
@@ -677,14 +677,16 @@ function buildSideCopies() {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
     m.position.set(side * (w / 2 - 0.122), 2.05, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
-  // big C-shaped LED screens either side of the stage: the same shape and pixel size as the logo's own C's, scaled to fill the space between them and the
-  // side walls. They are the same way round as the logo (on the crowd's left they open to the right, on the right to the left) and show the main screen's picture.
-  const OUT = 1.62, IN = 1.28, PITCH = 3.26 / 150;
-  const hp = (((IN + OUT) / 2) / OUT) * Math.sin(0.1);                       // the same gap between the two ends as the logo
-  for (const view of [-1, 1]) {                                              // view -1: the crowd's left (world +x), 1: the crowd's right (world -x)
-    const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * OUT / PITCH, 2 * OUT / PITCH], ring: [IN / OUT, hp, -view], mode: 1, gain: 1.3 });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * OUT, 2 * OUT), mat);
-    mesh.position.set(-view * 3.86, 2.32, 2.38); mesh.rotation.y = Math.PI; scene.add(mesh);
+  // big C-shaped LED screens: exactly the shape, proportions and pixel size of the logo's own C's (ring 1.82 to 2.08 round the 1.95 centreline, the same gap), two on each side wall,
+  // opening towards the stage, and showing the main screen's picture
+  const OUT = 1.95 + 0.13, IN = 1.95 - 0.13, PITCH = 3.26 / 150;
+  const hp = (1.95 / OUT) * Math.sin(0.1);                                   // the same gap between the two ends as the logo
+  for (const side of [-1, 1]) {                                              // the wall: -1 the crowd's left (world -x), 1 the right
+    for (const zc of [-2.8, -7.9]) {
+      const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * OUT / PITCH, 2 * OUT / PITCH], ring: [IN / OUT, hp, side], mode: 1, gain: 1.3 });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * OUT, 2 * OUT), mat);
+      mesh.position.set(side * (w / 2 - 0.09), 2.2, zc); mesh.rotation.y = -side * Math.PI / 2; scene.add(mesh);
+    }
   }
 }
 // tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
@@ -1018,7 +1020,7 @@ async function loadCrowd() {
     const star = fi >= 0 ? FEATURED[fi] : null;
     if (!star) return; // only the scanned, rigged people; the old blocky dancers are retired
     const src = star ? stars[fi] : gltfs[i % gltfs.length];
-    const anims = star.shared ? sharedClips(star, sharedDonor) : src.animations;
+    const anims = star.shared ? sharedClips(star, sharedDonor) : star.rename ? src.animations.map((c) => { const k = c.clone(); k.name = star.rename[c.name] || c.name; return k; }) : src.animations;
     const root = SkeletonUtils.clone(src.scene);
     root.position.set(x, 0, z);
     const face = Math.atan2(-x, -z); // face the booth (models face +Z)
@@ -2090,7 +2092,7 @@ function frame() {
 }
 
 async function loadDj() {
-  const src = await new GLTFLoader().loadAsync(HOUSE ? 'models/robot.glb' : 'models/dj.glb');
+  const src = await new GLTFLoader().loadAsync('models/robot.glb');
   const root = src.scene;
   root.rotation.y = Math.PI; // facing the crowd, back to the camera
   root.scale.setScalar(0.9); // about 1.7 m
@@ -2108,7 +2110,7 @@ async function loadDj() {
   setTimeout(() => setCamView(camView));
   const mixer = new THREE.AnimationMixer(root), actions = {};
   for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
-  if (HOUSE) {   // the robot has the crowd's moves, not a DJ's: work the decks with the two-step, hype on drops, put its hands up and clap now and then
+  {   // the robot has the crowd's moves, not a DJ's: work the decks with the two-step, hype on drops, put its hands up and clap now and then
     const A = { ...actions };
     for (const k of Object.keys(actions)) delete actions[k];
     Object.assign(actions, { play: A.dance4 || A.dance, idle: A.idle, hype: A.hype || A.dance2, wave: A.handsup || A.cheer, kiss: A.clap || A.cheer });
@@ -2116,7 +2118,7 @@ async function loadDj() {
   }
   for (const n of ['wave', 'hype', 'kiss']) if (actions[n]) { actions[n].setLoop(THREE.LoopOnce); actions[n].clampWhenFinished = true; }
   dj = { root, mixer, actions, now: null, busy: false, next: 8, drop: brain.lastDrop };
-  if (HOUSE) {   // give it the Club Cloud head: glass dome, the logo's two C's and the LED face
+  {   // give it the Club Cloud head: glass dome, the logo's two C's and the LED face
     let head = null; root.traverse((o) => { if (o.isBone && /^(head|mixamorigHead)$/i.test(o.name)) head = o; });
     root.updateMatrixWorld(true);
     if (head) { dj.pseudo = { root, head }; dj.pseudo.robot = buildRobotHead(head, dj.pseudo); }
