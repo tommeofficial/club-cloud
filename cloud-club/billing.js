@@ -5,11 +5,12 @@
 // If the backend is not available (local testing, offline) nothing is locked.
 const TAG_EVERY = 600;     // seconds of deck time between the Club Cloud tag on non-Pro accounts
 const GRACE = 120;       // seconds the music carries on after the time runs out, while the offer is on screen
-const FLUSH_EVERY = 15;  // seconds of playing between reports to the server
+const FLUSH_EVERY = 5;   // seconds of playing between reports to the server
 const PRICE = 1;         // GBP per hour
 
 const PRO_PRICE = 9.99; // GBP a month: unlimited deck time, and the only way to go live
-const B = { live: false, tagClock: 0, inGrace: false, grace: 0, ready: false, pro: false, proUntil: null, free: 300, paid: 0, resets: null, locked: false, pending: 0, sinceFlush: 0, backend: null, busy: false };
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+const B = { token: null, live: false, tagClock: 0, inGrace: false, grace: 0, ready: false, pro: false, proUntil: null, free: 300, paid: 0, resets: null, locked: false, pending: 0, sinceFlush: 0, backend: null, busy: false };
 const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fmtH = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 const decks = () => (window.__cc && window.__cc.decks) || [];
@@ -42,6 +43,14 @@ async function rpc(name, args) {
   const { data, error } = await B.backend.supabase.rpc(name, args);
   if (error) throw error;
   return data;
+}
+// On refresh or close an ordinary request can be cancelled, so the last seconds are sent as a keepalive request that the browser finishes anyway.
+// That is what makes the remaining time survive a refresh.
+function flushOnExit() {
+  if (!B.ready || !B.pending || !B.token) return;
+  const n = B.pending; B.pending = 0; B.sinceFlush = 0;
+  try { fetch(SUPABASE_URL + '/rest/v1/rpc/use_deck_time', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + B.token }, body: JSON.stringify({ p_seconds: n }) }); }
+  catch (_) { B.pending += n; }
 }
 async function flush() {
   if (!B.ready || B.busy || !B.pending) return;
@@ -195,6 +204,9 @@ async function init() {
     if (!B.backend.supabase) return;
     await B.backend.ensureSession();
     take(await rpc('wallet_status'));
+    const auth = B.backend.supabase.auth;
+    auth.getSession().then(({ data }) => { B.token = data.session ? data.session.access_token : null; });
+    auth.onAuthStateChange((_e, s) => { B.token = s ? s.access_token : null; });
   } catch (e) { console.warn('deck time is not metered here', e); return; }
   try { B.tagClock = Math.min(TAG_EVERY - 1, +localStorage.getItem('cc-tag-clock') || 0); } catch (_) {}
   window.__cc?.loadTag?.();   // get the voice tag ready, if there is one
@@ -209,9 +221,10 @@ async function init() {
     history.replaceState(null, '', location.pathname);
     setTimeout(async () => { if (!window.__auth || await window.__auth.require('buy deck time')) showShop('info'); }, 600);
   }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushOnExit(); });
   setInterval(tick, 1000);
   setInterval(() => { try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} }, 5000); // so reloading the page does not reset the 10 minutes
-  addEventListener('pagehide', () => { if (B.pending) flush(); try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} });
+  addEventListener('pagehide', () => { flushOnExit(); try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} });
   document.addEventListener('click', (e) => { if (e.target.closest('#timepill, #timebar')) showShop(B.inGrace ? 'grace' : B.free + B.paid <= 0 ? 'out' : 'info'); });
 }
 window.__billing = { state: B, get locked() { return B.locked; }, showShop, flush, lowCheck, tick, check };
