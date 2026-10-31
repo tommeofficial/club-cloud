@@ -1574,8 +1574,8 @@ function drawMark(c, x, y, r) {
   const g = c.createLinearGradient(0, 0, 310, 310); g.addColorStop(0, '#41E7FF'); g.addColorStop(1, '#6285FF');
   c.beginPath(); c.arc(155, 155, 143, 0, TAU); c.fillStyle = '#0D1B2D'; c.fill(); c.lineWidth = 12; c.strokeStyle = g; c.stroke();
   c.lineWidth = 31;
-  c.beginPath(); c.arc(155, 155, 93, -Math.PI / 2 - gap, Math.PI / 2 + gap, true); c.strokeStyle = '#F4FBFF'; c.stroke();
-  c.beginPath(); c.arc(155, 155, 93, -Math.PI / 2 + gap, Math.PI / 2 - gap, false); c.strokeStyle = '#4CEBFF'; c.stroke();
+  const hx = 93 * Math.sin(gap);   // flat, parallel C ends
+  for (const [side, col] of [[-1, '#F4FBFF'], [1, '#4CEBFF']]) { c.save(); c.beginPath(); side < 0 ? c.rect(0, 0, 155 - hx, 310) : c.rect(155 + hx, 0, 155, 310); c.clip(); c.beginPath(); c.arc(155, 155, 93, 0, TAU); c.strokeStyle = col; c.stroke(); c.restore(); }
   c.beginPath(); c.arc(155, 155, 46.5, 0, TAU); c.lineWidth = 4.6; c.strokeStyle = '#25415E'; c.stroke();
   c.beginPath(); c.arc(155, 155, 15.5, 0, TAU); c.fillStyle = '#4CEBFF'; c.fill();
   c.restore();

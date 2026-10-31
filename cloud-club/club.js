@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { cTubeGeometry } from './logo3d.js?v=1';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -721,9 +722,9 @@ function buildBackdrop() {
   const R = 1.95, tube = 0.13, cy = 2.32, gap = 0.1;
   const white = screen.white = new THREE.MeshStandardMaterial({ color: 0xf2fcff, emissive: 0xdff6ff, emissiveIntensity: 0.9, roughness: 0.3, fog: false });
   const blue = screen.blue = new THREE.MeshStandardMaterial({ color: 0x4cebff, emissive: 0x2fd8ff, emissiveIntensity: 1.0, roughness: 0.3, fog: false });
-  const arc = (mat, start) => { const m = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 18, 120, Math.PI - 2 * gap), mat); m.rotation.z = start; m.position.y = cy; grp.add(m); screen.parts.push(m); };
-  arc(white, Math.PI / 2 + gap);   // left C, opening to the right
-  arc(blue, -Math.PI / 2 + gap);   // right C, opening to the left
+  const arc = (mat, side) => { const m = new THREE.Mesh(cTubeGeometry(R, tube, gap, side), mat); m.position.y = cy; grp.add(m); screen.parts.push(m); };
+  arc(white, -1);   // left C, opening to the right: ends cut flat and parallel
+  arc(blue, 1);     // right C, opening to the left
   // round LED screen inside the C's
   screen.cv = document.createElement('canvas'); screen.cv.width = screen.cv.height = 1024; // drawn at 2x so the logo and titles stay crisp screen.g = screen.cv.getContext('2d');
   screen.tex = new THREE.CanvasTexture(screen.cv); screen.tex.colorSpace = THREE.SRGBColorSpace;
@@ -819,10 +820,9 @@ function logoCanvas() {
   const cv = document.createElement('canvas'); cv.width = cv.height = 1024;
   const g = cv.getContext('2d'), C = 512, R = 400, gap = 0.1;
   g.lineWidth = 86; g.shadowBlur = 40;
-  g.shadowColor = '#e9fbff'; g.strokeStyle = '#f2fcff';
-  g.beginPath(); g.arc(C, C, R, -Math.PI / 2 - gap, Math.PI / 2 + gap, true); g.stroke();
-  g.shadowColor = '#41e7ff'; g.strokeStyle = '#4cebff';
-  g.beginPath(); g.arc(C, C, R, -Math.PI / 2 + gap, Math.PI / 2 - gap, false); g.stroke();
+  const hx = R * Math.sin(gap);   // the two C's end on flat, parallel cuts either side of the middle
+  const half = (side, fill, glow) => { g.save(); g.beginPath(); side < 0 ? g.rect(0, 0, C - hx, 1024) : g.rect(C + hx, 0, 1024, 1024); g.clip(); g.shadowColor = glow; g.strokeStyle = fill; g.beginPath(); g.arc(C, C, R, 0, Math.PI * 2); g.stroke(); g.restore(); };
+  half(-1, '#f2fcff', '#e9fbff'); half(1, '#4cebff', '#41e7ff');
   g.lineWidth = 8; g.shadowBlur = 16; g.strokeStyle = '#3a6a96'; g.beginPath(); g.arc(C, C, 250, 0, Math.PI * 2); g.stroke();
   g.textAlign = 'center'; g.shadowBlur = 30;
   g.shadowColor = '#e9fbff'; g.fillStyle = '#f2fcff'; g.font = "700 200px 'Avenir Next','Barlow Semi Condensed',sans-serif"; g.fillText('club', C, C + 30);
@@ -998,8 +998,8 @@ function buildRobotHead(bone, p) {
   const gap = 0.16, tube = 0.027, cr = R + 0.026;
   const whiteC = new THREE.MeshPhysicalMaterial({ color: 0xf4fbff, roughness: 0.12, clearcoat: 1, emissive: 0xdff6ff, emissiveIntensity: 0.25 });
   const cyanC = new THREE.MeshPhysicalMaterial({ color: 0x4cebff, roughness: 0.15, clearcoat: 1, emissive: 0x2fd8ff, emissiveIntensity: 0.9 });
-  const arc = (mat, start) => { const m = new THREE.Mesh(new THREE.TorusGeometry(cr, tube, 20, 80, Math.PI - 2 * gap), mat); m.rotation.z = start; g.add(m); return m; };
-  arc(whiteC, Math.PI / 2 + gap); arc(cyanC, -Math.PI / 2 + gap);
+  const arc = (mat, side) => { const m = new THREE.Mesh(cTubeGeometry(cr, tube, gap, side, 100, 16), mat); g.add(m); return m; };
+  arc(whiteC, -1); arc(cyanC, 1);
   // the face's text layer: the Club Cloud logo, or @name for a shout-out
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;

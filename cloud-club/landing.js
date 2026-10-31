@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { screenMaterial } from './screen.js?v=7';
+import { cTubeGeometry } from './logo3d.js?v=1';
 
 // ------------------------------------------------------------ the screen (same build as the club's backdrop)
 const R = 1.95, TUBE = 0.13, GAP = 0.1, OUTER = R + TUBE;   // metres; OUTER is the backdrop's outer edge
@@ -21,9 +22,8 @@ const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
 
 const grp = new THREE.Group(); scene.add(grp);
 const white = new THREE.MeshBasicMaterial({ color: 0xdde8f0 }), blue = new THREE.MeshBasicMaterial({ color: 0x4cebff });
-const arc = (mat, start) => { const m = new THREE.Mesh(new THREE.TorusGeometry(R, TUBE, 18, 120, Math.PI - 2 * GAP), mat); m.rotation.z = start; grp.add(m); };
-arc(white, Math.PI / 2 + GAP);   // left C
-arc(blue, -Math.PI / 2 + GAP);   // right C
+grp.add(new THREE.Mesh(cTubeGeometry(R, TUBE, GAP, -1), white));   // left C: flat, parallel ends
+grp.add(new THREE.Mesh(cTubeGeometry(R, TUBE, GAP, 1), blue));    // right C
 const textCv = document.createElement('canvas'); textCv.width = textCv.height = 512; // nothing written on it: the sign-up sits there
 const textTex = new THREE.CanvasTexture(textCv);
 const spec = new THREE.DataTexture(new Uint8Array(64), 64, 1, THREE.RedFormat); spec.needsUpdate = true;
