@@ -23,7 +23,7 @@ function pill() {
     const left = B.free + B.paid;
     bar.hidden = !B.ready || B.pro;
     bar.classList.toggle('out', left <= 0); bar.classList.toggle('low', left > 0 && left <= 120);
-    bar.textContent = left <= 0 ? 'TIME’S UP' : B.paid > 0 ? fmtH(left) : 'FREE ' + fmt(left);
+    bar.textContent = left <= 0 ? 'GO PRO / PAY PER PLAY' : B.paid > 0 ? fmtH(left) : 'FREE ' + fmt(left);
   }
   const el = document.getElementById('timepill'); if (!el) return;
   if (!B.ready) { el.hidden = true; return; }
@@ -33,7 +33,7 @@ function pill() {
   const left = B.free + B.paid;
   el.classList.toggle('out', left <= 0);
   el.classList.toggle('low', left > 0 && left <= 180);
-  el.textContent = left <= 0 ? 'TIME’S UP' : B.paid > 0 ? fmtH(B.paid + B.free) : `FREE ${fmt(B.free)}`;
+  el.textContent = left <= 0 ? 'GO PRO / PAY PER PLAY' : B.paid > 0 ? fmtH(B.paid + B.free) : `FREE ${fmt(B.free)}`;
   el.title = left <= 0 ? 'Buy time to keep going' : 'Deck time left. Streams and chat are free; only playing the decks uses it.';
 }
 
@@ -243,9 +243,15 @@ async function init() {
     history.replaceState(null, '', location.pathname);
   }
   B.ready = true; pill(); check();
+  const wantPro = new URLSearchParams(location.search).get('shop') === 'pro';
   if (new URLSearchParams(location.search).has('shop')) {   // the website's pricing buttons: open the buy screen straight away
     history.replaceState(null, '', location.pathname);
-    setTimeout(async () => { if (!window.__auth || await window.__auth.require('buy deck time')) showShop('info'); }, 600);
+    setTimeout(async () => {
+      if (!window.__auth || await window.__auth.require('buy deck time')) {
+        if (wantPro) { B.busy = false; try { await checkout('pro', 0); return; } catch (err) { console.warn('payment did not start', err); } }
+        showShop('info');
+      }
+    }, 600);
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushOnExit(); });
   setInterval(tick, 1000);
