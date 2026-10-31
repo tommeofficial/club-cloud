@@ -65,6 +65,9 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #tabs #golivebtn { background: #3a1620; color: #ff8a9b; } #tabs #golivebtn.on { background: #ff3b5c; color: #fff; }
 #moremenu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 170px; display: flex; flex-direction: column; gap: 2px; padding: 5px; background: rgba(10,12,18,.97); border: 1px solid #24262a; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 8; }
 #moremenu button { text-align: left; }
+#tabs #timebar { font: 700 13px var(--label); letter-spacing: 1.2px; font-variant-numeric: tabular-nums; color: #8fe9ff; background: rgba(65,231,255,.1); border: 1px solid rgba(65,231,255,.35); border-radius: 6px; padding: 7px 12px; min-height: 30px; }
+#tabs #timebar.low { color: #ffd479; border-color: rgba(255,212,121,.55); background: rgba(255,212,121,.1); }
+#tabs #timebar.out { color: #fff; border-color: #ff4d6a; background: rgba(255,60,80,.28); }
 #moremenu #timepill { border-radius: 6px; font-size: 13px; letter-spacing: 1.2px; padding: 9px 15px; min-height: 34px; }
 #tabs.v #moremenu { right: auto; left: calc(100% + 6px); top: auto; bottom: 0; }
 #view { position: absolute; overflow: hidden; touch-action: none; }
@@ -416,6 +419,7 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-zoom="d2" title="Deck 2">2</button>
     </div>
     <div class="tools grp">
+      <button id="timebar" data-act="time" hidden title="Deck time left. Press to add more."></button>
       <button id="recbtn" title="Record your mix and download it when you stop"><i></i>REC</button>
       <button id="golivebtn" title="Go live: broadcast your mix to listeners" hidden>GO LIVE</button>
       <button id="morebtn" aria-haspopup="menu" aria-expanded="false" title="Library, settings, help and your account">MENU &#9662;</button>
@@ -452,7 +456,7 @@ canvas.cv { position: absolute; pointer-events: none; }
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=155"></script>
 <script type="module" src="chat.js?v=112"></script>
-<script type="module" src="billing.js?v=14"></script>
+<script type="module" src="billing.js?v=15"></script>
 <script type="module" src="record.js?v=4"></script>
 <script type="module" src="auth.js?v=4"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {

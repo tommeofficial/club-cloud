@@ -17,6 +17,13 @@ const playing = () => decks().some((d) => d.loaded && d.playing);
 
 // ------------------------------------------------------------------ the pill in the top bar
 function pill() {
+  const bar = document.getElementById('timebar');        // the countdown beside REC: only for people on free or pay-as-you-go time
+  if (bar) {
+    const left = B.free + B.paid;
+    bar.hidden = !B.ready || B.pro;
+    bar.classList.toggle('out', left <= 0); bar.classList.toggle('low', left > 0 && left <= 120);
+    bar.textContent = left <= 0 ? 'TIME’S UP' : B.paid > 0 ? fmtH(left) : 'FREE ' + fmt(left);
+  }
   const el = document.getElementById('timepill'); if (!el) return;
   if (!B.ready) { el.hidden = true; return; }
   el.hidden = false;
@@ -205,7 +212,7 @@ async function init() {
   setInterval(tick, 1000);
   setInterval(() => { try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} }, 5000); // so reloading the page does not reset the 10 minutes
   addEventListener('pagehide', () => { if (B.pending) flush(); try { localStorage.setItem('cc-tag-clock', String(B.tagClock)); } catch (_) {} });
-  document.addEventListener('click', (e) => { if (e.target.closest('#timepill')) showShop(B.inGrace ? 'grace' : B.free + B.paid <= 0 ? 'out' : 'info'); });
+  document.addEventListener('click', (e) => { if (e.target.closest('#timepill, #timebar')) showShop(B.inGrace ? 'grace' : B.free + B.paid <= 0 ? 'out' : 'info'); });
 }
 window.__billing = { state: B, get locked() { return B.locked; }, showShop, flush, lowCheck, tick, check };
 init();
