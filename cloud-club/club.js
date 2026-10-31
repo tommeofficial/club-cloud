@@ -681,20 +681,20 @@ function buildSideCopies() {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
     m.position.set(side * (w / 2 - 0.122), 2.2, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
-  // C-shaped LED screens with exactly the shape, proportions and pixel size of the logo's own C's (ring 1.82 to 2.08 round the 1.95 centreline, the same gap), showing the main screen's picture.
-  // Two large ones either side of the DJ's C's on the DJ wall, and two smaller ones either side of the neon logo on the bar wall. Each C opens towards the logo it sits beside.
-  const PITCH = 3.26 / 150, hp = (1.95 / (1.95 + 0.13)) * Math.sin(0.1);
+  // C-shaped LED screens: arcs of the same ring (radius and thickness) as the logo they sit beside, showing the main screen's picture, two each side of the DJ's round screen and two each side of the bar logo.
+  // Each arc is the near ~115 degrees of its ring, on the logo's flat cut, opening towards the logo (as drawn: the DJ's ring is 4.16 m across, the bar logo's 2.16 m).
+  const PITCH = 3.26 / 150, CUT = 0.54, TUBE = 0.875;                        // CUT: how far across its ring the arc is cut off (0 would be a half ring); TUBE: inner/outer radius, as the logo's
   const cScreen = (out, x, y, z, faceBack, keepLeft) => {
-    const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * out / PITCH, 2 * out / PITCH], ring: [(1.95 - 0.13) / (1.95 + 0.13), hp, keepLeft ? 1 : -1], mode: 1, gain: 1.3 });
+    const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * out / PITCH, 2 * out / PITCH], ring: [TUBE, CUT, keepLeft ? 1 : -1], mode: 1, gain: 1.3 });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * out, 2 * out), mat);
     mesh.position.set(x, y, z); if (faceBack) mesh.rotation.y = Math.PI; scene.add(mesh);
   };
-  const LOGO_OUT = 1.95 + 0.13;
-  for (const sx of [-1, 1]) {                       // sx: world side (+x is the crowd's left looking at the DJ wall, the left of the logo seen from the booth)
-    for (const x of [LOGO_OUT + 0.12 + 0.8, LOGO_OUT + 0.12 + 2.4]) cScreen(0.8, sx * x, 2.32, z0 - 0.09, true, sx > 0);   // DJ wall, facing the room
-    for (const x of [1.25 + 0.15 + 0.75, 1.25 + 0.15 + 2.3]) cScreen(0.75, sx * x, 3.05, z1 + 0.06, false, sx < 0);          // bar wall, beside the neon logo
+  for (const v of [-1, 1]) {            // v: -1 the left of each wall as you face it, +1 the right
+    DJ_C.forEach((cx, i) => cScreen(2.08, -v * cx, 2.32, z0 - 0.09 - i * 0.01, true, v < 0));      // DJ wall (you face it looking along +z, so its left is world +x)
+    BAR_C.forEach((cx, i) => cScreen(1.08, v * cx, 3.05, z1 + 0.06 + i * 0.01, false, v < 0));      // bar wall
   }
 }
+const DJ_C = [1.48, 3.17], BAR_C = [1.30, 2.85];   // ring centres out from the middle of the wall: the inner and outer C either side
 // tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
 function buildSideTower(side) {
   const N = 12, h = 3.5, seg = h / N, x = side * 3.95, z = 1.55, base = side > 0 ? new THREE.Color(0xf2fcff) : new THREE.Color(0x4cebff);
