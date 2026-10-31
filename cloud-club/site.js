@@ -17,7 +17,7 @@ document.body.insertAdjacentHTML('afterbegin', `<header class="sh">
   </div>
 </header>`);
 document.body.insertAdjacentHTML('beforeend', `<footer class="sf"><div class="wrap">
-  <div><a href="/about">About</a><a href="/pricing">Pricing</a><a href="/terms">Terms</a><a href="https://www.instagram.com/tommeofficial/" target="_blank" rel="noopener">Instagram</a></div>
+  <div><a href="/about">About</a><a href="/pricing">Pricing</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/cookies">Cookies</a><a href="https://www.instagram.com/tommeofficial/" target="_blank" rel="noopener">Instagram</a></div>
   <div>© Club Cloud</div></div></footer>`);
 
 const nav = document.getElementById('mainnav'), burger = document.querySelector('.sh .burger'), acct = document.querySelector('.sh .acct'), menu = document.querySelector('.sh .menu');
@@ -48,3 +48,5 @@ render();
 
 // sign-in needs auth.js; load it here so every page can use it
 const s = document.createElement('script'); s.type = 'module'; s.src = 'auth.js?v=4'; document.head.appendChild(s);
+
+const cs = document.createElement('script'); cs.src = '/consent.js'; document.head.appendChild(cs);
