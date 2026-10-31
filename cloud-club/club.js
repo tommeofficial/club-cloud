@@ -291,7 +291,7 @@ function think(dt, t) {
   // perfect, in-key blend at high hype: very rarely a bra hits the booth
   if (brain.blend > 16 && keyOk(a.t && a.t.key, b.t && b.t.key) && brain.hype > 70 && t - brain.lastBra > 45 && Math.random() < dt * 0.15) { brain.lastBra = t; throwAt('bra'); }
   // train-wrecks, clashing keys, silence
-  if (brain.clash > 0.6) for (const p of people) if (Math.random() < dt * 0.9) react(p, 'boo', ['BOOO!', 'SYNC IT!', 'BOOO']);
+  if (brain.clash > 0.6) for (const p of people) if (Math.random() < dt * 0.35) react(p, 'boo', Math.random() < 0.5 ? ['BOOO!', 'SYNC IT!', 'BOOO'] : null);
   if (brain.keyBad > 8) for (const p of people) if (Math.random() < dt * 0.05) react(p, 'boo', ['OFF KEY!']);
   if (brain.dead > 3) for (const p of people) if (Math.random() < dt * 0.4) react(p, 'boo', ['HELLO??', 'BOOO!', 'MUSIC!']);
   if ((brain.clash > 5 || brain.dead > 5) && t - brain.lastDrink > 9 && Math.random() < dt * 0.35) { brain.lastDrink = t; throwAt('drink'); }
@@ -306,7 +306,13 @@ function think(dt, t) {
 // ------------------------------------------------------------------ people
 function pick(a) { return a.length ? a[Math.floor(Math.random() * a.length)] : null; }
 function someone(clip, lines) { const p = pick(people.filter((q) => !q.busy)); if (p) react(p, clip, lines); }
-function everyone(clip, chance, lines) { for (const p of people) setTimeout(() => react(p, clip, Math.random() < chance + 0.5 ? lines : null), rnd(0, 320)); }
+// the whole crowd reacts, but not in one frame: the move rolls through the room, and only some people shout, each at their own moment
+function everyone(clip, chance, lines) {
+  for (const p of people) {
+    setTimeout(() => react(p, clip, null), rnd(0, 1800));
+    if (lines && Math.random() < chance) setTimeout(() => say(p, pick(lines)), rnd(300, 3800));
+  }
+}
 
 function react(p, clip, lines, force) {
   if (!p || (p.busy && !force)) return;
@@ -472,7 +478,7 @@ function crowdMoments(t, playing) {
   }
   // a build-up (bass gone quiet while the track plays): hands go up
   const build = playing && brain.lowSince > 2.5;
-  if (build && !crowdEvents.build) for (const p of people) if (Math.random() < 0.5) react(p, has(p, 'handsup') ? 'handsup' : 'cheer');
+  if (build && !crowdEvents.build) for (const p of people) if (Math.random() < 0.5) setTimeout(() => react(p, has(p, 'handsup') ? 'handsup' : 'cheer'), rnd(0, 2200));
   crowdEvents.build = build;
   // the lasers come in: hands go up across the floor, a few at a time, and stay up for a while
   const lasersOn = playing && !!auto.laser;
@@ -670,6 +676,29 @@ function buildSideBar(side) {
     sideBars.segs.push({ mat, base, i, side });
   }
 }
+// Big C-shaped LED screens either side of the stage, the same way round as the logo: on the crowd's left they open to the right (white-C side),
+// on the right they open to the left (cyan-C side). They run the main screen's own look, with the same pixel size, as flat C's with parallel cut ends.
+const SIDE_CS = +(new URLSearchParams(location.search).get('cs') ?? 2);   // how many on each side (?cs=0 turns them off)
+function buildSideCs() {
+  const OUT = 0.76, IN = 0.5, PITCH = 3.26 / 150;    // metres; the main screen's pixel pitch (a 3.26 m disc across 150 cells)
+  const rc = ((IN + OUT) / 2) / OUT, hp = rc * Math.sin(0.1);
+  const blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1); blank.needsUpdate = true;
+  for (const view of [-1, 1]) for (let k = 0; k < SIDE_CS; k++) {      // view -1: the crowd's left (world +x), 1: the crowd's right (world -x)
+    const mat = screenMaterial(THREE, blank, screen.spec);
+    mat.uniforms = { ...screen.mat.uniforms, uText: { value: blank }, uTextDim: { value: 0 },
+      uGrid: { value: new THREE.Vector2(2 * OUT / PITCH, 2 * OUT / PITCH) }, uRing: { value: new THREE.Vector3(IN / OUT, hp, -view) } };
+    mat.transparent = true;
+    mat.fragmentShader = mat.fragmentShader
+      .replace('uniform vec3 uC1', 'uniform vec2 uGrid; uniform vec3 uRing; uniform vec3 uC1')
+      .replace('fract(vUv * 150.0)', 'fract(vUv * uGrid)')
+      .replace('col *= smoothstep(1.0, 0.92, length(p));', `float rr = length(p);
+        float m = smoothstep(1.0, 0.985, rr) * smoothstep(uRing.x, uRing.x + 0.015, rr) * smoothstep(0.0, 0.015, -p.x * uRing.z - uRing.y);
+        if (m < 0.02) discard;
+        col *= m;`);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * OUT, 2 * OUT), mat);
+    mesh.position.set(-view * (3.1 + k * 1.6), 2.32, 2.35); mesh.rotation.y = Math.PI; scene.add(mesh);
+  }
+}
 // A long, thin LED screen down each side wall that copies the main screen: it runs the same look, colours, beat and blinders (the main screen's
 // own shader and uniforms, seen through a narrow slice), so it moves with the rig.
 function buildSideScreens() {
@@ -743,7 +772,7 @@ function buildRoom() {
     for (let k = 0; k < 4; k++) { const b = add(new THREE.BoxGeometry(0.7, 0.22, 0.5), black, s * 3.9, 3.5 - k * 0.24, -2.1); b.rotation.x = k * 0.05; }
     // pillars
     add(new THREE.BoxGeometry(0.5, h, 0.5), wall, s * 3.4, h / 2, -7.6);
-    buildSideBar(s); buildSideTower(s);
+    buildSideBar(s);
   }
   // truss across the ceiling
   for (const z of [-2.6, -6.6]) {
@@ -794,7 +823,7 @@ function buildBackdrop() {
   screen.spec = new THREE.DataTexture(new Uint8Array(64), 64, 1, THREE.RedFormat); screen.spec.needsUpdate = true;
   screen.mat = screenMaterial(THREE, screen.tex, screen.spec);
   const disc = new THREE.Mesh(new THREE.CircleGeometry(R - 0.32, 96), screen.mat);
-  buildSideScreens();
+  buildSideScreens(); buildSideCs();
   disc.position.set(0, cy, -0.05); grp.add(disc); screen.parts.push(disc);
   // a dark rim around the screen and glow spilling onto the stage
   const rim = new THREE.Mesh(new THREE.RingGeometry(R - 0.32, R - 0.22, 64), new THREE.MeshStandardMaterial({ color: 0x0a0b0e, roughness: 0.4 }));

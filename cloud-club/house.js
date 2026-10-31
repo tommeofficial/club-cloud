@@ -34,7 +34,6 @@ async function start(mix, ov) {
   src.connect(ctx.destination); src.connect(dest);
   el.currentTime = at();
   try { await el.play(); } catch (e) { btn.disabled = false; btn.textContent = 'TAP TO PLAY'; return; }
-  window.__houseOn = true;     // billing counts the time: 5 free minutes a day, then £1 an hour, free for Pro
   try { await window.__club.useStream(dest.stream); } catch (e) { console.warn('club could not follow the mix', e); }
   // keep everyone on the same moment: nudge back if this device has drifted
   setInterval(() => { const want = at(); let d = el.currentTime - want; if (d > dur / 2) d -= dur; else if (d < -dur / 2) d += dur; if (Math.abs(d) > 1.5) el.currentTime = want; }, 15000);
@@ -43,8 +42,19 @@ async function start(mix, ov) {
   const bar = document.createElement('div'); bar.id = 'househud';
   bar.innerHTML = `<span class="dot"></span><b>24/7</b> ${esc(mix.name || mix.id)}<a href="/">‹ LEAVE</a>`;
   document.body.appendChild(bar);
-  addEventListener('pagehide', () => { window.__houseOn = false; try { el.pause(); window.__club.stopInput(); } catch (_) {} });
-  // out of time: the room stops until they add some (billing shows the shop, or asks a guest to sign up first)
-  addEventListener('cc-timeup', () => { window.__houseOn = false; el.pause(); });
-  addEventListener('cc-timeback', () => { el.currentTime = at(); el.play().then(() => { window.__houseOn = true; }).catch(() => {}); });
+  addEventListener('pagehide', () => { try { el.pause(); window.__club.stopInput(); } catch (_) {} });
+  // free to watch, but a guest gets 5 minutes a day (the same 5 minutes as any DJ stream), then makes a free account to keep watching
+  const load = () => { try { const o = JSON.parse(localStorage.getItem('cc-watch') || '{}'); return o.t0 && Date.now() - o.t0 < 864e5 ? o : { t0: Date.now(), s: 0 }; } catch (_) { return { t0: Date.now(), s: 0 }; } };
+  let asking = false;
+  setInterval(async () => {
+    const A = window.__auth; if (!A || !A.isReady || A.signedIn || asking || el.paused) return;
+    const o = load(); o.s += 1; try { localStorage.setItem('cc-watch', JSON.stringify(o)); } catch (_) {}
+    if (o.s < 300) return;
+    asking = true;
+    const ok = await A.require('keep watching');
+    asking = false;
+    if (ok) return;
+    el.pause(); try { window.__club.stopInput(); } catch (_) {}
+    bar.innerHTML = '<span class="dot"></span><b>24/7</b> Create a free account to keep watching <a href="/">\u2039 LEAVE</a>';
+  }, 1000);
 }
