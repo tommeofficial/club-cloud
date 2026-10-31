@@ -20,19 +20,30 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Grotesk:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="site.css?v=4">
 <style>
-/* hero: the LED screen, with the sign-in button in the middle of it; --cx/--cy/--d come from landing.js */
-#hero { position: relative; height: calc(100svh - var(--head)); min-height: 560px; max-height: 920px; overflow: hidden; }
-#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .9s ease-out; }
-#cv.on { opacity: 1; }
-#signup { position: absolute; left: var(--cx, 50%); top: var(--cy, 45%); translate: -50% -50%; display: flex; justify-content: center; }
-.su-open { font: 700 clamp(12px, calc(var(--d, 300px) * .036), 17px)/1 var(--font); letter-spacing: .14em; border-radius: 999px; color: #04121a; background: var(--blue); border: 0; padding: 1.05em 2em; cursor: pointer; box-shadow: 0 0 28px rgba(76,235,255,.55); transition: transform .15s, box-shadow .15s; white-space: nowrap; }
-.su-open:hover { transform: scale(1.04); box-shadow: 0 0 40px rgba(76,235,255,.8); }
-#tag { position: absolute; left: 16px; right: 16px; top: var(--tag, 78%); margin: 0; text-align: center; font: 700 var(--tagfs, 18px)/1.35 var(--font); letter-spacing: .1em; color: #fff; }
+/* hero: a reel of the app in action, four clips that take turns */
+#hero { position: relative; height: calc(100svh - var(--head)); min-height: 560px; max-height: 920px; overflow: hidden; background: #03050a; }
+#hero .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1s ease; }
+#hero .slide.on { opacity: 1; }
+#hero video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#hero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(3,5,10,.55) 0%, rgba(3,5,10,0) 28%, rgba(3,5,10,0) 45%, rgba(3,5,10,.88) 100%), linear-gradient(90deg, rgba(3,5,10,.55) 0%, rgba(3,5,10,0) 55%); }
+#hcopy { position: absolute; z-index: 2; left: clamp(16px, 5vw, 64px); right: clamp(16px, 5vw, 64px); bottom: clamp(70px, 11vh, 120px); max-width: 980px; }
+#hcopy .eyebrow { margin: 0 0 14px; }
+#tag { margin: 0 0 14px; font: 700 clamp(20px, 3.5vw, 44px)/1.14 var(--font); letter-spacing: .06em; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,.6); }
 #tag span { color: var(--blue); }
-#below { position: absolute; left: 0; right: 0; top: var(--below, 82%); display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 16px; }
-#below a { font: 700 11px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; text-decoration: none; padding: 13px 20px; border-radius: 999px; color: var(--ink); border: 1px solid rgba(255,255,255,.3); }
+#hline { margin: 0 0 26px; max-width: 52ch; color: #d3e2f0; font-size: clamp(15px, 1.7vw, 19px); text-shadow: 0 1px 14px rgba(0,0,0,.7); min-height: 2.9em; }
+#below { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#below a { font: 700 11px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; text-decoration: none; padding: 14px 22px; border-radius: 999px; color: var(--ink); border: 1px solid rgba(255,255,255,.34); background: rgba(3,5,10,.35); backdrop-filter: blur(6px); }
 #below a:hover { border-color: var(--blue); color: var(--blue); }
-#below a.main { color: var(--blue); border-color: rgba(76,235,255,.55); }
+#below a.main { color: #04121a; background: var(--blue); border-color: var(--blue); box-shadow: 0 0 26px rgba(76,235,255,.45); } #below a.main:hover { color: #04121a; filter: brightness(1.08); }
+#dots { position: absolute; z-index: 2; left: clamp(16px, 5vw, 64px); right: clamp(16px, 5vw, 64px); bottom: clamp(26px, 4.5vh, 44px); display: flex; gap: 8px; max-width: 760px; }
+#dots button { flex: 1; height: 26px; background: transparent; border: 0; padding: 11px 0; cursor: pointer; position: relative; }
+#dots button::before, #dots button i { content: ''; position: absolute; left: 0; right: 0; top: 11px; height: 3px; border-radius: 2px; }
+#dots button::before { background: rgba(255,255,255,.28); }
+#dots button i { right: auto; width: 0; background: var(--blue); }
+#dots button.on i { animation: fill var(--slide, 9s) linear forwards; }
+@keyframes fill { to { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { #dots button.on i { animation: none; width: 100%; } }
+#hero .still { display: none; }
 
 /* live now */
 #live { padding: 54px 0 80px; border-top: 1px solid var(--line); background: radial-gradient(ellipse at 50% 0%, rgba(76,235,255,.06), transparent 60%); }
@@ -59,20 +70,30 @@
 </head>
 <body>
 <section id="hero" aria-label="Club Cloud">
-  <canvas id="cv" aria-hidden="true"></canvas>
-  <div id="signup"><button class="su-open" type="button" id="heroCta">SIGN IN</button></div>
-  <h1 id="tag">WORLD'S FIRST DJ CLUB<br>SIMULATOR <span>AND</span> LIVE STREAM</h1>
-  <nav id="below" aria-label="Quick links"><a class="main" href="#live">Watch live</a><a href="/app">Play the decks</a><a href="/pricing">Pricing</a></nav>
+  <div class="slide on" data-h="Step inside a real nightclub. A 3D club, a crowd that reacts to your mix, and a robot DJ on the decks around the clock.">
+    <video muted playsinline preload="auto" poster="hero/clubwide.jpg" aria-hidden="true"><source src="hero/clubwide.mp4" type="video/mp4"></video></div>
+  <div class="slide" data-h="Club Cloud's 24/7 rooms are always on. Pick a genre, walk in, and the robot DJ plays while the club dances around you.">
+    <video muted playsinline preload="none" poster="hero/robotdj.jpg" aria-hidden="true"><source src="hero/robotdj.mp4" type="video/mp4"></video></div>
+  <div class="slide" data-h="The crowd reads your mix. Blend it clean and they go wild, drop it on the beat and the CO2 fires, trainwreck it and they boo.">
+    <video muted playsinline preload="none" poster="hero/crowdlow.jpg" aria-hidden="true"><source src="hero/crowdlow.mp4" type="video/mp4"></video></div>
+  <div class="slide" data-h="A light show that locks to the beat. Lasers, moving heads, blinders and light towers, all following the music you play.">
+    <video muted playsinline preload="none" poster="hero/lights.jpg" aria-hidden="true"><source src="hero/lights.mp4" type="video/mp4"></video></div>
+  <div id="hcopy">
+    <h1 id="tag">WORLD'S FIRST DJ CLUB<br>SIMULATOR <span>AND</span> LIVE STREAM</h1>
+    <p id="hline"></p>
+    <nav id="below" aria-label="Quick links"><a class="main" href="/app">Enter the club</a><a href="#live">Watch live</a><a href="/pricing">Pricing</a></nav>
+  </div>
+  <div id="dots" role="tablist" aria-label="Highlights"><button type="button" role="tab" aria-label="The club"><i></i></button><button type="button" role="tab" aria-label="24/7 rooms"><i></i></button><button type="button" role="tab" aria-label="The crowd"><i></i></button><button type="button" role="tab" aria-label="The lights"><i></i></button></div>
 </section>
 
 <section id="live"><div class="wrap">
-  <div class="head"><h2><span class="dot" aria-hidden="true"></span>LIVE NOW</h2><p class="sub">Watch any stream free. Sign in to join one.</p></div>
+  <div class="head"><h2><span class="dot" aria-hidden="true"></span>LIVE NOW</h2><p class="sub">Watch any DJ stream free. Club Cloud’s 24/7 rooms are free for 5 minutes, then £1 an hour (free with Pro).</p></div>
   <div class="lgrid" id="liveGrid" aria-live="polite"><div class="lempty"><b>Checking who's on air…</b></div></div>
 </div></section>
 
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
 <script type="module" src="site.js?v=4"></script>
-<script type="module" src="landing.js?v=11"></script>
+<script type="module" src="hero.js?v=1"></script>
 <script type="module" src="home-grid.js?v=3"></script>
 </body>
 </html>
