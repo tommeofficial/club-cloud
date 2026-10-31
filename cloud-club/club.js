@@ -607,6 +607,10 @@ function updatePeople(dt) {
     p.yaw += (p.yawTarget - p.yaw) * Math.min(1, dt * 3);
     p.root.rotation.y = p.face + p.yaw;
     p.root.position.set(p.home.x + Math.sin(t * 0.13 + p.seed) * 0.07, 0, p.home.z + Math.cos(t * 0.11 + p.seed) * 0.07);
+    if (BEAT_LOOPS.has(p.loopName) && kickPulse != null) { // everyone hits the kick: a little drop through the knees and a chest punch, harder when the room is up
+      const hit = kickPulse * (0.5 + brain.hype / 100);
+      p.root.position.y -= 0.035 * hit; if (p.chest) p.chest.rotateX(0.07 * hit);
+    }
     if (p.chest && !p.robot) p.chest.rotateX(Math.sin(t * 1.7 + p.seed) * 0.012); // robots don't breathe
     if (p.robot && p.head && !p.busy) {
       // mechanical head: holds still, then clicks to a new angle (the DJ, or somewhere round the room when scanning)
