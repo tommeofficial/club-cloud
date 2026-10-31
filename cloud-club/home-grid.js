@@ -1,7 +1,7 @@
 // The home page's "live now" grid: everyone who is on air right now, from the shared lobby (see backend.js openLobby).
 // Pressing a card needs a sign-in, then goes into the app in that DJ's room and starts the stream.
 import * as backend from './backend.js?v=2';
-import { loadHouses, houseCard, openHouse } from './house-cards.js?v=1';
+import { loadHouses, houseCard, openHouse } from './house-cards.js?v=2';
 const MAX = 12;
 const grid = document.getElementById('liveGrid');
 const hue = (n) => [...n].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
