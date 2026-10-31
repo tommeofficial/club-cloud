@@ -973,13 +973,13 @@ function movingHead(x, y, z) {
     const strip = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.17, 0.006), accent); strip.position.set(sd * 0.197, -0.08, 0.04); pan.add(strip);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.022, 24), metal); cap.rotation.z = Math.PI / 2; cap.position.set(sd * 0.19, -0.15, 0); pan.add(cap);
   }
-  // the head: a tapered body with a domed back, a dark bezel round the lens, and an LED ring that takes the beam's colour
+  // the head: a tapered body with a domed back, and a dark bezel round the lens; no glowing rings, only the beam
   const can = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.128, 0.27, 32), dark); can.position.y = -0.005; tilt.add(can);
   const domeBack = new THREE.Mesh(new THREE.SphereGeometry(0.105, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), dark); domeBack.position.y = 0.13; domeBack.scale.y = 0.55; tilt.add(domeBack);
   for (const k of [-1, 0, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.236, 0.012, 0.012), metal); fin.position.set(0, 0.03 + k * 0.045, 0); fin.scale.z = 1; tilt.add(fin); }
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.1285, 0.004, 6, 48), accent); band.rotation.x = Math.PI / 2; band.position.y = -0.1; tilt.add(band); // a thin glowing band round the head
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.1285, 0.004, 6, 48), accent); band.rotation.x = Math.PI / 2; band.position.y = -0.1;   // (not added: a real head has no glowing band, just the beam)
   const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.106, 0.024, 12, 40), metal); bezel.rotation.x = Math.PI / 2; bezel.position.y = -0.148; tilt.add(bezel);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.007, 8, 48), new THREE.MeshBasicMaterial({ color: 0x111111 })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.135; tilt.add(ring);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.007, 8, 48), new THREE.MeshBasicMaterial({ color: 0x111111 })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.135;   // (not added: no LED ring round the lens)
   const lens = new THREE.Mesh(new THREE.CircleGeometry(0.092, 28), new THREE.MeshBasicMaterial({ color: 0xffffff })); lens.rotation.x = Math.PI / 2; lens.position.y = -0.151; tilt.add(lens);
   // beam: an open cone hanging down from the lens (uv.y is 1 at the lens, 0 at the far end)
   const geo = new THREE.CylinderGeometry(0.06, 0.75, 8, 32, 1, true); geo.translate(0, -4.15, 0);
