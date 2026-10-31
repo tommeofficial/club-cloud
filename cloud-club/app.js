@@ -343,6 +343,8 @@ function layout(animate) {
     club.hidden = false;
     px += cw; pw -= cw;
   }
+  if (L.full && L.mode !== 'club') L.full = false;           // the full-screen button hides the top bar, in the club only
+  const full = !!L.full; tabs.style.display = full ? 'none' : ''; const fx = $('#fsexit'); if (fx) fx.hidden = !full;
   // deck zooms only make sense on the full-screen decks
   tabs.querySelector('.zooms').hidden = L.mode === 'club';
   // horizontal tab bar on top, or a vertical rail on the left when that leaves the stage bigger
@@ -360,10 +362,10 @@ function layout(animate) {
   tabs.classList.toggle('sub', sub > 0);
   L.vx = px + (vert ? 64 + 3 : 4); L.vy = ins.t + (vert ? 4 : 44 + 3) + sub;
   L.aw = px + pw - L.vx - 4; L.ah = H - L.vy - ins.b - 3;
-  if (ADVERT) { L.vx = 0; L.vy = 0; L.aw = W; L.ah = H; } // the advert films the stage edge to edge
+  if (ADVERT || full) { L.vx = 0; L.vy = 0; L.aw = W; L.ah = H; } // the advert films the stage edge to edge
   // CLUB: one 3D view from behind the DJ; the club fills the screen
   if (L.mode === 'club') {
-    Object.assign(club.style, ADVERT ? { left: '0px', top: '0px', width: W + 'px', height: H + 'px', borderRadius: '0' } : { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
+    Object.assign(club.style, ADVERT || full ? { left: '0px', top: '0px', width: W + 'px', height: H + 'px', borderRadius: '0' } : { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
     club.hidden = false;
     // the real controller is laid onto the booth table in 3D: club.js perspective-maps this box onto it
     L.aw = 920; L.ah = Math.round(920 * ZOOMS.all[3] / ZOOMS.all[2]);
@@ -499,7 +501,17 @@ tabs.addEventListener('click', (e) => {
   else if (b.dataset.act === 'lib') openLibrary(null);
   else if (b.dataset.act === 'help') openHelp();
   else if (b.dataset.act === 'fs') toggleFullscreen();
+  else if (b.dataset.act === 'full') setFull(true);
 });
+// the top bar is always there, unless FULL SCREEN (next to CLUB) is pressed: then the club fills the whole window until EXIT, Esc or leaving browser full screen
+function setFull(on) {
+  L.full = on;
+  if (on) { const el = document.documentElement, fn = el.requestFullscreen || el.webkitRequestFullscreen; try { const r = fn && fn.call(el); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
+  else if (document.fullscreenElement || document.webkitFullscreenElement) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (_) {} }
+  layout(false);
+}
+$('#fsexit').addEventListener('click', () => setFull(false));
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && L.full) setFull(false); });
 // the menu: library, settings, help and account tuck away here; HOME, REC and GO LIVE stay on the bar
 const moreBtn = $('#morebtn'), moreMenu = $('#moremenu'), goTop = $('#golivebtn');
 const closeMore = () => { moreMenu.hidden = true; moreBtn.setAttribute('aria-expanded', 'false'); };
@@ -519,7 +531,7 @@ function toggleFullscreen() {
 window.addEventListener('resize', () => layout(false));
 if (window.ResizeObserver) new ResizeObserver(() => layout(false)).observe(document.documentElement);
 if (window.visualViewport) window.visualViewport.addEventListener('resize', () => layout(false));
-document.addEventListener('fullscreenchange', () => setTimeout(() => layout(false), 60));
+document.addEventListener('fullscreenchange', () => { if (L.full && !document.fullscreenElement && !document.webkitFullscreenElement) L.full = false; setTimeout(() => layout(false), 60); });
 
 // ============================================================ audio engine
 let ctx = null, worklet = false, audioReady = false;
