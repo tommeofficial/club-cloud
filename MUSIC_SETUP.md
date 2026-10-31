@@ -18,3 +18,8 @@ Before you switch it on
 
 Notes: the key lives only on the server (`cloud-club/api/music.js`). Only signed-in people (not guests) can call it.
 The panel shows "Music by Epidemic Sound" as the credit.
+
+Letting another service or agent use the library without the Epidemic key
+Set `MUSIC_AGENT_TOKEN` in Vercel to a long random string you generate (for example `openssl rand -hex 32`) and give that string to the other
+agent. It then calls `https://clubcloud.brightsite.app/api/music?a=tracks&genre=<id>` with `Authorization: Bearer <that string>`
+(also `a=genres`, `a=file&id=<trackId>`). The Epidemic key stays only in Vercel. To cut the agent off, change or remove `MUSIC_AGENT_TOKEN`.

@@ -5,18 +5,23 @@
 //   GET /api/music?a=genres
 //   GET /api/music?a=tracks&genre=<id>&term=<text>&limit=24&offset=0
 //   GET /api/music?a=file&id=<trackId>           -> { url, expires }  (the browser downloads the MP3 from that link)
+const crypto = require('crypto');
 const { env, userFromToken } = require('./_stripe');
 const BASE = 'https://partner-content-api.epidemicsound.com';
 const enabled = () => !!env('EPIDEMIC_API_KEY');
 // while testing, MUSIC_ALLOWED_EMAILS (comma separated, set in Vercel) limits the library to those accounts; leave it empty to open it to every signed-in person
-const allowed = (user) => { const list = env('MUSIC_ALLOWED_EMAILS').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean); return !list.length || (user && list.includes(String(user.email).toLowerCase())); };
+const allowed = (user) => { if (user && user.id === 'agent') return true; const list = env('MUSIC_ALLOWED_EMAILS').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean); return !list.length || (user && list.includes(String(user.email).toLowerCase())); };
 
 module.exports = async (req, res) => {
   const send = (code, obj) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(obj)); };
   if (req.method !== 'GET') return send(405, { error: 'GET only' });
   const q = new URL(req.url, 'http://x').searchParams, a = q.get('a') || 'config';
   const token = String(req.headers.authorization || '').replace(/^Bearer /i, '');
-  const user = token && (await userFromToken(token));
+  // another trusted service (an agent) can use the library with MUSIC_AGENT_TOKEN, a separate secret you set in Vercel and can change any time:
+  // it never sees the Epidemic key, it just calls this function. Leave it unset to switch that off.
+  const agentTok = env('MUSIC_AGENT_TOKEN');
+  const isAgent = !!(agentTok && token && token.length === agentTok.length && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(agentTok)));
+  const user = isAgent ? { id: 'agent', email: 'agent@service' } : token && (await userFromToken(token));
   if (a === 'config') return send(200, { enabled: enabled() && (!env('MUSIC_ALLOWED_EMAILS') ? true : !!(user && allowed(user))) });
   if (!enabled()) return send(503, { error: 'Music is not switched on yet.' });
   if (!user) return send(401, { error: 'Sign in with your email to use the music library.' });
