@@ -678,7 +678,6 @@ function buildSideBar(side) {
 }
 // Side screens. The main screen is drawn once a frame into a small texture (no text, no dots, see updateScreen), and these only show windows of it
 // through their own LED pixel grid: they copy the main screen's look, colours and beat, and cost almost nothing.
-const SIDE_CS = +(new URLSearchParams(location.search).get('cs') ?? 2);   // how many big C's on each side (?cs=0 turns them off)
 function buildSideCopies() {
   const tex = screen.rt.texture, { w, z0, z1 } = ROOM;
   // a long, thin LED screen down each side wall: a narrow slice through the middle of the main screen, mirrored on the other wall
@@ -688,14 +687,14 @@ function buildSideCopies() {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
     m.position.set(side * (w / 2 - 0.122), 2.05, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
-  // big C-shaped LED screens either side of the stage, the same way round as the logo (on the crowd's left they open to the right, on the right to the left),
-  // with the main screen's own pixel size, flat cut ends, showing the whole main screen picture through the C
-  const OUT = 0.76, IN = 0.5, PITCH = 3.26 / 150;
-  const hp = (((IN + OUT) / 2) / OUT) * Math.sin(0.1);
-  for (const view of [-1, 1]) for (let k = 0; k < SIDE_CS; k++) {            // view -1: the crowd's left (world +x), 1: the crowd's right (world -x)
-    const mat = ledCopyMaterial(THREE, tex, { rect: [0.2, 0.2, 0.6, 0.6], grid: [2 * OUT / PITCH, 2 * OUT / PITCH], ring: [IN / OUT, hp, -view], mode: 1, gain: 1.15 });   // the middle of the main picture runs through the C
+  // big C-shaped LED screens either side of the stage: the same shape and pixel size as the logo's own C's, scaled to fill the space between them and the
+  // side walls. They are the same way round as the logo (on the crowd's left they open to the right, on the right to the left) and show the main screen's picture.
+  const OUT = 1.62, IN = 1.28, PITCH = 3.26 / 150;
+  const hp = (((IN + OUT) / 2) / OUT) * Math.sin(0.1);                       // the same gap between the two ends as the logo
+  for (const view of [-1, 1]) {                                              // view -1: the crowd's left (world +x), 1: the crowd's right (world -x)
+    const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * OUT / PITCH, 2 * OUT / PITCH], ring: [IN / OUT, hp, -view], mode: 1, gain: 1.3 });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * OUT, 2 * OUT), mat);
-    mesh.position.set(-view * (3.1 + k * 1.6), 2.32, 2.35); mesh.rotation.y = Math.PI; scene.add(mesh);
+    mesh.position.set(-view * 3.86, 2.32, 2.38); mesh.rotation.y = Math.PI; scene.add(mesh);
   }
 }
 // tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
@@ -745,15 +744,7 @@ function buildRoom() {
     add(new THREE.PlaneGeometry(d, h), wall, s * w / 2, h / 2, zc, -s * Math.PI / 2);
     // acoustic panels down the side walls
     for (let z = z0 - 2; z > z1 + 1; z -= 1.6) add(new THREE.BoxGeometry(0.06, 1.6, 1.3), panel, s * (w / 2 - 0.03), 2.1, z);
-    // speaker stack either side of the booth
-    const cab = new THREE.BoxGeometry(0.85, 0.9, 0.7), cone = new THREE.CylinderGeometry(0.28, 0.28, 0.04, 32), tw = new THREE.CylinderGeometry(0.1, 0.1, 0.04, 24);
-    const coneMat = new THREE.MeshStandardMaterial({ color: 0x1b1b1e, roughness: 0.6 });
-    for (let k = 0; k < 2; k++) {
-      add(cab, black, s * 3.6, 0.45 + k * 0.9, -1.2);
-      const c = add(k ? tw : cone, coneMat, s * 3.6, 0.45 + k * 0.9, -1.56); c.rotation.x = Math.PI / 2;
-    }
-    // line array hung off the truss
-    for (let k = 0; k < 4; k++) { const b = add(new THREE.BoxGeometry(0.7, 0.22, 0.5), black, s * 3.9, 3.5 - k * 0.24, -2.1); b.rotation.x = k * 0.05; }
+    // (the speaker stacks and the hung speakers that stood either side of the booth are gone: they hid the big side C screens)
     // pillars
     add(new THREE.BoxGeometry(0.5, h, 0.5), wall, s * 3.4, h / 2, -7.6);
     buildSideBar(s);

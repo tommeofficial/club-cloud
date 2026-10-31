@@ -117,12 +117,12 @@ function check() {
   if (B.locked || B.inGrace) return;
   // out of time in the middle of a set: the music carries on for two minutes while a big offer is on screen; otherwise lock straight away
   if (playing()) { B.inGrace = true; B.grace = GRACE; flush(); showShop('grace'); }
-  else lockDecks();
+  else lockDecks(false);        // out of time but not playing (for example just watching a stream): lock quietly, and show the shop only when they try to play
 }
-function lockDecks() {
+function lockDecks(show = true) {
   B.inGrace = false; B.locked = true;
   for (const d of decks()) d.pauseNow();
-  flush(); dispatchEvent(new Event('cc-timeup')); showShop('out'); warnRefresh();
+  flush(); dispatchEvent(new Event('cc-timeup')); if (show) showShop('out'); warnRefresh();
 }
 function graceUi() {
   const t = shop && !shop.hidden && shop.querySelector('.tsgrace b'); if (t) t.textContent = fmt(B.grace);
