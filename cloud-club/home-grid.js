@@ -1,6 +1,7 @@
 // The home page's "live now" grid: everyone who is on air right now, from the shared lobby (see backend.js openLobby).
 // Pressing a card needs a sign-in, then goes into the app in that DJ's room and starts the stream.
 import * as backend from './backend.js?v=2';
+import { loadHouses, houseCard, openHouse } from './house-cards.js?v=1';
 const MAX = 12;
 const grid = document.getElementById('liveGrid');
 const hue = (n) => [...n].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
@@ -9,9 +10,12 @@ const since = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000
 const gbp = (n) => '£' + (Number.isInteger(n) ? n : Number(n).toFixed(2));
 
 const empty = (msg) => { grid.innerHTML = `<div class="lempty"><b>${msg}</b>Nobody is on air right now. Check back soon, or jump on the decks yourself.<br><a class="btn" href="/app">Play the decks</a></div>`; };
+let houses = [], lastList = [];
+loadHouses().then((h) => { houses = h; render(lastList); });
 function render(list) {
-  if (!list.length) return empty('Quiet in here');
-  grid.innerHTML = [...list].sort((a, b) => (a.since || 0) - (b.since || 0)).map((c) => {
+  lastList = list;
+  if (!list.length && !houses.length) return empty('Quiet in here');
+  grid.innerHTML = houses.map(houseCard).join('') + [...list].sort((a, b) => (a.since || 0) - (b.since || 0)).map((c) => {
     const full = (c.listeners || 0) >= MAX;
     const bg = c.thumb ? `url(${esc(c.thumb)})` : `linear-gradient(135deg, hsl(${hue(c.dj)} 55% 28%), hsl(${(hue(c.dj) + 60) % 360} 60% 14%))`;
     return `<button class="lcard${full ? ' full' : ''}" data-room="${esc(c.room)}" ${full ? 'disabled' : ''}>
@@ -28,6 +32,7 @@ function render(list) {
 
 grid.addEventListener('click', async (e) => {
   const b = e.target.closest('.lcard'); if (!b || b.disabled) return;
+  if (b.dataset.house) { openHouse(b.dataset.house); return; }
   location.href = `/app?room=${encodeURIComponent(b.dataset.room)}&listen=1`;
 });
 

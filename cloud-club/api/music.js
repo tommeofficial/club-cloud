@@ -49,8 +49,12 @@ module.exports = async (req, res) => {
     if (a === 'file') {
       const id = String(q.get('id') || '').replace(/[^\w-]/g, '');
       if (!id) return send(400, { error: 'Missing track.' });
-      const j = await call(`/v0/tracks/${id}/download?format=mp3&quality=high`);
-      return send(200, { url: j.url || j.downloadUrl, expires: j.expires || j.expiresAt || null });
+      // the stream link first (it is the listening link, and does not count against download limits); the download link only if there is none
+      let j = null, how = 'stream';
+      try { j = await call(`/v0/tracks/${id}/stream`); } catch (_) { j = null; }
+      const streamUrl = j && (j.url || j.streamUrl);
+      if (!streamUrl || /\.m3u8(\?|$)/i.test(streamUrl)) { how = 'download'; j = await call(`/v0/tracks/${id}/download?format=mp3&quality=high`); }   // the decks cannot play segmented HLS
+      return send(200, { url: j.url || j.downloadUrl || j.streamUrl, expires: j.expires || j.expiresAt || null, how });
     }
     send(400, { error: 'Unknown request.' });
   } catch (e) { send(e.status === 429 ? 429 : 502, { error: 'The music library is not answering. Try again in a moment.' }); }

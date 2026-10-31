@@ -1,5 +1,6 @@
 // The LIVE grid: every stream that is on air right now, as cards. Pressing a card takes you into that DJ's room and starts the stream;
 // the STREAMS button in the club brings you back here. The list comes from the shared lobby channel (see backend.js openLobby).
+import { loadHouses, houseCard, openHouse } from './house-cards.js?v=1';
 const MAX = 12;
 const hue = (name) => [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -7,14 +8,15 @@ const since = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000
 
 export function createLobby({ backend, me, enter }) {
   const root = document.getElementById('lobby'), grid = root.querySelector('.lgrid'), empty = root.querySelector('.lempty');
-  const L = { me, list: [], isOpen: false, mine: null };
+  const L = { me, list: [], isOpen: false, mine: null, houses: [] };
+  loadHouses().then((h) => { L.houses = h; if (L.isOpen) render(); });
   const chan = backend.openLobby(me, (list) => { L.list = list; if (L.isOpen) render(); count(); });
 
   function count() { document.querySelectorAll('[data-act=live] .lnum').forEach((el) => { const n = L.list.filter((c) => c.dj !== me).length; el.textContent = n ? n : ''; }); }
   function render() {
     const cards = [...L.list].sort((a, b) => (a.since || 0) - (b.since || 0));
-    empty.hidden = cards.length > 0;
-    grid.innerHTML = cards.map((c) => {
+    empty.hidden = cards.length > 0 || L.houses.length > 0;
+    grid.innerHTML = L.houses.map(houseCard).join('') + cards.map((c) => {
       const mine = c.dj === me, full = (c.listeners || 0) >= MAX && !mine;
       return `<button class="lcard${mine ? ' mine' : ''}${full ? ' full' : ''}" data-room="${esc(c.room)}" ${mine || full ? 'disabled' : ''}>
         <span class="lthumb" style="background-image:${c.thumb ? `url(${esc(c.thumb)})` : `linear-gradient(135deg, hsl(${hue(c.dj)} 55% 28%), hsl(${(hue(c.dj) + 60) % 360} 60% 14%))`}"></span>
@@ -36,6 +38,7 @@ export function createLobby({ backend, me, enter }) {
   L.destroy = () => { chan.close(); };
   grid.addEventListener('click', async (e) => {
     const b = e.target.closest('.lcard'); if (!b || b.disabled) return;
+    if (b.dataset.house) { openHouse(b.dataset.house); return; }
     L.close(); enter(b.dataset.room);
   });
   root.querySelector('.lplay')?.addEventListener('click', () => { L.close(); document.querySelector('#tabs [data-mode=normal]')?.click(); });

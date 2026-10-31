@@ -50,7 +50,8 @@ const BUILT = [
   { model: 'models/crowd_b10.glb?v=2', sex: 'm', spot: 29, scale: 1, style: 'social', shared: true, hip: 1.1702 }
 ];
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-const FEATURED = LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT);
+const HOUSE = new URLSearchParams(location.search).get('house');   // ?house=<id>: the 24/7 Club Cloud room, where the robot is the DJ
+const FEATURED = (LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT)).filter((f) => !(HOUSE && f.robot));
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9], [10, 11], [12, 13, 14], [15, 16], [17, 18], [19, 20], [21, 22, 23], [24, 25], [26, 27], [28, 29]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
@@ -552,6 +553,7 @@ function spreadArms(p, dt) {
   }
 }
 
+let lastBeats = null, lastKick = 0;   // the beat this frame, for the DJ
 function updatePeople(dt) {
   const c = cc(); if (!c) return;
   const t = clock.elapsedTime;
@@ -563,6 +565,7 @@ function updatePeople(dt) {
   const phrase = beats != null ? Math.floor(beats / 16) : -1;
   const tempo = remote.on ? remote.p.bpm : M ? 60 / M.B : inputMode ? live.bpm : 125; // slow tunes get the easy grooves, fast ones the big moves
   const kickPulse = beats != null ? Math.pow(1 - (((beats % 1) + 1) % 1), 3) : 0;
+  lastBeats = beats; lastKick = kickPulse;
   for (const p of people) {
     if (t > p.nextThink) { p.nextThink = t + rnd(3, 8); think1(p, t, playing); }
     if (p.hold && t > p.hold.until) { p.hold = null; p.yawTarget = 0; p.look = null; }
@@ -2068,7 +2071,7 @@ function frame() {
 }
 
 async function loadDj() {
-  const src = await new GLTFLoader().loadAsync('models/dj.glb');
+  const src = await new GLTFLoader().loadAsync(HOUSE ? 'models/robot.glb' : 'models/dj.glb');
   const root = src.scene;
   root.rotation.y = Math.PI; // facing the crowd, back to the camera
   root.scale.setScalar(0.9); // about 1.7 m
@@ -2086,8 +2089,19 @@ async function loadDj() {
   setTimeout(() => setCamView(camView));
   const mixer = new THREE.AnimationMixer(root), actions = {};
   for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
+  if (HOUSE) {   // the robot has the crowd's moves, not a DJ's: work the decks with the two-step, hype on drops, put its hands up and clap now and then
+    const A = { ...actions };
+    for (const k of Object.keys(actions)) delete actions[k];
+    Object.assign(actions, { play: A.dance4 || A.dance, idle: A.idle, hype: A.hype || A.dance2, wave: A.handsup || A.cheer, kiss: A.clap || A.cheer });
+    for (const k of Object.keys(actions)) if (!actions[k]) delete actions[k];
+  }
   for (const n of ['wave', 'hype', 'kiss']) if (actions[n]) { actions[n].setLoop(THREE.LoopOnce); actions[n].clampWhenFinished = true; }
   dj = { root, mixer, actions, now: null, busy: false, next: 8, drop: brain.lastDrop };
+  if (HOUSE) {   // give it the Club Cloud head: glass dome, the logo's two C's and the LED face
+    let head = null; root.traverse((o) => { if (o.isBone && /^(head|mixamorigHead)$/i.test(o.name)) head = o; });
+    root.updateMatrixWorld(true);
+    if (head) { dj.pseudo = { root, head }; dj.pseudo.robot = buildRobotHead(head, dj.pseudo); }
+  }
   mixer.addEventListener('finished', (e) => {
     const back = brain.playing ? 'play' : 'idle';
     e.action.crossFadeTo(actions[back].reset().setEffectiveWeight(1).play(), 0.4, false);
@@ -2117,7 +2131,12 @@ function updateDj(dt, t) {
       if (dj.now !== want) djPlay(want, 0.5);
     }
   }
+  if (dj.pseudo && dj.now === 'play' && lastBeats != null && dj.actions.play) {   // the robot's two-step stays on the beat
+    const a = dj.actions.play, dur = a.getClip().duration, bars = dur > 3 ? 16 : 2;
+    a.time = (((((lastBeats % bars) + bars) % bars) / bars) * dur); a.timeScale = 0;
+  } else if (dj.pseudo && dj.actions.play) dj.actions.play.timeScale = 1;
   dj.mixer.update(dt);
+  if (dj.pseudo) updateRobot(dj.pseudo, t, lastKick);
   if (camView === 'booth') djRenderer.render(djScene, camera);
 }
 

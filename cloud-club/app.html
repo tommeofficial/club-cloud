@@ -79,6 +79,18 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #musicpanel .row img { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: #151a26; } #musicpanel .row .t { min-width: 0; } #musicpanel .row .t b { display: block; color: #fff; font: 600 14px var(--ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #musicpanel .row .t span { color: #7f93a8; font: 500 12px var(--ui); }
 #musicpanel .row button { padding: 8px 0; font: 700 11px var(--label); letter-spacing: 1px; color: #07121d; background: #8fe9ff; border: 0; border-radius: 6px; cursor: pointer; } #musicpanel .row button:disabled { opacity: .55; }
 #musicpanel .mnote { color: #7f93a8; font: 500 12px var(--ui); } #musicpanel .mnote a { color: #8fe9ff; }
+
+/* the 24/7 Club Cloud room */
+body.house #tabs [data-mode=normal], body.house #tabs [data-mode=split], body.house #tabs [data-mode=djview], body.house #tabs .zooms, body.house #recbtn, body.house #timebar, body.house #golivebtn, body.house #chatpanel .cdj, body.house #chatpanel .clisten { display: none !important; }
+#houseov { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #0d1626 0%, #04060a 72%); font-family: var(--ui); color: #e9eaec; }
+#houseov .hbox { text-align: center; padding: 28px; max-width: 420px; }
+#houseov .hbadge { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #ff3b5c; color: #fff; font: 700 11px var(--label); letter-spacing: 2px; }
+#houseov h2 { margin: 18px 0 4px; font: 700 28px var(--label); letter-spacing: 6px; } #houseov h3 { margin: 0 0 14px; font: 700 15px var(--label); letter-spacing: 3px; color: #4cebff; }
+#houseov p { color: #9fb2c6; font: 500 15px/1.5 var(--ui); margin: 0 0 22px; }
+#houseov .hgo { padding: 15px 28px; font: 700 13px var(--label); letter-spacing: 3px; color: #04121a; background: #4cebff; border: 0; border-radius: 999px; cursor: pointer; } #houseov .hgo:disabled { opacity: .6; }
+#houseov .hback { display: block; margin-top: 18px; color: #7f93a8; text-decoration: none; font: 700 11px var(--label); letter-spacing: 2px; }
+#househud { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: rgba(8,10,16,.85); border: 1px solid #24304a; border-radius: 999px; font: 600 12px var(--label); letter-spacing: 1px; color: #cfd8e6; }
+#househud .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 8px #ff3b5c; } #househud b { color: #fff; } #househud a { color: #8fe9ff; text-decoration: none; margin-left: 6px; }
 #moremenu #timepill { border-radius: 6px; font-size: 13px; letter-spacing: 1.2px; padding: 9px 15px; min-height: 34px; }
 #tabs.v #moremenu { right: auto; left: calc(100% + 6px); top: auto; bottom: 0; }
 #view { position: absolute; overflow: hidden; touch-action: none; }
@@ -466,11 +478,12 @@ canvas.cv { position: absolute; pointer-events: none; }
 <script src="dsp.js"></script>
 <script src="app.js?v=123"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
-<script type="module" src="club.js?v=159"></script>
-<script type="module" src="chat.js?v=112"></script>
+<script type="module" src="club.js?v=160"></script>
+<script type="module" src="chat.js?v=113"></script>
 <script type="module" src="billing.js?v=17"></script>
 <script type="module" src="record.js?v=4"></script>
 <script type="module" src="music.js?v=2"></script>
+<script type="module" src="house.js?v=1"></script>
 <script type="module" src="auth.js?v=4"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {
   const js = document.createElement('script'); js.type = 'module'; js.src = 'advert/shot.js?v=10'; document.head.appendChild(js);

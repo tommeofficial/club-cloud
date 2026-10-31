@@ -6,7 +6,7 @@
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
 import { createLive } from './live.js?v=2';
-import { createLobby } from './lobby.js?v=2';
+import { createLobby } from './lobby.js?v=3';
 
 const panel = document.getElementById('chatpanel');
 const log = document.getElementById('chatlog');
