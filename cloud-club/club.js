@@ -652,6 +652,49 @@ function buildScene() {
 
 // ------------------------------------------------------------------ the room
 const ROOM = { w: 11, z0: 2.5, z1: -13.5, h: 4.4 };
+// LED light bars down both side walls: white on the left of the crowd's view (like the logo's white C), cyan on the right, each in segments so they can chase and flash with the rig.
+const sideBars = { segs: [], N: 14 };
+function buildSideBar(side) {
+  const { w, z0, z1 } = ROOM, N = sideBars.N, zA = z0 - 1.5, zB = z1 + 1.5, len = (zA - zB) / N;
+  const x = side * (w / 2 - 0.13), base = side > 0 ? new THREE.Color(0xf2fcff) : new THREE.Color(0x4cebff);
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, zA - zB + 0.2), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6, metalness: 0.4 }));
+  housing.position.set(x - side * 0.03, 2.05, (zA + zB) / 2); scene.add(housing);
+  for (let i = 0; i < N; i++) {
+    const mat = new THREE.MeshBasicMaterial({ color: base.clone().multiplyScalar(0.25) });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, len - 0.08), mat);
+    m.position.set(x + side * 0.02, 2.05, zA - len * (i + 0.5)); scene.add(m);
+    sideBars.segs.push({ mat, base, i, side });
+  }
+}
+// tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
+function buildSideTower(side) {
+  const N = 12, h = 3.5, seg = h / N, x = side * 3.95, z = 1.55, base = side > 0 ? new THREE.Color(0xf2fcff) : new THREE.Color(0x4cebff);
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, h + 0.2, 0.16), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6, metalness: 0.4 }));
+  post.position.set(x, 0.1 + h / 2 + 0.1, z); scene.add(post);
+  for (let i = 0; i < N; i++) {
+    const mat = new THREE.MeshBasicMaterial({ color: base.clone().multiplyScalar(0.25) });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.2, seg - 0.05, 0.05), mat);
+    m.position.set(x, 0.2 + seg * (i + 0.5), z - 0.09); scene.add(m);
+    sideBars.segs.push({ mat, base, i: N - 1 - i, side });         // the flash runs up the tower
+  }
+}
+const _fr = (v) => ((v % 1) + 1) % 1;
+// called every frame from the light show: brightness per segment follows the music
+function updateSideBars(beat, chill, strobe, dark, hit, drop, pulse, F) {
+  const N = sideBars.N, playing = brain.playing;
+  for (const sg of sideBars.segs) {
+    const off = sg.side > 0 ? 0 : 0.5;                                        // white and cyan answer each other, half a beat apart
+    let lvl;
+    if (dark) lvl = hit ? 1 : 0.03;                                           // blackout: nearly out, but a blinder hit flares them
+    else if (!playing) lvl = 0.2 + 0.12 * Math.sin(beat * 0.6 + sg.i * 0.35); // waiting for music: a slow glow down the bar
+    else if (chill) lvl = 0.3 + 0.3 * (0.5 + 0.5 * Math.sin(beat * Math.PI / 4 - sg.i * 0.4)); // chill: a slow wave travelling down
+    else lvl = 0.12 + 0.88 * Math.pow(1 - _fr(beat + off - sg.i * 0.07), 3);                   // a flash on each beat that runs down the bar
+    if (!dark && playing) { if (strobe) lvl = _fr(beat * 4 + (sg.side > 0 ? 0 : 0.5)) < 0.5 ? 1 : 0.1; else if (drop) lvl = Math.max(lvl, 0.8); }
+    if (hit) lvl = 1;
+    sg.mat.color.copy(sg.base).multiplyScalar(Math.min(1.4, lvl * (F ?? 1)));
+  }
+}
+
 const TRUSS_Y = 3.9;
 function buildRoom() {
   const { w, z0, z1, h } = ROOM, d = z0 - z1, zc = (z0 + z1) / 2;
@@ -681,6 +724,7 @@ function buildRoom() {
     for (let k = 0; k < 4; k++) { const b = add(new THREE.BoxGeometry(0.7, 0.22, 0.5), black, s * 3.9, 3.5 - k * 0.24, -2.1); b.rotation.x = k * 0.05; }
     // pillars
     add(new THREE.BoxGeometry(0.5, h, 0.5), wall, s * 3.4, h / 2, -7.6);
+    buildSideBar(s); buildSideTower(s);
   }
   // truss across the ceiling
   for (const z of [-2.6, -6.6]) {
@@ -1335,6 +1379,7 @@ function lights(t, dt) {
     if (chill) l.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); else l.color.setHex(hex);
     l.intensity = ((chill ? 22 + 18 * pulse + 12 * energy : rave ? 8 + 18 * energy + (strobe ? 70 : 0) : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * (1 - 0.5 * buildAmt) + (dropHit ? 90 : 0)) * (preDrop ? 0.05 : 1) * F;
   });
+  updateSideBars(beat, chill, strobe, dark, hitOn, drop, pulse, F);
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
   // the haze picks up whatever the rig is throwing, shaft by shaft
