@@ -1283,7 +1283,7 @@ function aimCamera() {
   placeDecks();
 }
 // CLUB 2: a camera that drifts between shots on the beat: a new shot every 16 beats, every 8 when the crowd is flying
-const PAN = { shot: -1, block: -1 };
+const PAN = { shot: -1, start: -999, len: 64, drift: false, dolly: 0 };
 const mix_ = THREE.MathUtils.lerp;
 // Camera B is a club's own cameras: mounted high on the walls and the bar-wall truss, on a long lens, never down in the crowd. Wide and medium shots, with a slow pan from high up.
 const PAN_SHOTS = [
@@ -1295,13 +1295,20 @@ const PAN_SHOTS = [
   (k) => [[mix_(-4.4, -3.6, k), 2.4, 0.4], [0, 1.7, 0]],                                                               // the DJ from the side, at a distance
   (k) => { const a = mix_(-0.9, 0.9, k); return [[Math.sin(a) * 4.6, 3.6, -3.8 - Math.cos(a) * 4.4], [0, 1.0, -3.8]]; }, // high arc round the back of the floor
 ];
+// The auto camera follows the lights setting. Chill: fixed shots with a very slow push in or pull out, a new angle every 32 bars. Energetic: a new angle every 16 or 32 bars, some slow pans and a gentle zoom.
+// Rave: the same cuts, but it pans more often and moves a little more. Cuts always land on the first beat of a bar.
 function updatePanCam(beat) {
-  const hot = brain.playing && brain.hype > 66, len = hot ? 32 : 64; // a cut every 8 bars when it's hot, every 16 when calm: always on the downbeat of a bar
-  const block = Math.floor(beat / len);
-  if (block !== PAN.block) { PAN.block = block; let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot); PAN.shot = n; PAN.drift = n === 1 || Math.random() < 0.15; }
-  const k = PAN.drift ? (((beat % len) + len) % len) / len : 0.5; // like a camera operator at a live event: mostly locked-off shots, now and then a slow move
-  const [pos, look] = PAN_SHOTS[PAN.shot](k);
-  camera.position.set(pos[0], pos[1], pos[2]); camera.lookAt(look[0], look[1], look[2]);
+  const chill = light.style === 'chill', rave = light.style === 'rave';
+  if (beat >= PAN.start + PAN.len || beat < PAN.start) {                    // time for a new shot (or the track jumped back)
+    PAN.start = Math.floor(beat / 4) * 4; PAN.len = chill ? 128 : Math.random() < 0.5 ? 64 : 128;
+    let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot || (chill && n === 1));   // the sweeping high pan is not a chill shot
+    PAN.shot = n; PAN.drift = chill ? false : n === 1 || Math.random() < (rave ? 0.75 : 0.45);
+    PAN.dolly = (Math.random() < 0.5 ? -1 : 1) * (chill ? 0.3 : rave ? 0.2 : 0.15);
+  }
+  const prog = Math.min(1, (beat - PAN.start) / PAN.len);
+  const [pos, look] = PAN_SHOTS[PAN.shot](PAN.drift ? prog : 0.5);
+  const f = PAN.dolly * (prog - 0.5);                                         // slow zoom: moves along the line of sight, in or out
+  camera.position.set(pos[0] + (look[0] - pos[0]) * f, pos[1] + (look[1] - pos[1]) * f, pos[2] + (look[2] - pos[2]) * f); camera.lookAt(look[0], look[1], look[2]);
 }
 window.addEventListener('cc-clubzoom', (e) => { clubZoom = e.detail; aimCamera(); });
 
