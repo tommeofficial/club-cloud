@@ -580,7 +580,12 @@ function updatePeople(dt) {
     if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.dance = chooseDance(p, tempo); }
     if (!playing && t > (p.restUntil || 0)) { p.restUntil = t + rnd(8, 20); if (p.rests.length > 1 && Math.random() < 0.5) p.rest = pick(p.rests); }
     let want = p.rest || 'idle';
-    if (playing) { const e = brain.hype + p.bias; want = e > 74 && has(p, 'hype') && p.style !== 'chill' ? 'hype' : e > 48 ? p.dance || p.rest : p.rest; }
+    if (playing) {
+      // the crowd follows the lights setting: chill is a mellow sway (no big moves), energetic as before, rave is the whole room going off
+      const vibe = light.style === 'chill' ? -22 : light.style === 'rave' ? 14 : 0;
+      const e = brain.hype + p.bias + vibe, mellow = light.style === 'chill', wild = light.style === 'rave';
+      want = e > 74 && has(p, 'hype') && (wild || (p.style !== 'chill' && !mellow)) ? 'hype' : e > 48 ? p.dance || p.rest : p.rest;
+    }
     if (p.hold) want = p.hold.name;
     if (!p.busy && want !== p.loopName && p.actions[want]) {
       const next = p.actions[want];
@@ -1353,9 +1358,9 @@ function lights(t, dt) {
   // into a glow whatever the style, and the drop lands as a blast
   const buildAmt = brain.playing && brain.lowSince > 2.5 ? Math.min(1, (brain.lowSince - 2.5) / 8) : 0;
   if (buildAmt > 0) { if (buildStart == null) buildStart = beat; } else buildStart = null;
-  // a build runs in whole bars: on the last beat before the next 8-beat mark the rig cuts to black, so the drop lands out of the dark
+  // a build runs in whole bars: on the last beat and a half before the next 8-beat mark the whole rig stops dead and goes black (beams, washes, side screens, strobes, lasers), so the drop lands out of the dark
   const toMark = buildStart == null ? 9 : 8 - ((((beat - buildStart) % 8) + 8) % 8);
-  const preDrop = buildAmt > 0.55 && beat - buildStart >= 8 && toMark < 0.7;
+  const preDrop = buildAmt > 0.55 && beat - buildStart >= 8 && toMark < 1.5;
   const lull = brain.playing && brain.lowSince > 9;
   const chill = light.style === 'chill' || lull;
   const rave = light.style === 'rave' && !lull;
@@ -1380,8 +1385,8 @@ function lights(t, dt) {
   const pal = PALETTE.filter((_, i) => light.colours[i]);
   const colours = pal.length ? pal : PALETTE;
   const step = Math.floor(beat / Math.max(1, Math.round(8 - 6 * k))); // colour changes every 8 beats at low intensity, every 2 at high
-  const speed = (0.4 + 1.6 * k) * (chill ? 0.35 : 1) * (0.25 + 0.75 * calm);
-  const strobe = !chill && ((drop && ((beat * 4) % 1 + 1) % 1 < 0.35)
+  const speed = (0.4 + 1.6 * k) * (chill ? 0.35 : 1) * (preDrop ? 0 : 0.25 + 0.75 * calm);   // frozen in the blackout
+  const strobe = !chill && !preDrop && ((drop && ((beat * 4) % 1 + 1) % 1 < 0.35)
     || (rave && energy > 0.45 && ((beat % 4) + 4) % 4 > 3 && ((beat * 2) % 1 + 1) % 1 < 0.4)      // rave: a burst on the last beat of every bar
     );
   pickLook(beat, drop);
@@ -1422,7 +1427,7 @@ function lights(t, dt) {
     if (chill) l.color.lerp(_col.setHex(hex), Math.min(1, dt * 1.2)); else l.color.setHex(hex);
     l.intensity = ((chill ? 22 + 18 * pulse + 12 * energy : rave ? 8 + 18 * energy + (strobe ? 70 : 0) : 12 + 40 * energy * (0.6 + 0.4 * pulse) + (strobe ? 60 : 0)) * (1 - 0.5 * buildAmt) + (dropHit ? 90 : 0)) * (preDrop ? 0.05 : 1) * F;
   });
-  updateSideBars(beat, chill, strobe, dark, hitOn, drop, pulse, F);
+  updateSideBars(beat, chill, strobe, dark || preDrop, hitOn, drop, pulse, F);
   if (dark) ledMat.color.setRGB(0.04, 0.04, 0.04);
   else ledMat.color.setHex(colours[step % colours.length]).multiplyScalar(0.45 + 0.55 * pulse);
   // the haze picks up whatever the rig is throwing, shaft by shaft
@@ -1438,11 +1443,19 @@ function lights(t, dt) {
   updateCo2(dt, t);
 }
 
+// CO2 goes off on most drops, but only once a song: a deck's track is the song; with no deck (a stream, a mix) it is once every few minutes
+function co2ThisDrop(t) {
+  const c = cc(), M = c && (c.decks.find((d) => d.master && d.playing) || c.decks.find((d) => d.playing));
+  const song = M && M.t ? (M.t.id || M.t.title || 'deck') : null;
+  const fresh = song ? song !== auto.co2Song : t - (auto.co2At ?? -999) > 200;
+  if (!fresh || Math.random() > 0.85) return false;
+  auto.co2Song = song; auto.co2At = t; return true;
+}
 // decides when the effects fire: CO2 on big drops, lasers at random on drops, breakdowns or locked to the kick
 function autoFx(t, beat) {
   if (brain.lastDrop !== auto.drop) {
     auto.drop = brain.lastDrop;
-    if (light.fx.co2) { light.sfx.co2 = t + SFX_LENGTH.co2; sfx.co2(); }
+    if (light.fx.co2 && co2ThisDrop(t)) { light.sfx.co2 = t + SFX_LENGTH.co2; sfx.co2(); }
     sfx.drop();
     // sometimes the drop lands as a blinder hit: the rig blacks out and only the blinders blast the crowd
     if (light.fx.blinders && Math.random() < 0.35) auto.blindUntil = beat + 1.5;
