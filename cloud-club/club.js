@@ -1026,7 +1026,7 @@ async function loadCrowd() {
   const loader = new GLTFLoader();
   const total = MODELS.length + FEATURED.length + 1; let done = 0; // the loading screen's bar
   const tick = (p) => p.finally(() => loadMsg.querySelector('.ldbar')?.style.setProperty('--p', Math.min(1, ++done / total)));
-  const sharedDonor = FEATURED.some((f) => f.shared) ? await loader.loadAsync('models/crowd_clips.glb?v=2').catch(() => null) : null; // the built characters' shared moves
+  const sharedDonor = FEATURED.some((f) => f.shared) ? await loader.loadAsync('models/crowd_clips.glb?v=3').catch(() => null) : null; // the built characters' shared moves
   const [gltfs, stars] = await Promise.all([Promise.all(MODELS.map((u) => tick(loader.loadAsync(u)))), Promise.all(FEATURED.map((f) => tick(loader.loadAsync(f.model)).catch(() => null)))]);
   SPOTS.forEach(([x, z], i) => {
     const fi = FEATURED.findIndex((f, k) => f.spot === i && stars[k]);
