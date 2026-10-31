@@ -664,24 +664,14 @@ function buildScene() {
 const ROOM = { w: 11, z0: 2.5, z1: -13.5, h: 4.4 };
 // LED light bars down both side walls: white on the left of the crowd's view (like the logo's white C), cyan on the right, each in segments so they can chase and flash with the rig.
 const sideBars = { segs: [], N: 14 };
-function buildSideBar(side) {
-  const { w, z0, z1 } = ROOM, N = sideBars.N, zA = z0 - 1.5, zB = z1 + 1.5, len = (zA - zB) / N;
-  const x = side * (w / 2 - 0.12), base = side > 0 ? new THREE.Color(0xf2fcff) : new THREE.Color(0x4cebff);   // the lights stand just in front of their housing
-  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.62, zA - zB + 0.2), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6, metalness: 0.4 }));
-  housing.position.set(side * (w / 2 - 0.05), 2.05, (zA + zB) / 2); scene.add(housing);
-  for (const dy of [0.27, -0.27]) for (let i = 0; i < N; i++) {      // a thin white (or cyan) trim line above and below the LED screen strip, chasing with the beat
-    const mat = new THREE.MeshBasicMaterial({ color: base.clone().multiplyScalar(0.25) });
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, len - 0.08), mat);
-    m.position.set(x, 2.05 + dy, zA - len * (i + 0.5)); scene.add(m);
-    sideBars.segs.push({ mat, base, i, side });
-  }
-}
+// (no housing or trim lights round the side screens any more: the LED screens are the whole thing)
+function buildSideBar(side) {}
 // Side screens. The main screen is drawn once a frame into a small texture (no text, no dots, see updateScreen), and these only show windows of it
 // through their own LED pixel grid: they copy the main screen's look, colours and beat, and cost almost nothing.
 function buildSideCopies() {
   const tex = screen.rt.texture, { w, z0, z1 } = ROOM;
   // a long, thin LED screen down each side wall: a narrow slice through the middle of the main screen, mirrored on the other wall
-  const zA = z0 - 1.5, zB = z1 + 1.5, L = zA - zB, H = 0.42, CELL = 0.035;
+  const zA = z0 - 1.5, zB = z1 + 1.5, L = zA - zB, H = 0.6, CELL = 0.035;
   for (const side of [-1, 1]) {
     const mat = ledCopyMaterial(THREE, tex, { rect: side < 0 ? [0.2, 0.46, 0.6, 0.08] : [0.8, 0.46, -0.6, 0.08], grid: [L / CELL, H / CELL] });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
