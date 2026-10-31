@@ -68,6 +68,17 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #tabs #timebar { font: 700 13px var(--label); letter-spacing: 1.2px; font-variant-numeric: tabular-nums; color: #8fe9ff; background: rgba(65,231,255,.1); border: 1px solid rgba(65,231,255,.35); border-radius: 6px; padding: 7px 12px; min-height: 30px; }
 #tabs #timebar.low { color: #ffd479; border-color: rgba(255,212,121,.55); background: rgba(255,212,121,.1); }
 #tabs #timebar.out { color: #fff; border-color: #ff4d6a; background: rgba(255,60,80,.28); }
+#musicpanel { position: absolute; inset: 52px 14px 14px; z-index: 12; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: rgba(8,10,16,.97); border: 1px solid #24304a; border-radius: 12px; font: 600 12px var(--label); color: #cfd8e6; }
+#musicpanel[hidden] { display: none; }
+#musicpanel .mh { display: flex; align-items: center; gap: 10px; } #musicpanel .mh b { font: 700 14px var(--label); letter-spacing: 2px; color: #fff; } #musicpanel .mh i { font-style: normal; color: #7f93a8; flex: 1; }
+#musicpanel .mx { background: transparent; border: 0; color: #8a94a6; font-size: 18px; cursor: pointer; }
+#musicpanel .chips { display: flex; flex-wrap: wrap; gap: 6px; } #musicpanel .chips button { padding: 8px 12px; font: 700 11px var(--label); letter-spacing: 1px; color: #9fb2c6; background: transparent; border: 1px solid rgba(120,150,200,.3); border-radius: 999px; cursor: pointer; } #musicpanel .chips button.on { color: #07121d; background: #8fe9ff; border-color: #8fe9ff; }
+#musicpanel .mq { display: flex; gap: 6px; } #musicpanel .mq input { flex: 1; padding: 9px 12px; font: 500 14px var(--ui); color: #e9eaec; background: rgba(255,255,255,.06); border: 1px solid rgba(120,150,200,.28); border-radius: 8px; }
+#musicpanel .rows { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+#musicpanel .row { display: grid; grid-template-columns: 44px 1fr auto auto 72px; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,.04); }
+#musicpanel .row img { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: #151a26; } #musicpanel .row .t { min-width: 0; } #musicpanel .row .t b { display: block; color: #fff; font: 600 14px var(--ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #musicpanel .row .t span { color: #7f93a8; font: 500 12px var(--ui); }
+#musicpanel .row button { padding: 8px 0; font: 700 11px var(--label); letter-spacing: 1px; color: #07121d; background: #8fe9ff; border: 0; border-radius: 6px; cursor: pointer; } #musicpanel .row button:disabled { opacity: .55; }
+#musicpanel .mnote { color: #7f93a8; font: 500 12px var(--ui); } #musicpanel .mnote a { color: #8fe9ff; }
 #moremenu #timepill { border-radius: 6px; font-size: 13px; letter-spacing: 1.2px; padding: 9px 15px; min-height: 34px; }
 #tabs.v #moremenu { right: auto; left: calc(100% + 6px); top: auto; bottom: 0; }
 #view { position: absolute; overflow: hidden; touch-action: none; }
@@ -426,6 +437,7 @@ canvas.cv { position: absolute; pointer-events: none; }
       <div id="moremenu" role="menu" hidden>
         <button id="timepill" data-act="time" role="menuitem" hidden></button>
         <button data-act="lib" role="menuitem" title="Library">LIBRARY</button>
+        <button id="musicbtn" role="menuitem" title="Browse free-to-use music by genre and add it to your library for this session" hidden>MUSIC</button>
         <button data-act="lights" role="menuitem" title="Lights, effects and sound">SETTINGS</button>
         <button data-act="help" role="menuitem" title="How to use">HELP</button>
         <button id="signinbtn" data-act="signin" role="menuitem" title="Sign in to watch streams and play the decks">SIGN IN</button>
@@ -452,12 +464,13 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=122"></script>
+<script src="app.js?v=123"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=156"></script>
 <script type="module" src="chat.js?v=112"></script>
 <script type="module" src="billing.js?v=17"></script>
 <script type="module" src="record.js?v=4"></script>
+<script type="module" src="music.js?v=1"></script>
 <script type="module" src="auth.js?v=4"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {
   const js = document.createElement('script'); js.type = 'module'; js.src = 'advert/shot.js?v=10'; document.head.appendChild(js);

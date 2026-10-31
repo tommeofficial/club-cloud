@@ -1880,7 +1880,7 @@ const DB = {
 const KEEP = ['id', 'title', 'artist', 'file', 'art', 'bpm', 'first', 'down', 'key', 'firstSound', 'dur', 'wfRate', 'low', 'mid', 'high', 'hot', 'mem', 'tag', 'added'];
 const saveTimers = new Map();
 function persist(rec) {
-  if (!rec || rec.demo) return;
+  if (!rec || rec.demo || rec.session) return;     // session tracks (the licensed music library) are never saved on this device
   clearTimeout(saveTimers.get(rec.id));
   saveTimers.set(rec.id, setTimeout(() => { const o = {}; for (const k of KEEP) o[k] = rec[k]; DB.put(o); }, 400));
 }
@@ -2014,7 +2014,7 @@ function readTags(file) {
 }
 
 const isAudio = (f) => /^audio\//.test(f.type) || /\.(mp3|wav|aiff?|flac|m4a|aac|ogg|opus|wma)$/i.test(f.name);
-async function addFiles(files, deckIdx) {
+async function addFiles(files, deckIdx, opts) {
   files = [...files].filter(isAudio);
   if (!files.length) { toast('Those files are not audio. Try MP3, WAV, AIFF, FLAC or M4A.'); return; }
   if (!ctx) return;
@@ -2023,7 +2023,7 @@ async function addFiles(files, deckIdx) {
   for (const f of files) {
     const base = f.name.replace(/\.[^.]+$/, '');
     const m = base.match(/^(.+?)\s+-\s+(.+)$/);
-    const rec = { id: 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), title: m ? m[2] : base, artist: m ? m[1] : '', file: f, added: Date.now(), hot: new Array(8).fill(null), mem: [], tag: false, busy: true, bpm: 120, first: 0, down: 0 };
+    const rec = { session: !!(opts && opts.session), id: 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), title: m ? m[2] : base, artist: m ? m[1] : '', file: f, added: Date.now(), hot: new Array(8).fill(null), mem: [], tag: false, busy: true, bpm: 120, first: 0, down: 0 };
     lib.push(rec);
     sel = viewList().indexOf(rec); if (sel < 0) sel = 0;
     renderCenter(true); if (!modal.hidden && modal.dataset.kind === 'lib') renderModalList(true);
