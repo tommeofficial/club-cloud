@@ -681,16 +681,18 @@ function buildSideCopies() {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
     m.position.set(side * (w / 2 - 0.122), 2.2, (zA + zB) / 2); m.rotation.y = -side * Math.PI / 2; scene.add(m);
   }
-  // big C-shaped LED screens: exactly the shape, proportions and pixel size of the logo's own C's (ring 1.82 to 2.08 round the 1.95 centreline, the same gap), two on each side wall,
-  // opening towards the stage, and showing the main screen's picture
-  const OUT = 1.95 + 0.13, IN = 1.95 - 0.13, PITCH = 3.26 / 150;
-  const hp = (1.95 / OUT) * Math.sin(0.1);                                   // the same gap between the two ends as the logo
-  for (const side of [-1, 1]) {                                              // the wall: -1 the crowd's left (world -x), 1 the right
-    for (const zc of [-2.8, -7.9]) {
-      const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * OUT / PITCH, 2 * OUT / PITCH], ring: [IN / OUT, hp, side], mode: 1, gain: 1.3 });
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * OUT, 2 * OUT), mat);
-      mesh.position.set(side * (w / 2 - 0.09), 2.2, zc); mesh.rotation.y = -side * Math.PI / 2; scene.add(mesh);
-    }
+  // C-shaped LED screens with exactly the shape, proportions and pixel size of the logo's own C's (ring 1.82 to 2.08 round the 1.95 centreline, the same gap), showing the main screen's picture.
+  // Two large ones either side of the DJ's C's on the DJ wall, and two smaller ones either side of the neon logo on the bar wall. Each C opens towards the logo it sits beside.
+  const PITCH = 3.26 / 150, hp = (1.95 / (1.95 + 0.13)) * Math.sin(0.1);
+  const cScreen = (out, x, y, z, faceBack, keepLeft) => {
+    const mat = ledCopyMaterial(THREE, tex, { rect: [0.22, 0.22, 0.56, 0.56], grid: [2 * out / PITCH, 2 * out / PITCH], ring: [(1.95 - 0.13) / (1.95 + 0.13), hp, keepLeft ? 1 : -1], mode: 1, gain: 1.3 });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * out, 2 * out), mat);
+    mesh.position.set(x, y, z); if (faceBack) mesh.rotation.y = Math.PI; scene.add(mesh);
+  };
+  const LOGO_OUT = 1.95 + 0.13;
+  for (const sx of [-1, 1]) {                       // sx: world side (+x is the crowd's left looking at the DJ wall, the left of the logo seen from the booth)
+    for (const x of [LOGO_OUT + 0.12 + 0.8, LOGO_OUT + 0.12 + 2.4]) cScreen(0.8, sx * x, 2.32, z0 - 0.09, true, sx > 0);   // DJ wall, facing the room
+    for (const x of [1.25 + 0.15 + 0.75, 1.25 + 0.15 + 2.3]) cScreen(0.75, sx * x, 3.05, z1 + 0.06, false, sx < 0);          // bar wall, beside the neon logo
   }
 }
 // tall towers either side of the stage, so the bars are in shot from the crowd too (white left, cyan right), chasing upwards
