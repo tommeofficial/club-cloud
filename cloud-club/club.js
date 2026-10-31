@@ -1283,10 +1283,10 @@ const PAN_SHOTS = [
   (k) => [[mix_(4.8, 4.0, k), 3.2, -10.6], [0, 1.2, -3]],                                                              // wide from the back corner
 ];
 function updatePanCam(beat) {
-  const hot = brain.playing && brain.hype > 66, len = hot ? 8 : 16;
+  const hot = brain.playing && brain.hype > 66, len = hot ? 32 : 64; // a cut every 8 bars when it's hot, every 16 when calm: always on the downbeat of a bar
   const block = Math.floor(beat / len);
-  if (block !== PAN.block) { PAN.block = block; let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot); PAN.shot = n; }
-  const k = (((beat % len) + len) % len) / len;
+  if (block !== PAN.block) { PAN.block = block; let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot); PAN.shot = n; PAN.drift = Math.random() < 0.15; }
+  const k = PAN.drift ? (((beat % len) + len) % len) / len : 0.5; // like a camera operator at a live event: mostly locked-off shots, now and then a slow move
   const [pos, look] = PAN_SHOTS[PAN.shot](k);
   camera.position.set(pos[0], pos[1], pos[2]); camera.lookAt(look[0], look[1], look[2]);
 }
