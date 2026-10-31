@@ -6,7 +6,7 @@ The app already has the payment code: `cloud-club/api/checkout.js` starts a Stri
 1. Create a Stripe account (stripe.com) in your name. Stripe will ask for business and bank details: enter those yourself.
 2. In **Product catalogue**, add a product "Club Cloud Pro" with a **recurring monthly price of £9.99**. Copy its **Price ID** (starts `price_`).
 3. In **Developers, API keys**, copy the **Secret key** (starts `sk_test_` while testing).
-4. In **Developers, Webhooks**, add an endpoint: `https://clubcloud.brightsite.app/api/stripe-webhook`, listening for `checkout.session.completed` and `invoice.paid`. Copy its **Signing secret** (starts `whsec_`).
+4. In **Developers, Webhooks**, add an endpoint: `https://clubcloud.vip/api/stripe-webhook`, listening for `checkout.session.completed` and `invoice.paid`. Copy its **Signing secret** (starts `whsec_`).
 
 ## 2. Supabase
 Run `cloud-club/supabase/stripe.sql` in the SQL editor (after `billing.sql`). From Project settings, API, copy the project URL, the anon key and the **service_role** key. Treat the service_role key like a password.
@@ -20,7 +20,7 @@ Run `cloud-club/supabase/stripe.sql` in the SQL editor (after `billing.sql`). Fr
 | `SUPABASE_URL` | your Supabase project URL |
 | `SUPABASE_ANON_KEY` | the anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | the service_role key |
-| `SITE_URL` | `https://clubcloud.brightsite.app` |
+| `SITE_URL` | `https://clubcloud.vip` |
 
 Redeploy. The shop then sends people to Stripe, and the free test note disappears.
 

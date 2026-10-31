@@ -12,7 +12,7 @@ to 60 minutes) and are never stored by us. Genre buttons use the library's own g
 Before you switch it on
 1. Confirm in writing with Epidemic Sound that your plan or API agreement covers: end users playing tracks in a DJ app, live-streaming
    the mix to listeners, and recording. The API's free tier is for prototyping only and has no commercial licence.
-2. In the Epidemic Developer Portal, add `https://clubcloud.brightsite.app` to the allowed (CORS) sites, or downloads will be blocked.
+2. In the Epidemic Developer Portal, add `https://clubcloud.vip` to the allowed (CORS) sites, or downloads will be blocked.
 3. In Vercel (project `cloud-club`, Environment Variables) add `EPIDEMIC_API_KEY` with the API key from the portal. Put it in yourself;
    it is a secret. Redeploy. The MUSIC item then appears. Remove the variable to switch it off again.
 
@@ -21,5 +21,5 @@ The panel shows "Music by Epidemic Sound" as the credit.
 
 Letting another service or agent use the library without the Epidemic key
 Set `MUSIC_AGENT_TOKEN` in Vercel to a long random string you generate (for example `openssl rand -hex 32`) and give that string to the other
-agent. It then calls `https://clubcloud.brightsite.app/api/music?a=tracks&genre=<id>` with `Authorization: Bearer <that string>`
+agent. It then calls `https://clubcloud.vip/api/music?a=tracks&genre=<id>` with `Authorization: Bearer <that string>`
 (also `a=genres`, `a=file&id=<trackId>`). The Epidemic key stays only in Vercel. To cut the agent off, change or remove `MUSIC_AGENT_TOKEN`.
