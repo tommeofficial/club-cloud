@@ -2091,7 +2091,7 @@ async function start() {
   bloom = LITE ? new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.86) : new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.55, 0.82); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   resize();
-  try { await loadCrowd(); await loadDj(); loadMsg.querySelector('.ldbar')?.style.setProperty('--p', 1); resize(); loadMsg.hidden = true; }
+  try { await loadCrowd(); await loadDj(); try { if (renderer.compileAsync) await renderer.compileAsync(scene, camera); } catch (_) {} loadMsg.querySelector('.ldbar')?.style.setProperty('--p', 1); resize(); loadMsg.hidden = true; }   // shaders are compiled now too, so the first frame has no hitch
   catch (e) { console.warn('crowd failed to load', e); loadMsg.textContent = 'The crowd could not load. Check your connection and reopen CLUB.'; }
 }
 
@@ -2103,5 +2103,10 @@ window.addEventListener('cc-view', (e) => {
   start().then(() => { resize(); if (!running) { running = true; clock.getDelta(); frame(); } });
   requestAnimationFrame(() => renderer && resize());
 });
+// Load the club in the background while someone is on the decks, so CLUB opens straight away. It waits for the page to settle and for an idle moment,
+// and does nothing until then so the decks come first.
+const preloadClub = () => { if (!started && mode === 'off') start().catch((e) => console.warn('club preload', e)); };
+const whenIdle = () => (window.requestIdleCallback ? window.requestIdleCallback(preloadClub, { timeout: 6000 }) : setTimeout(preloadClub, 3000));
+if (document.readyState === 'complete') setTimeout(whenIdle, 1500); else addEventListener('load', () => setTimeout(whenIdle, 1500));
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
 window.__club = { snapshot, live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
