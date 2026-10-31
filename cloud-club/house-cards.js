@@ -12,10 +12,6 @@ setInterval(() => document.querySelectorAll('.lviews b').forEach((b) => { b.text
 export const houseCard = (m) => `<button class="lcard house" data-house="${esc(m.id)}">
   <span class="lthumb" style="background-image:url(${esc(m.thumb || 'hero/house-thumb.jpg')}), linear-gradient(135deg, hsl(${hue(m.id)} 60% 30%), hsl(${(hue(m.id) + 70) % 360} 65% 14%))"></span>
   <span class="lbadge">24/7</span><span class="lviews" title="Watching now">${EYE}<b>${viewers()}</b></span>
-  <span class="lav" style="background:#4cebff;color:#04121a">C</span>
-  <b class="ltitle">${esc(m.name || m.id)}</b>
-  <i class="lname">@clubcloud · HOUSE DJ</i>
-  <span class="lmeta">The Club Cloud robot on the decks · starts when you join</span>
-  <span class="lfoot"><span>always on</span><span>${esc(m.genre || m.name || '')}</span></span>
+  <span class="lover"><b class="ltitle">${esc(m.name || m.id)}</b><i class="lname">@clubcloud · HOUSE DJ</i><span class="lfoot"><span>always on</span><span>${esc(m.genre || '')}</span></span></span>
 </button>`;
 export const openHouse = (id) => { location.href = '/app?house=' + encodeURIComponent(id); };
