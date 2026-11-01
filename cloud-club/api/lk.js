@@ -2,7 +2,7 @@
 // POST { room, role: 'dj' | 'listener' } with the person's Supabase access token -> { url, token, expires }.
 // The caps (all env, set in Vercel):
 //   LK_BUDGET_MINUTES  participant-minutes per month this site may hand out (default 1500: set it to about 80% of your plan's free allowance)
-//   LK_MAX_LISTENERS   listeners in one room (default 100)
+//   LK_MAX_LISTENERS   listeners in one room (default 90: LiveKit's Build plan allows 100 people connected at once across the whole project, DJs included)
 //   LK_LISTEN_SECONDS  how long one listener token is good for, and what it is counted as (default 900 = 15 minutes; the page leaves and rejoins)
 // Every token is counted in full when it is issued (api's supabase/livekit.sql: lk_take), so a month can never go past the budget. Keep NO payment card on the LiveKit plan: then nothing can be billed at all.
 const crypto = require('crypto');
@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
       if (!w[0] || !w[0].pro_until || new Date(w[0].pro_until) < new Date()) return send(403, { error: 'Going live needs Pro.' });
     } else {
       // the room's listener cap, asked of LiveKit itself
-      const cap = Math.max(1, +env('LK_MAX_LISTENERS') || 100);
+      const cap = Math.max(1, +env('LK_MAX_LISTENERS') || 90);
       const admin = jwt({ iss: KEY, sub: 'server', nbf: Math.floor(Date.now() / 1000) - 10, exp: Math.floor(Date.now() / 1000) + 60, video: { roomAdmin: true, room: 'r-' + room } }, SECRET);
       try {
         const r = await fetch(`${httpUrl(URL_)}/twirp/livekit.RoomService/ListParticipants`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + admin }, body: JSON.stringify({ room: 'r-' + room }) });
