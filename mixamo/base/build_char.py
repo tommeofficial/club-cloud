@@ -37,6 +37,26 @@ for slot in body.material_slots:
 rig = HumanService.add_builtin_rig(body, 'mixamo', import_weights=True)
 rig.name = 'Armature'
 
+# Match the complete 65-bone Mixamo hierarchy: MPFB creates the 52 deforming
+# bones but omits Mixamo's terminal finger, head-top and toe-end bones. Terminal
+# bones have no skin weights by design, yet are required for clip compatibility.
+terminal = ['mixamorig:HeadTop_End', 'mixamorig:LeftToe_End', 'mixamorig:RightToe_End']
+for side in ('Left', 'Right'):
+    terminal += [f'mixamorig:{side}Hand{finger}4' for finger in ('Thumb', 'Index', 'Middle', 'Ring', 'Pinky')]
+bpy.context.view_layer.objects.active = rig; rig.select_set(True)
+bpy.ops.object.mode_set(mode='EDIT')
+for name in terminal:
+    if rig.data.edit_bones.get(name): continue
+    parent_name = name.replace('HeadTop_End', 'Head').replace('Toe_End', 'ToeBase')
+    for finger in ('Thumb', 'Index', 'Middle', 'Ring', 'Pinky'):
+        parent_name = parent_name.replace(f'{finger}4', f'{finger}3')
+    parent = rig.data.edit_bones.get(parent_name)
+    if not parent: raise RuntimeError('Missing Mixamo parent bone: ' + parent_name)
+    bone = rig.data.edit_bones.new(name); bone.parent = parent; bone.use_connect = True; bone.head = parent.tail
+    direction = parent.tail - parent.head
+    bone.tail = parent.tail + (direction.normalized() if direction.length > 1e-5 else Vector((0, 0, 1))) * max(0.012, direction.length * 0.35)
+bpy.ops.object.mode_set(mode='OBJECT')
+
 # ---- pieces
 objs = {}
 def add(kind, folder, name, key):

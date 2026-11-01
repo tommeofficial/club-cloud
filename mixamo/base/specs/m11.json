@@ -1,0 +1,12 @@
+{
+  "sex": "male",
+  "skin": "young_caucasian_male2",
+  "hair": "short02",
+  "hair_color": { "val": 0.18 },
+  "macro": { "height": 0.60, "weight": 0.47, "muscle": 0.67, "age": 0.28 },
+  "items": [
+    { "name": "male_casualsuit06", "color": { "tint": [0.10, 0.13, 0.20] } },
+    { "name": "shoes02", "color": { "sat": 0.12, "val": 0.2 } }
+  ],
+  "outfit": "young-club-shirt"
+}

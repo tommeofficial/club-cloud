@@ -46,13 +46,17 @@ const BUILT = [
   { model: 'models/crowd_b08.glb?v=2', sex: 'm', spot: 25, scale: 1, style: 'social', shared: true, hip: 1.1004 },
   { model: 'models/crowd_g09.glb?v=2', sex: 'f', spot: 26, scale: 1, style: 'raver', shared: true, hip: 0.9838 },
   { model: 'models/crowd_b09.glb?v=2', sex: 'm', spot: 27, scale: 1, style: 'raver', shared: true, hip: 1.1073 },
-  { model: 'models/crowd_g10.glb?v=2', sex: 'f', spot: 28, scale: 1, style: 'social', shared: true, hip: 1.0796 },
-  { model: 'models/crowd_b10.glb?v=2', sex: 'm', spot: 29, scale: 1, style: 'social', shared: true, hip: 1.1702 }
+  // New 65-bone Mixamo-compatible characters. They replace one character of
+  // each gender, preserving the 10-women / 10-men built-crowd balance.
+  { model: 'models/crowd_f11.glb?v=1', sex: 'f', spot: 28, scale: 1, style: 'social', shared: true, hip: 0.7317 },
+  { model: 'models/crowd_m11.glb?v=1', sex: 'm', spot: 29, scale: 1, style: 'social', shared: true, hip: 0.8180 }
 ];
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const PX_CAP = +new URLSearchParams(location.search).get('px') || 1.75;   // ?px=1 renders at 1x (for capturing smooth footage)
 const HOUSE = new URLSearchParams(location.search).get('house');   // ?house=<id>: the 24/7 Club Cloud room, where the robot is the DJ
-const FEATURED = (LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT));
+// Keep the active desktop floor balanced at ten women and ten men.  The mobile
+// path uses a smaller, evenly split subset rather than a separate crowd system.
+const FEATURED = LITE_EARLY ? BUILT.slice(0, 10) : BUILT;
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9], [10, 11], [12, 13, 14], [15, 16], [17, 18], [19, 20], [21, 22, 23], [24, 25], [26, 27], [28, 29]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
