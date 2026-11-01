@@ -357,7 +357,7 @@ function layout(animate) {
   const availH = { w: pw - 8, h: H - ins.t - ins.b - 44 - 6 };
   const availV = { w: pw - 64 - 6, h: H - ins.t - ins.b - 8 };
   const sH = Math.min(availH.w / rw, availH.h / rh), sV = Math.min(availV.w / rw, availV.h / rh);
-  const vert = !split && sV > sH * 1.04;
+  const vert = false;   // the tab bar always sits across the top (it used to move to a rail down the left when that gave the decks more room)
   tabs.className = (vert ? 'v' : 'h') + (split ? ' compact' : '');
   tabs.style.left = px + 'px'; tabs.style.top = ins.t + 'px';
   if (vert) { tabs.style.bottom = ins.b + 'px'; tabs.style.right = ''; }
