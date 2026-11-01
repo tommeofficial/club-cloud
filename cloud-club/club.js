@@ -779,9 +779,6 @@ function buildRoom() {
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   signMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
   add(new THREE.PlaneGeometry(2.5, 2.5), signMat, 0, 3.05, z1 + 0.03);
-  // fire exit signs
-  const exit = new THREE.MeshBasicMaterial({ color: 0x19c25a });
-  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.4, 0.15, 0.04), exit, s * 4.5, 2.6, z1 + 0.05);
 }
 
 // the stage backdrop: the logo's two C's, about 4.4 m tall, standing behind the DJ, with a round LED screen inside them.
