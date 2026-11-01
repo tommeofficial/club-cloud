@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600&display=swap');
+/* The site header on its own, so the app page can carry it too (site.css has everything else for the website pages). */
+.sh { --ink: #f4f4f2; --dim: #8e9196; --soft: #b4b7bb; --blue: #4cebff; --line: rgba(255,255,255,.1); --font: 'Inter Tight', 'Inter', 'Helvetica Neue', Arial, sans-serif; --ui: 'Inter', 'Helvetica Neue', Arial, sans-serif; --head: 64px; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+.sh *, .sh *::before, .sh *::after { box-sizing: border-box; }
+body.cc-app .sh { position: fixed; left: 0; right: 0; top: 0; user-select: none; -webkit-user-select: none; }
+body.cc-full .sh { display: none; }
+/* header */
+.sh { position: sticky; top: 0; z-index: 40; height: var(--head); display: flex; align-items: center; gap: 28px; padding: 0 clamp(16px, 4vw, 40px); background: rgba(5,5,5,.72); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); border-bottom: 1px solid var(--line); }
+.sh .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font: 600 15px/1 var(--font); letter-spacing: -.01em; white-space: nowrap; }
+.sh .brand .mark { width: 24px; height: 24px; display: block; }
+.sh .brand .beta { font: 500 10px/1 var(--ui); letter-spacing: .04em; padding: 4px 6px; margin-left: 2px; border-radius: 5px; color: var(--soft); border: 1px solid rgba(255,255,255,.2); align-self: center; }
+.sh nav { display: flex; gap: 2px; margin-left: 12px; flex: 1; }
+.sh nav a { color: var(--dim); text-decoration: none; font: 500 14px/1 var(--ui); padding: 10px 12px; border-radius: 8px; transition: color .15s; }
+.sh nav a:hover, .sh nav a[aria-current] { color: var(--ink); }
+.sh .tools { display: flex; align-items: center; gap: 10px; margin-left: auto; position: relative; }
+.sh .cta { color: #050505; background: var(--ink); text-decoration: none; font: 600 13px/1 var(--ui); padding: 10px 15px; border-radius: 8px; white-space: nowrap; transition: background .15s; } .sh .cta:hover { background: #fff; }
+.sh .acct, .sh .burger { width: 36px; height: 36px; display: grid; place-items: center; color: var(--soft); background: transparent; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; transition: color .15s, border-color .15s; }
+.sh .acct:hover, .sh .burger:hover { border-color: rgba(255,255,255,.3); color: var(--ink); }
+.sh .acct.on { background: var(--ink); color: #050505; border-color: var(--ink); }
+.sh .acct svg, .sh .burger svg { width: 18px; height: 18px; }
+.sh .burger { display: none; }
+.sh .menu { position: absolute; right: 0; top: 48px; width: 240px; background: #0d0d0e; border: 1px solid var(--line); border-radius: 12px; padding: 6px; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+.sh .menu .who { padding: 10px 12px; font: 500 13px/1.3 var(--ui); color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 6px; word-break: break-all; }
+.sh .menu a, .sh .menu button { display: block; width: 100%; text-align: left; color: var(--soft); background: none; border: 0; text-decoration: none; font: 500 14px/1 var(--ui); padding: 11px 12px; border-radius: 8px; cursor: pointer; }
+.sh .menu a:hover, .sh .menu button:hover { background: rgba(255,255,255,.06); color: var(--ink); }
+@media (max-width: 760px) {
+  .sh .burger { display: grid; }
+  .sh .cta { display: none; }
+  .sh nav { position: fixed; left: 0; right: 0; top: var(--head); flex-direction: column; gap: 0; margin: 0; padding: 8px clamp(16px, 4vw, 40px) 16px; background: rgba(5,5,5,.97); border-bottom: 1px solid var(--line); transform: translateY(-8px); opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; }
+  .sh nav.open { opacity: 1; transform: none; pointer-events: auto; }
+  .sh nav a { font-size: 16px; padding: 16px 4px; border-radius: 0; border-bottom: 1px solid var(--line); }
+}
+

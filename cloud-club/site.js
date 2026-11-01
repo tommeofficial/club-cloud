@@ -6,6 +6,8 @@ const USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const BURGER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
 const CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
+const IN_APP = !!document.getElementById('app');   // the app page carries the same header, fixed to the top, with the app below it
+if (IN_APP) document.body.classList.add('cc-app');
 document.body.insertAdjacentHTML('afterbegin', `<header class="sh">
   <a class="brand" href="/"><svg class="mark" viewBox="0 0 200 200" aria-hidden="true"><defs><clipPath id="hl"><rect x="0" y="0" width="94" height="200"/></clipPath><clipPath id="hr"><rect x="106" y="0" width="100" height="200"/></clipPath></defs><circle cx="100" cy="100" r="78" fill="none" stroke="#dde8f0" stroke-width="30" clip-path="url(#hl)"/><circle cx="100" cy="100" r="78" fill="none" stroke="#4cebff" stroke-width="30" clip-path="url(#hr)"/></svg>Club Cloud<span class="beta">Beta</span></a>
   <nav id="mainnav" aria-label="Main">${link('/', 'Home')}${link('/about', 'About')}${link('/pricing', 'Pricing')}<a href="/app">Play the decks</a></nav>
@@ -16,7 +18,7 @@ document.body.insertAdjacentHTML('afterbegin', `<header class="sh">
     <div class="menu" role="menu" hidden></div>
   </div>
 </header>`);
-document.body.insertAdjacentHTML('beforeend', `<footer class="sf"><div class="wrap">
+if (!IN_APP) document.body.insertAdjacentHTML('beforeend', `<footer class="sf"><div class="wrap">
   <div><a href="/about">About</a><a href="/pricing">Pricing</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/cookies">Cookies</a><a href="https://www.instagram.com/tommeofficial/" target="_blank" rel="noopener">Instagram</a></div>
   <div>© Club Cloud</div></div></footer>`);
 
@@ -50,3 +52,5 @@ render();
 const s = document.createElement('script'); s.type = 'module'; s.src = 'auth.js?v=4'; document.head.appendChild(s);
 
 const cs = document.createElement('script'); cs.src = '/consent.js'; document.head.appendChild(cs);
+
+if (IN_APP) window.dispatchEvent(new Event('resize'));   // the app lays itself out under the header

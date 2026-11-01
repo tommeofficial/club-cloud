@@ -320,8 +320,13 @@ function insets() {
 
 const Q = new URLSearchParams(location.search);
 const ADVERT = Q.has('advert') || Q.has('shot'); // the advert films the app full-bleed in portrait
+const headerH = () => (document.querySelector('.sh') && !document.body.classList.contains('cc-full') ? 64 : 0);   // the site header across the top (hidden in full screen and in the advert)
 function layout(animate) {
-  const vw = window.innerWidth, vh = window.innerHeight;
+  if (L.full && L.mode !== 'club') L.full = false;
+  document.body.classList.toggle('cc-full', !!L.full || ADVERT);
+  const hb = headerH();
+  const vw = window.innerWidth, vh = window.innerHeight - hb;
+  app.style.top = hb + 'px';
   const portrait = !ADVERT && vh > vw * 1.05;
   L.portrait = portrait; L.vw = vw; L.vh = vh;
   const W = portrait ? vh : vw, H = portrait ? vw : vh;
