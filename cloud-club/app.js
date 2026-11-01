@@ -341,10 +341,9 @@ function layout(animate) {
   let px = ins.l, pw = W - ins.l - ins.r;
   const bar = $('#splitbar');
   bar.hidden = !split;
+  let cw = 0;
   if (split) {
-    const cw = Math.round(pw * L.splitFrac);
-    Object.assign(club.style, { left: ins.l + 4 + 'px', top: ins.t + 4 + 'px', width: cw - 8 + 'px', height: H - ins.t - ins.b - 8 + 'px' });
-    Object.assign(bar.style, { left: ins.l + cw - 6 + 'px', top: ins.t + 'px', height: H - ins.t - ins.b + 'px' });
+    cw = Math.round(pw * L.splitFrac);
     club.hidden = false;
     px += cw; pw -= cw;
   }
@@ -358,8 +357,8 @@ function layout(animate) {
   const availV = { w: pw - 64 - 6, h: H - ins.t - ins.b - 8 };
   const sH = Math.min(availH.w / rw, availH.h / rh), sV = Math.min(availV.w / rw, availV.h / rh);
   const vert = false;   // the tab bar always sits across the top (it used to move to a rail down the left when that gave the decks more room)
-  tabs.className = (vert ? 'v' : 'h') + (split ? ' compact' : '');
-  tabs.style.left = px + 'px'; tabs.style.top = ins.t + 'px';
+  tabs.className = 'h';                                  // the tab bar stays across the whole top in every view, split included
+  tabs.style.left = ins.l + 'px'; tabs.style.top = ins.t + 'px';
   if (vert) { tabs.style.bottom = ins.b + 'px'; tabs.style.right = ''; }
   else { tabs.style.right = ins.r + 'px'; tabs.style.bottom = ''; }
   // in DECKS and SPLIT the zoom buttons sit on a second row under the view buttons
@@ -367,7 +366,11 @@ function layout(animate) {
   tabs.classList.toggle('sub', sub > 0);
   L.vx = px + (vert ? 64 + 3 : 4); L.vy = ins.t + (vert ? 4 : 44 + 3) + sub;
   L.aw = px + pw - L.vx - 4; L.ah = H - L.vy - ins.b - 3;
-  if (ADVERT || full) { L.vx = 0; L.vy = 0; L.aw = W; L.ah = H; } // the advert films the stage edge to edge
+  if (ADVERT || full) { L.vx = 0; L.vy = 0; L.aw = W; L.ah = H; }
+  if (split) {      // split: the club on the left, the decks on the right, both under the tab bar
+    Object.assign(club.style, { left: ins.l + 4 + 'px', top: L.vy + 'px', width: cw - 8 + 'px', height: H - L.vy - ins.b - 3 + 'px' });
+    Object.assign(bar.style, { left: ins.l + cw - 6 + 'px', top: L.vy + 'px', height: H - L.vy - ins.b - 3 + 'px' });
+  } // the advert films the stage edge to edge
   // CLUB: one 3D view from behind the DJ; the club fills the screen
   if (L.mode === 'club') {
     Object.assign(club.style, ADVERT || full ? { left: '0px', top: '0px', width: W + 'px', height: H + 'px', borderRadius: '0' } : { left: L.vx + 'px', top: L.vy + 'px', width: L.aw + 'px', height: L.ah + 'px' });
