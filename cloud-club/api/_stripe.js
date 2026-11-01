@@ -50,3 +50,11 @@ exports.verifyStripe = (raw, header, secret, now = Date.now()) => {
   const got = String(header).split(',').filter((p) => p.startsWith('v1=')).map((p) => p.slice(3));
   return got.some((g) => g.length === want.length && crypto.timingSafeEqual(Buffer.from(g), Buffer.from(want)));
 };
+
+// Hours or Pro are granted from two places that must never double up: the webhook and the return-from-Stripe check (api/confirm.js). Both key hours on the Checkout session id.
+exports.grantHours = (session, userId) => exports.rpc('grant_paid_once', { p_event: session.id, p_user: userId, p_seconds: 3600 * Math.max(1, Math.min(50, +(session.metadata || {}).hours || 1)) });
+exports.grantPro = async (subscriptionId) => {   // sets Pro to the end of the paid period, so repeating it changes nothing
+  const sub = await exports.stripe('GET', `/subscriptions/${subscriptionId}`);
+  const user = sub.metadata && sub.metadata.user_id;
+  if (user && sub.current_period_end) await exports.rpc('grant_pro_until', { p_user: user, p_until: new Date(sub.current_period_end * 1000).toISOString() });
+};

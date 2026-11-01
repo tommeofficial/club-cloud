@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
   if (!user) return send(401, { error: 'Sign in with your email first.' });
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   const site = env('SITE_URL') || `https://${req.headers.host}`;
-  const common = { client_reference_id: user.id, customer_email: user.email, success_url: `${site}/app?paid=1`, cancel_url: `${site}/app?paid=0`, 'metadata': { user_id: user.id } };
+  const common = { client_reference_id: user.id, customer_email: user.email, success_url: `${site}/app?paid=1&session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${site}/app?paid=0`, 'metadata': { user_id: user.id } };
   try {
     let session;
     if (body.kind === 'pro') {

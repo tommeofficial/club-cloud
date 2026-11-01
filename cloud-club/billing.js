@@ -237,6 +237,19 @@ async function init() {
   try { B.tagClock = Math.min(TAG_EVERY - 1, +localStorage.getItem('cc-tag-clock') || 0); } catch (_) {}
   window.__cc?.loadTag?.();   // get the voice tag ready, if there is one
   try { B.live = !!(await (await fetch('/api/config', { cache: 'no-store' })).json()).payments; } catch (_) {}
+  // back from Stripe: ask the server to check the payment with Stripe and credit it (the webhook does too; whichever lands first wins). If they are not signed in on this address, keep the session id and check once they are.
+  const sid = new URLSearchParams(location.search).get('session_id');
+  const confirmPaid = async (id) => {
+    try {
+      const { data } = await B.backend.supabase.auth.getSession(); if (!data.session) return false;
+      const r = await fetch('/api/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token }, body: JSON.stringify({ session_id: id }) });
+      if (!r.ok) return !(r.status === 401 || r.status === 502);   // a real answer (even "not yours") ends the retries; "not signed in" and a Stripe hiccup keep them
+      take(await rpc('wallet_status')); pill(); check(); return true;
+    } catch (e) { console.warn('payment check failed', e); return false; }
+  };
+  if (sid) { try { localStorage.setItem('cc-pay-pending', sid); } catch (_) {} }
+  const tryPending = async () => { let id = null; try { id = localStorage.getItem('cc-pay-pending'); } catch (_) {} if (id && await confirmPaid(id)) { try { localStorage.removeItem('cc-pay-pending'); } catch (_) {} } };
+  tryPending(); addEventListener('cc-auth', tryPending);
   if (new URLSearchParams(location.search).get('paid') === '1') {   // back from Stripe: the payment is confirmed by the webhook a moment later, so keep checking
     const was = B.free + B.paid + (B.pro ? 1e9 : 0); let tries = 0;
     const poll = setInterval(async () => { try { take(await rpc('wallet_status')); pill(); if (B.free + B.paid + (B.pro ? 1e9 : 0) !== was || ++tries > 15) { clearInterval(poll); check(); } } catch (_) { clearInterval(poll); } }, 2000);
