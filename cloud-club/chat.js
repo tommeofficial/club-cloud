@@ -6,7 +6,7 @@
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
 import { createLive } from './live.js?v=3';
-import { createLobby } from './lobby.js?v=10';
+import { createLobby } from './lobby.js?v=11';
 import { viewers } from './house-cards.js?v=4';
 
 const panel = document.getElementById('chatpanel');
@@ -75,7 +75,7 @@ async function start() {
     S.me = await S.backend.getMyProfile();
   } catch (e) { console.warn('chat offline', e); setStatus('offline'); return; }
   makeLobby();
-  if (!sessionStorage.getItem('cc-home-seen') && !urlRoom) { sessionStorage.setItem('cc-home-seen', '1'); S.lobby.open(); }   // each visit starts on the home screen
+  if (!sessionStorage.getItem('cc-home-seen') && !urlRoom && !new URLSearchParams(location.search).has('house')) { sessionStorage.setItem('cc-home-seen', '1'); S.lobby.open(); }   // each visit starts on the home screen
   if (!S.me) { nameRow.hidden = false; setStatus(''); return; }
   connect();
 }

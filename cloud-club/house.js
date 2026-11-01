@@ -12,7 +12,10 @@ const EPOCH = Date.UTC(2026, 0, 1) / 1000;     // every viewer counts the mix fr
 async function init() {
   document.body.classList.add('house');
   let mix = null;
-  try { const r = await fetch('mixes.json', { cache: 'no-cache' }); const j = r.ok ? await r.json() : []; mix = (Array.isArray(j) ? j : j.mixes || []).find((m) => m.id === id); } catch (_) {}
+  for (let n = 0; n < 3 && !mix; n++) {      // a hiccup fetching the room list must not read as 'not on': try again before giving up
+    try { const r = await fetch('/mixes.json', { cache: 'no-cache' }); const j = r.ok ? await r.json() : []; mix = (Array.isArray(j) ? j : j.mixes || []).find((m) => m.id === id); } catch (_) {}
+    if (!mix && n < 2) await new Promise((r) => setTimeout(r, 600));
+  }
   if (!mix) return overlay(null);
   // no entry screen: the club starts loading and the music starts with it. Browsers only let sound start without a tap sometimes, so if this one won't, a single TAP TO START appears.
   document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();

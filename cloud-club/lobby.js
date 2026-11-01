@@ -9,13 +9,13 @@ const since = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000
 export function createLobby({ backend, me, enter }) {
   const root = document.getElementById('lobby'), grid = root.querySelector('.lgrid'), empty = root.querySelector('.lempty');
   const L = { me, list: [], isOpen: false, mine: null, houses: [] };
-  loadHouses().then((h) => { L.houses = h; if (L.isOpen) render(); });
+  loadHouses().then((h) => { L.houses = h; L.housesReady = true; if (L.isOpen) render(); });
   const chan = backend.openLobby(me, (list) => { L.list = list; if (L.isOpen) render(); count(); });
 
   function count() { document.querySelectorAll('[data-act=live] .lnum').forEach((el) => { const n = L.list.filter((c) => c.dj !== me).length; el.textContent = n ? n : ''; }); }
   function render() {
     const cards = [...L.list].sort((a, b) => (a.since || 0) - (b.since || 0));
-    empty.hidden = cards.length > 0 || L.houses.length > 0;
+    empty.hidden = !L.housesReady || cards.length > 0 || L.houses.length > 0;   // no 'nobody is live' until the 24/7 rooms have loaded
     grid.innerHTML = L.houses.map(houseCard).join('') + cards.map((c) => {
       const mine = c.dj === me, full = (c.listeners || 0) >= MAX && !mine;
       return `<button class="lcard${mine ? ' mine' : ''}${full ? ' full' : ''}" data-room="${esc(c.room)}" ${mine || full ? 'disabled' : ''}>

@@ -162,6 +162,7 @@ async function useInput(deviceId) {
 // a stream from anywhere: a mic, or a DJ's live broadcast that this listener is hearing (owned: we may stop its tracks)
 async function useStream(stream, owned = false) {
   stopInput();
+  ext.mic = owned;   // true for a mic or line input the person chose; false for a stream or mix the club is only following
   const ctx = new AudioContext(); ctx.resume().catch(() => {});
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
@@ -2287,4 +2288,4 @@ const preloadClub = () => { if (!started && mode === 'off') start().catch((e) =>
 const whenIdle = () => (window.requestIdleCallback ? window.requestIdleCallback(preloadClub, { timeout: 6000 }) : setTimeout(preloadClub, 3000));
 if (document.readyState === 'complete') setTimeout(whenIdle, 1500); else addEventListener('load', () => setTimeout(whenIdle, 1500));
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { inputLevel: () => brain.level || 0, get inputOn() { return inputMode; }, snapshot, live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { if (light.fx.co2 === false || clock.elapsedTime - (auto.co2Tip ?? -99) < 6) return; auto.co2Tip = clock.elapsedTime; light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { inputLevel: () => brain.level || 0, get inputOn() { return inputMode && !!ext.mic; }, snapshot, live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { if (light.fx.co2 === false || clock.elapsedTime - (auto.co2Tip ?? -99) < 6) return; auto.co2Tip = clock.elapsedTime; light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };

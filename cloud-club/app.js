@@ -45,7 +45,7 @@ const fracLbl = (b) => (b >= 1 ? String(b) : '1/' + Math.round(1 / b));
 const app = $('#app'), tabs = $('#tabs'), view = $('#view'), stage = $('#stage');
 const modal = $('#modal'), veil = $('#veil'), toastEl = $('#toast'), fileIn = $('#filein');
 
-const L = { mode: 'normal', portrait: false, vw: 0, vh: 0, W: 0, H: 0, vx: 0, vy: 0, aw: 0, ah: 0, s: 0.5, tx: 0, ty: 0, zoom: 'all', pan: { d1: 0.5, mix: 0.35, d2: 0.5 }, panRange: 0, panAxis: 'y', clubZoom: 1, splitFrac: 0.5 };
+const L = { mode: new URLSearchParams(location.search).has('house') ? 'club' : 'normal', portrait: false, vw: 0, vh: 0, W: 0, H: 0, vx: 0, vy: 0, aw: 0, ah: 0, s: 0.5, tx: 0, ty: 0, zoom: 'all', pan: { d1: 0.5, mix: 0.35, d2: 0.5 }, panRange: 0, panAxis: 'y', clubZoom: 1, splitFrac: 0.5 };
 try { const f = parseFloat(localStorage.getItem('cc-split')); if (f >= 0.25 && f <= 0.75) L.splitFrac = f; } catch (_) {}
 
 let toastT = 0;

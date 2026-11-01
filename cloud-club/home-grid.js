@@ -10,10 +10,12 @@ const since = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000
 const gbp = (n) => '£' + (Number.isInteger(n) ? n : Number(n).toFixed(2));
 
 const empty = (msg) => { grid.innerHTML = `<div class="lempty"><b>${msg}</b>Nobody is on air right now. Check back soon, or jump on the decks yourself.<br><a class="btn" href="/app">Play the decks</a></div>`; };
-let houses = [], lastList = [];
-loadHouses().then((h) => { houses = h; render(lastList); });
+let houses = [], lastList = [], ready = false;   // 'ready': the 24/7 rooms have been fetched, so an empty grid is really empty
+loadHouses().then((h) => { houses = h; ready = true; render(lastList); });
+setTimeout(() => { if (!ready) { ready = true; render(lastList); } }, 4000);
 function render(list) {
   lastList = list;
+  if (!ready) return;                                   // still checking: keep the 'Checking' message rather than flashing 'Quiet in here'
   if (!list.length && !houses.length) return empty('Quiet in here');
   grid.innerHTML = houses.map(houseCard).join('') + [...list].sort((a, b) => (a.since || 0) - (b.since || 0)).map((c) => {
     const full = (c.listeners || 0) >= MAX;
@@ -39,5 +41,4 @@ grid.addEventListener('click', async (e) => {
 try {
   if (!backend.supabase) throw new Error('not configured');
   backend.openLobby('web-' + Math.random().toString(36).slice(2, 8), render);
-  setTimeout(() => { if (grid.querySelector('.lempty b')?.textContent.startsWith('Checking')) empty('Quiet in here'); }, 4000);
 } catch (e) { console.warn('live grid', e); empty('Live streams will show up here'); }
