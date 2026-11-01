@@ -502,7 +502,7 @@ tabs.addEventListener('click', (e) => {
   if (b.dataset.zoom) setZoom(b.dataset.zoom);
   else if (b.dataset.mode === 'club') setMode(L.mode === 'club' && L.cam === 'crowd' ? 'club2' : 'club'); // again: next camera, round to 1
   else if (b.dataset.mode) setMode(b.dataset.mode);
-  else if (b.dataset.act === 'live') window.__lobby?.toggle();
+  else if (b.dataset.act === 'live') location.href = '/';   // HOME is the website's home page
   else if (b.dataset.act === 'lib') openLibrary(null);
   else if (b.dataset.act === 'help') openHelp();
   else if (b.dataset.act === 'fs') toggleFullscreen();
