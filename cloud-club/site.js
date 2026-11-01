@@ -7,10 +7,10 @@ const BURGER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 document.body.insertAdjacentHTML('afterbegin', `<header class="sh">
-  <a class="brand" href="/"><svg class="mark" viewBox="0 0 200 200" aria-hidden="true"><defs><clipPath id="hl"><rect x="0" y="0" width="94" height="200"/></clipPath><clipPath id="hr"><rect x="106" y="0" width="100" height="200"/></clipPath></defs><circle cx="100" cy="100" r="78" fill="none" stroke="#dde8f0" stroke-width="30" clip-path="url(#hl)"/><circle cx="100" cy="100" r="78" fill="none" stroke="#4cebff" stroke-width="30" clip-path="url(#hr)"/></svg>CLUB CLOUD<span class="beta">BETA</span></a>
+  <a class="brand" href="/"><svg class="mark" viewBox="0 0 200 200" aria-hidden="true"><defs><clipPath id="hl"><rect x="0" y="0" width="94" height="200"/></clipPath><clipPath id="hr"><rect x="106" y="0" width="100" height="200"/></clipPath></defs><circle cx="100" cy="100" r="78" fill="none" stroke="#dde8f0" stroke-width="30" clip-path="url(#hl)"/><circle cx="100" cy="100" r="78" fill="none" stroke="#4cebff" stroke-width="30" clip-path="url(#hr)"/></svg>Club Cloud<span class="beta">Beta</span></a>
   <nav id="mainnav" aria-label="Main">${link('/', 'Home')}${link('/about', 'About')}${link('/pricing', 'Pricing')}<a href="/app">Play the decks</a></nav>
   <div class="tools">
-    <a class="cta" href="/pricing">GO PRO</a>
+    <a class="cta" href="/pricing">Go Pro</a>
     <button class="acct" type="button" aria-label="Account" aria-haspopup="menu" aria-expanded="false">${USER}</button>
     <button class="burger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="mainnav">${BURGER}</button>
     <div class="menu" role="menu" hidden></div>

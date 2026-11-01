@@ -1,21 +1,22 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#03050a"><link rel="icon" href="logo.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Grotesk:wght@400;500;600&display=swap"><link rel="stylesheet" href="site.css?v=5">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#050505"><link rel="icon" href="logo.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="site.css?v=6">
 <title>Pricing | Club Cloud</title>
 <meta name="description" content="Watching is free. Play the decks free for 5 minutes a day, pay £1 an hour, or go Pro for £9.99 a month.">
 <style>
-.plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 34px; align-items: stretch; }
-.plan { position: relative; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px 24px 26px; }
-.plan.pro { border-color: rgba(76,235,255,.6); background: linear-gradient(170deg, rgba(76,235,255,.1), rgba(155,92,255,.08) 55%, var(--card)); box-shadow: 0 0 40px rgba(76,235,255,.12); }
-.plan .tag { position: absolute; top: -12px; left: 24px; font: 700 10px/1 var(--font); letter-spacing: .16em; color: #04121a; background: linear-gradient(90deg, #8fe9ff, #c9a6ff); padding: 7px 12px; border-radius: 999px; }
-.plan h3 { margin: 0; font: 700 14px/1 var(--font); letter-spacing: .18em; }
-.plan .price { margin: 18px 0 4px; font: 700 40px/1 var(--font); letter-spacing: .02em; } .plan .price small { font: 500 14px var(--ui); color: var(--dim); letter-spacing: 0; }
-.plan .for { color: var(--dim); font-size: 14px; margin: 0 0 18px; min-height: 22px; }
-.plan ul { list-style: none; padding: 0; margin: 0 0 24px; flex: 1; } .plan li { padding: 9px 0 9px 28px; position: relative; border-top: 1px solid rgba(255,255,255,.06); font-size: 15px; color: #cfdceb; }
-.plan li::before { content: ''; position: absolute; left: 2px; top: 15px; width: 12px; height: 7px; border-left: 2px solid var(--blue); border-bottom: 2px solid var(--blue); transform: rotate(-45deg); }
-.plan li.no { color: #6f8297; } .plan li.no::before { border-color: #44566a; transform: none; width: 10px; height: 0; border-left: 0; top: 21px; }
+.plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: 48px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.plan { position: relative; display: flex; flex-direction: column; padding: 32px 28px 30px; border-left: 1px solid var(--line); background: transparent; }
+.plan:first-child { border-left: 0; }
+.plan.pro { background: rgba(255,255,255,.04); }
+.plan .tag { position: absolute; top: 32px; right: 28px; font: 500 12px/1 var(--ui); color: var(--ink); background: rgba(255,255,255,.1); padding: 6px 9px; border-radius: 6px; }
+.plan h3 { margin: 0; font: 500 15px/1 var(--ui); color: var(--soft); }
+.plan .price { margin: 22px 0 6px; font: 600 52px/1 var(--font); letter-spacing: -.04em; } .plan .price small { font: 400 15px var(--ui); color: var(--dim); letter-spacing: 0; margin-left: 2px; }
+.plan .for { color: var(--dim); font-size: 14.5px; margin: 0 0 26px; min-height: 22px; }
+.plan ul { list-style: none; padding: 0; margin: 0 0 28px; flex: 1; } .plan li { padding: 11px 0 11px 26px; position: relative; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.5; color: var(--soft); }
+.plan li::before { content: ''; position: absolute; left: 2px; top: 17px; width: 10px; height: 6px; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: rotate(-45deg); }
+.plan li.no { color: #5d6166; } .plan li.no::before { border-color: #4a4d52; transform: none; width: 9px; height: 0; border-left: 0; top: 22px; }
 .plan .btn { text-align: center; }
-.faq { max-width: 760px; } .faq h3 { margin: 26px 0 6px; font: 700 15px/1.3 var(--ui); } .faq p { margin: 0; color: #b9cadb; }
-@media (max-width: 860px) { .plans { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; } .plan.pro { order: -1; } }
+.faq { max-width: 720px; margin-top: 12px; } .faq h3 { margin: 30px 0 6px; font: 600 16px/1.3 var(--font); letter-spacing: -.01em; } .faq p { margin: 0; color: var(--soft); font-size: 15.5px; }
+@media (max-width: 860px) { .plans { grid-template-columns: 1fr; max-width: 480px; } .plan { border-left: 0; border-top: 1px solid var(--line); } .plan:first-child { border-top: 0; } .plan.pro { order: -1; border-top: 0; } .plan.pro + .plan, .plan:first-child { border-top: 1px solid var(--line); } }
 </style><link rel="canonical" href="https://clubcloud.vip/pricing">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Club Cloud"><meta property="og:url" content="https://clubcloud.vip/pricing">
 <meta property="og:title" content="Pricing | Club Cloud"><meta property="og:description" content="Watching is free. Play the decks free for 5 minutes a day, pay £1 an hour, or go Pro for £9.99 a month.">
@@ -23,17 +24,17 @@
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Pricing | Club Cloud"><meta name="twitter:description" content="Watching is free. Play the decks free for 5 minutes a day, pay £1 an hour, or go Pro for £9.99 a month."><meta name="twitter:image" content="https://clubcloud.vip/og-image.png">
 </head><body>
 <main class="page"><div class="wrap">
-  <p class="eyebrow">PRICING</p>
-  <h1 class="big">Watch free.<br>Play when you want.</h1>
+  <p class="eyebrow">Pricing</p>
+  <h1 class="big">Watch free. Play when you want.</h1>
   <p class="lead">Watching live sets is always free. You only pay when you want to play the decks yourself. Prices are in pounds (GBP).</p>
   <div class="plans">
-    <section class="plan"><h3>FREE</h3><div class="price">£0</div><p class="for">For watching and trying it out</p>
+    <section class="plan"><h3>Free</h3><div class="price">£0</div><p class="for">For watching and trying it out</p>
       <ul><li>Watch every live stream</li><li>Chat and request songs in any room</li><li>5 free minutes on the decks every 24 hours</li><li>The club view with the crowd, lights and big screen</li><li class="no">No going live or recording</li></ul>
       <a class="btn ghost" href="#" data-signin>Sign in free</a></section>
-    <section class="plan"><h3>PAY PER HOUR</h3><div class="price">£1 <small>/ hour</small></div><p class="for">For playing when you feel like it</p>
+    <section class="plan"><h3>Pay per hour</h3><div class="price">£1 <small>/ hour</small></div><p class="for">For playing when you feel like it</p>
       <ul><li>Everything in Free</li><li>Deck time whenever you need it, as many hours as you like</li><li>Hours never expire, and only count down while a deck plays</li><li>A short Club Cloud tag plays over the sound every 10 minutes</li><li class="no">No going live or recording</li></ul>
       <a class="btn ghost" href="/app?shop=1">Buy hours</a></section>
-    <section class="plan pro"><span class="tag">BEST FOR DJS</span><h3>PRO</h3><div class="price">£9.99 <small>/ month</small></div><p class="for">For DJs who want an audience</p>
+    <section class="plan pro"><span class="tag">Best for DJs</span><h3>Pro</h3><div class="price">£9.99 <small>/ month</small></div><p class="for">For DJs who want an audience</p>
       <ul><li>Everything in Pay per hour</li><li>Unlimited deck time, and no tag over your sound</li><li>Go live to up to 12 listeners</li><li>Record your sets and download them at 320 kbps</li><li>Set your own prices for entry, song requests, shout-outs, meet and greets and tips</li></ul>
       <a class="btn" href="/app?shop=pro">Go Pro</a></section>
   </div>
@@ -46,6 +47,6 @@
     <h3>Can I play any music when I go live?</h3><p>You confirm you have the rights to broadcast what you play. Read the <a href="/terms">terms</a>.</p>
   </div>
 </div></main>
-<script type="module" src="site.js?v=5"></script>
+<script type="module" src="site.js?v=6"></script>
 <script type="module">document.querySelectorAll('[data-signin]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); const A = window.__auth; if (A && A.signedIn) location.href = '/app'; else if (A) A.require('Club Cloud'); else location.href = '/app'; }));</script>
 </body></html>
