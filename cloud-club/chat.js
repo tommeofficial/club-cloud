@@ -5,8 +5,8 @@
 // Rooms: open the app plainly and you are the DJ in your own room (your username).
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
-import { createLive } from './live.js?v=2';
-import { createLobby } from './lobby.js?v=6';
+import { createLive } from './live.js?v=3';
+import { createLobby } from './lobby.js?v=7';
 import { viewers } from './house-cards.js?v=4';
 
 const panel = document.getElementById('chatpanel');
@@ -314,7 +314,8 @@ function watchGuard(listening) {
 function setupLive() {
   const goBtn = djRow.querySelector('.cgolive'), listenBtn = listenRow.querySelector('button');
   S.live = createLive({
-    channel: S.ch, me: S.me.username, isDj: S.isDj,
+    channel: S.ch, me: S.me.username, isDj: S.isDj, room: S.room,
+    getToken: async () => { try { const { data } = await S.backend.supabase.auth.getSession(); return data.session ? data.session.access_token : null; } catch (_) { return null; } },
     onState: (st) => {
       watchGuard(!!st.listening);
       if (S.isDj && st.on && S.liveListed && S.lobby?.mine && st.listeners !== S.lobby.mine.listeners) S.lobby.update({ listeners: st.listeners });

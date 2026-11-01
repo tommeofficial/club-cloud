@@ -1,7 +1,7 @@
 // The LIVE grid: every stream that is on air right now, as cards. Pressing a card takes you into that DJ's room and starts the stream;
 // the STREAMS button in the club brings you back here. The list comes from the shared lobby channel (see backend.js openLobby).
 import { loadHouses, houseCard, openHouse } from './house-cards.js?v=4';
-const MAX = 12;
+const MAX = 100;   // peer to peer up to 12, then the big room (see api/lk.js); the room's real cap is set there
 const hue = (name) => [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const since = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? 'just started' : m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`; };
