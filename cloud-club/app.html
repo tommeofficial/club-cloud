@@ -67,6 +67,8 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 #tabs #golivebtn { background: #3a1620; color: #ff8a9b; } #tabs #golivebtn.on { background: #ff3b5c; color: #fff; }
 #moremenu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 170px; display: flex; flex-direction: column; gap: 2px; padding: 5px; background: rgba(10,12,18,.97); border: 1px solid #24262a; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 8; }
 #moremenu button { text-align: left; }
+#tabs #micmeter { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-height: 30px; border: 1px solid #24262a; border-radius: 6px; background: #121315; } #tabs #micmeter[hidden] { display: none; } #tabs #micmeter span { font: 700 11px var(--label); letter-spacing: 1.5px; color: #8a94a6; }
+#tabs #micmeter b { position: relative; display: block; width: 110px; height: 8px; border-radius: 4px; background: #23262b; overflow: hidden; } #tabs #micmeter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #41e7ff 0%, #5be39a 60%, #ffd479 80%, #ff4d6a 100%); background-size: 110px 100%; }
 #tabs #timebar { font: 700 13px var(--label); letter-spacing: 1.2px; font-variant-numeric: tabular-nums; color: #8fe9ff; background: rgba(65,231,255,.1); border: 1px solid rgba(65,231,255,.35); border-radius: 6px; padding: 7px 12px; min-height: 30px; }
 #tabs #timebar.low { color: #ffd479; border-color: rgba(255,212,121,.55); background: rgba(255,212,121,.1); }
 #tabs #timebar.out { color: #fff; border-color: #ff4d6a; background: rgba(255,60,80,.28); }
@@ -454,6 +456,7 @@ canvas.cv { position: absolute; pointer-events: none; }
       <button data-zoom="d2" title="Deck 2">2</button>
     </div>
     <div class="tools grp">
+      <div id="micmeter" hidden title="Your mic / line input level"><span>MIC</span><b><i></i></b></div>
       <button id="timebar" data-act="time" hidden title="Deck time left. Press to add more."></button>
       <button id="recbtn" title="Record your mix and download it when you stop"><i></i>REC</button>
       <button id="golivebtn" title="Go live: broadcast your mix to listeners" hidden>GO LIVE</button>
@@ -468,7 +471,7 @@ canvas.cv { position: absolute; pointer-events: none; }
       </div>
     </div>
   </div>
-  <div id="lightmenu" hidden><div class="row"><span>LIGHTS</span><button data-lm="power" class="on">ON</button><div class="swatches"></div></div><div class="row"><span>AUTO</span><button data-style="chill" title="Slow sweeps and soft glowing colour that melts from one to the next. No flashing or strobes">CHILL</button><button data-style="energetic" title="Fast chases, hits on every kick, strobes and blinders on the drops">ENERGETIC</button><button data-style="rave" title="Lasers all the way, the moving heads kept low, and a white burst on the last beat of every bar. Contains flashing lights">RAVE</button></div><div class="row"><span>INTENSITY</span><input type="range" id="lightIntensity" min="0" max="100" value="50" title="How fast the lights move and how hard they react to drops"></div><div class="row"><span>AUTO FX</span><button data-fx="laser" title="Lasers come in at random on drops, breakdowns and the kick">LASER</button><button data-fx="co2" title="CO2 cannons fire on big drops">CO2</button><button data-fx="blackout" title="Lights go dark when the music cuts out">BLACKOUT</button><button data-fx="blinders" title="The big C's blast white like blinders on some drops, strobe on drops and glow through a blackout">STROBE</button></div><hr><div class="row"><span>CROWD</span><button data-lm="mute" class="icon" title="Mute crowd sound" aria-label="Mute crowd sound"></button><input type="range" id="crowdVol" min="0" max="100" value="70" title="Crowd sound volume: cheers, chatter, shouts, whistles, CO2"></div><hr><div class="row"><span>CHAT</span><button id="chatAuto" class="on" title="Open the chat in the club views and tuck it away in DECKS and SPLIT. Turn off to keep it however you leave it.">AUTO HIDE ON</button></div><hr><div class="row"><span>AUDIO IN</span><button id="inputBtn" title="Listen to an outside audio input instead of the app's decks">CHOOSE</button><select id="inputSel" hidden></select></div><hr><div class="row"><span>ACCESS</span><button id="signOut" title="Sign out and go back to the Club Cloud website">SIGN OUT</button></div></div>
+  <div id="lightmenu" hidden><div class="row"><span>LIGHTS</span><button data-lm="power" class="on">ON</button><div class="swatches"></div></div><div class="row"><span>AUTO</span><button data-style="chill" title="Slow sweeps and soft glowing colour that melts from one to the next. No flashing or strobes">CHILL</button><button data-style="energetic" title="Fast chases, hits on every kick, strobes and blinders on the drops">ENERGETIC</button><button data-style="rave" title="Lasers all the way, the moving heads kept low, and a white burst on the last beat of every bar. Contains flashing lights">RAVE</button></div><div class="row"><span>BRIGHTNESS</span><input type="range" id="lightIntensity" min="0" max="100" value="50" title="How bright the lights and screens are"></div><div class="row"><span>AUTO FX</span><button data-fx="laser" title="Lasers come in at random on drops, breakdowns and the kick">LASER</button><button data-fx="co2" title="CO2 cannons fire on big drops">CO2</button><button data-fx="blackout" title="Lights go dark when the music cuts out">BLACKOUT</button><button data-fx="blinders" title="The big C's blast white like blinders on some drops, strobe on drops and glow through a blackout">STROBE</button></div><hr><div class="row"><span>CROWD</span><button data-lm="mute" class="icon" title="Mute crowd sound" aria-label="Mute crowd sound"></button><input type="range" id="crowdVol" min="0" max="100" value="70" title="Crowd sound volume: cheers, chatter, shouts, whistles, CO2"></div><hr><div class="row"><span>CHAT</span><button id="chatAuto" class="on" title="Open the chat in the club views and tuck it away in DECKS and SPLIT. Turn off to keep it however you leave it.">AUTO HIDE ON</button></div><hr><div class="row"><span>AUDIO IN</span><button id="inputBtn" title="Listen to an outside audio input instead of the app's decks">CHOOSE</button><select id="inputSel" hidden></select></div><hr><div class="row"><span>ACCESS</span><button id="signOut" title="Sign out and go back to the Club Cloud website">SIGN OUT</button></div></div>
   <div id="splitbar" hidden></div>
   <div id="lobby" hidden>
     <div class="lhead"><b>HOME</b><span>Watch live sets, or play the decks yourself.</span><button class="lplay"><i class="lpi"></i>PLAY THE DECKS</button><button class="lclose" aria-label="Close">✕</button></div>
@@ -488,14 +491,14 @@ canvas.cv { position: absolute; pointer-events: none; }
 
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script src="dsp.js"></script>
-<script src="app.js?v=128"></script>
+<script src="app.js?v=129"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
-<script type="module" src="club.js?v=191"></script>
-<script type="module" src="chat.js?v=119"></script>
+<script type="module" src="club.js?v=194"></script>
+<script type="module" src="chat.js?v=120"></script>
 <script type="module" src="billing.js?v=23"></script>
 <script type="module" src="record.js?v=4"></script>
 <script type="module" src="music.js?v=2"></script>
-<script type="module" src="house.js?v=5"></script>
+<script type="module" src="house.js?v=6"></script>
 <script type="module" src="auth.js?v=4"></script>
 <script>if (new URLSearchParams(location.search).has('shot')) {
   const js = document.createElement('script'); js.type = 'module'; js.src = 'advert/shot.js?v=10'; document.head.appendChild(js);

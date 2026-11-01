@@ -119,15 +119,15 @@ export function screenMaterial(THREE, textTex, specTex) {
         vec2 p = vUv*2.0 - 1.0;
         vec3 col = mix(look(uModeA, p), look(uModeB, p), smoothstep(0.0, 1.0, uMix));
         col *= (1.0 - uDark) * (1.0 - 0.7*uTextDim);
-        vec4 tx = uCopy > 0.5 ? vec4(0.0) : texture2D(uText, vUv);
-        col = col*(1.0 - tx.a) + tx.rgb;                       // the text sits on top, crisp
         col *= uBright;                                              // the screen sits at a normal level; full brightness is for strobes and hits
+        vec4 tx = uCopy > 0.5 ? vec4(0.0) : texture2D(uText, vUv);
+        col = col*(1.0 - tx.a) + tx.rgb;                       // the text sits on top, full brightness and crisp
         col = mix(col, vec3(1.0, 0.97, 0.92), uBlast * 0.7);         // blinder blast
         if (uCopy < 0.5) {
         // LED dot grid: each pixel is a little round light with a dark gap round it
         vec2 cell = fract(vUv * 150.0) - 0.5;
         float dot_ = smoothstep(0.5, 0.25, length(cell));
-        col *= mix(0.25 + 0.95*dot_, 0.82 + 0.18*dot_, tx.a);   // text keeps its shape through the dots
+        col *= mix(0.25 + 0.95*dot_, 1.0, smoothstep(0.1, 0.5, tx.a));   // text is not broken up by the dots: it stays solid and sharp
         col *= smoothstep(1.0, 0.92, length(p));               // soft edge at the rim
         }
         gl_FragColor = vec4(col, 1.0);

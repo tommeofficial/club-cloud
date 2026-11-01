@@ -42,6 +42,7 @@ async function start(mix, ov) {
   for (let n = 0; n < 150 && !(window.__club && window.__club.useStream); n++) await new Promise((r) => setTimeout(r, 200));   // the club may still be loading: the music is already playing
   try { await window.__club.useStream(dest.stream); } catch (e) { console.warn('club could not follow the mix', e); }
   document.querySelector('#tabs [data-mode=club]:not(.on)')?.click();
+  try { window.__club.screen.djName = 'CLUB CLOUD'; } catch (_) {}
   ov?.remove();
   const bar = document.createElement('div'); bar.id = 'househud';
   bar.innerHTML = `<span class="dot"></span><b>${esc(mix.name || mix.id)}</b>${room.now ? ' <span class="hnow"></span>' : ''}${mix.source === 'epidemic' ? ' <small>Music by <a href="https://www.epidemicsound.com" target="_blank" rel="noopener">Epidemic Sound</a></small>' : ''}<a href="/">‹ LEAVE</a>`;

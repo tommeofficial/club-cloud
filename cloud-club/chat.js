@@ -111,6 +111,7 @@ async function connect(roomName) {
   teardownRoom();
   S.room = roomName || urlRoom || S.me.username;
   S.isDj = S.room === S.me.username;
+  try { if (window.__club) window.__club.screen.djName = '@' + S.room; } catch (_) {}   // the screen shows the DJ's name now and then
   djRow.hidden = !S.isDj; backBtn.hidden = S.isDj;
   makeLobby();
   try {
@@ -215,6 +216,7 @@ function request(kind, text = '') {
 let onEvent = function (ev) {
   if (ev.type === 'req') {
     S.requests.set(ev.id, ev);
+    flashScreen(ev.kind === 'shout' ? 'SHOUT-OUT' : ev.kind === 'song' ? 'SONG REQUEST' : 'MEET & GREET', '@' + ev.from, 4500, ev.kind === 'song' ? ev.text : '');
     if (!S.isDj) return;
     if (ev.kind === 'meet') { S.meetQueue.push(ev.from); updateMeet(); return; }
     const d = line(`<span class="creq">${ev.kind === 'shout' ? '📣 Shout-out' : '🎵 Song'} request from ${who(ev.from)}${ev.text ? ': ' + esc(ev.text) : ''}</span><span class="cbtns"><button data-a="acc">ACCEPT</button><button data-a="skip">SKIP</button></span>`, 'req');
@@ -230,9 +232,10 @@ let onEvent = function (ev) {
     if (ev.to === S.me.username) system(`The DJ passed on your ${ev.kind === 'song' ? 'song request' : 'shout-out'} this time.`, 'sys');
   } else if (ev.type === 'join') {
     system(`${ev.name} joined the club`, 'sys');
-    flashScreen('WELCOME', '@' + ev.name, 6000);
+    flashScreen('WELCOME', '@' + ev.name, 4500);
   } else if (ev.type === 'tip') {
-    flashScreen('THANK YOU', '@' + ev.from, 5000);
+    flashScreen('THANK YOU', '@' + ev.from, 5000, ev.amount ? '£' + ev.amount + ' TIP' : 'TIP');
+    try { window.__club?.co2?.(); } catch (_) {}      // CO2 cannons go off for a tip
   } else if (ev.type === 'shoutout') {
     playShout(ev);
   } else if (ev.type.startsWith('mg-')) meetEvent(ev);
@@ -245,9 +248,9 @@ function duck(music, crowd, secs = 0.3) {
   if (cc && cc.master.duck) cc.master.duck.gain.setTargetAtTime(music, cc.ctx.currentTime, secs / 3);
   if (club && club.sfx.duck) club.sfx.duck(crowd);
 }
-function flashScreen(top, name, ms) {
+function flashScreen(top, name, ms, sub) {   // a line or two on the big screen; they queue up and show one after another
   const sc = window.__club && window.__club.screen; if (!sc) return;
-  sc.msg = { top, name, until: performance.now() + ms };
+  const q = sc.queue || (sc.queue = []); q.push({ top, name, sub, ms }); if (q.length > 5) q.shift();
 }
 
 // ------------------------------------------------------------------ shout-outs: record, send, play to everyone

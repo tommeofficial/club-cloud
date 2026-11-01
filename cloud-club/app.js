@@ -2372,3 +2372,7 @@ $('#signOut')?.addEventListener('click', async () => { try { if (window.__auth) 
 window.__cc = { watermark: playWatermark, loadTag, engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout, bubble, optWheel, zoomBox(box) { ZOOMS.ad = box; L.zoom = 'ad'; placeStage(false); } };
 boot();
 })();
+
+// the mic meter on the top bar: shown only while the club is listening to a mic or line input
+{ const mm = document.getElementById('micmeter'), fill = mm && mm.querySelector('i');
+  setInterval(() => { const c = window.__club; if (!mm || !c) return; const on = !!c.inputOn; if (mm.hidden === on) mm.hidden = !on; if (on) fill.style.width = Math.min(100, Math.pow(Math.min(1, c.inputLevel()), 0.6) * 100) + '%'; }, 60); }
