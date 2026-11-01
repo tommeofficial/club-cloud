@@ -24,7 +24,7 @@ const splash = document.getElementById('splash');
 const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // a scanned, rigged dancer who takes one spot at the front of the crowd
 // scanned, rigged people who take spots at the front; they have the full set of moves
-const FEATURED_SCANNED = [{ model: 'models/crowd_mia.glb', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/dj.glb', sex: 'f', spot: 8, scale: 0.9, style: 'raver', rename: { play: 'dance4', idle: 'idle', hype: 'hype', wave: 'handsup', kiss: 'clap' } }];
+const FEATURED_SCANNED = [{ model: 'models/crowd_mia.glb?v=3', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb?v=3', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb?v=3', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb?v=3', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb?v=3', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb?v=3', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb?v=3', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb?v=3', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb?v=3', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/dj.glb', sex: 'f', spot: 8, scale: 0.9, style: 'raver', rename: { play: 'dance4', idle: 'idle', hype: 'hype', wave: 'handsup', kiss: 'clap' } }];
 // friends stand together and turn to each other to talk, hug and high-five
 // the built characters (free MPFB bodies, 5 outfits each in several colours). They share one set of moves with the scanned crowd (the same skeleton), so they carry no animation of their own.
 const BUILT = [
@@ -2133,7 +2133,7 @@ function frame() {
 }
 
 async function loadDj() {
-  const src = await new GLTFLoader().loadAsync('models/robot.glb');
+  const src = await new GLTFLoader().loadAsync('models/robot.glb?v=3');
   const root = src.scene;
   root.rotation.y = Math.PI; // facing the crowd, back to the camera
   root.scale.setScalar(0.9); // about 1.7 m

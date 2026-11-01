@@ -3,7 +3,8 @@
 # Mixamo's local rotations straight across (what an action assignment does) swings the arms in across the chest and twists the neck.
 # For every frame and every bone both rigs share:  target world rotation = (source world rotation x source rest world rotation^-1) x target rest world rotation.
 # Hips travel is scaled by the hip-height ratio. The result is written as the club's shared clip set (the skeleton plus NLA tracks), like build_char.py's anims branch.
-# Blender -b --python retarget_clips.py -- <crowd_clips.glb (the target skeleton)> <out.glb>
+# Blender -b --python retarget_clips.py -- <target.glb (the skeleton; add --keep-mesh for a whole character)> <out.glb> [--keep-mesh]
+# A rig whose rest pose is an A-pose (the scanned characters, the robot) is handled too: each bone's rest direction is first swung to Mixamo's own T-pose direction.
 import bpy, sys, os, re
 from mathutils import Matrix, Vector
 
@@ -17,11 +18,13 @@ CLIPS = [   # club clip name, Mixamo download, seconds kept (as build_mixamo.py)
 ]
 argv = sys.argv[sys.argv.index('--') + 1:]
 target_glb, out = argv[0], argv[1]
+KEEP_MESH = '--keep-mesh' in argv        # a full character (mesh, textures and rig) with the new clips, instead of the shared clips-only file
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=target_glb)
 rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
-for o in [o for o in bpy.data.objects if o.type == 'MESH']: bpy.data.objects.remove(o, do_unlink=True)
+if not KEEP_MESH:
+    for o in [o for o in bpy.data.objects if o.type == 'MESH']: bpy.data.objects.remove(o, do_unlink=True)
 for a in list(bpy.data.actions): bpy.data.actions.remove(a)
 rig.animation_data_create()
 for pb in rig.pose.bones: pb.rotation_mode = 'QUATERNION'
@@ -33,6 +36,8 @@ def depth(b):
     while b.parent: b = b.parent; n += 1
     return n
 order = sorted(rig.pose.bones, key=lambda p: depth(p.bone))
+
+def rest_dir(r, b): return ((r.matrix_world @ b.matrix_local).to_3x3() @ Vector((0, 1, 0))).normalized()
 
 def tpose_rest(r):   # every bone's rest matrix in world space
     return {b.name: r.matrix_world @ b.matrix_local for b in r.data.bones}
@@ -48,6 +53,11 @@ for club_name, fbx, secs in CLIPS:
     new = set(bpy.data.objects) - before
     sact = src.animation_data.action
     s_rest = tpose_rest(src)
+    Rfix = {}
+    for tb in rig.data.bones:
+        if tb.name in src.data.bones:
+            q = rest_dir(rig, tb).rotation_difference(rest_dir(src, src.data.bones[tb.name]))   # swing this bone's rest direction onto Mixamo's, so an A-pose rig is treated as the T-pose rig the clips were made for
+            Rfix[tb.name] = q.to_matrix()
     hip_s = s_rest['mixamorig:Hips'].translation.z
     k = hip_t / hip_s
     f0 = int(sact.frame_range[0]); fps = bpy.context.scene.render.fps
@@ -73,7 +83,7 @@ for club_name, fbx, secs in CLIPS:
                 spb = src.pose.bones[pb.name]
                 Sw = src.matrix_world @ spb.matrix                 # source bone, world
                 D = Sw.to_3x3() @ s_rest[pb.name].to_3x3().inverted()    # how far it has turned from its rest, in world space
-                Rt_world = D @ (mw_t @ Brest).to_3x3()             # the same turn on the target's rest
+                Rt_world = D @ Rfix.get(pb.name, Matrix.Identity(3)) @ (mw_t @ Brest).to_3x3()             # the same turn on the target's rest
                 Mdes = Matrix.Translation(nob.translation) @ (R_mw_t_inv @ Rt_world).to_4x4()
                 if pb.name == 'mixamorig:Hips':                    # travel: the source hips' movement from its rest position, scaled to this body
                     dw = (Sw.translation - hips_rest_s) * k
