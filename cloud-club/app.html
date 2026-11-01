@@ -312,23 +312,23 @@ canvas.cv { position: absolute; pointer-events: none; }
 #timepill { font: 700 10px var(--label); letter-spacing: 1px; color: #8fe9ff; background: rgba(65,231,255,.1); border: 1px solid rgba(65,231,255,.35); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
 #timepill.pro { color: #07121d; background: linear-gradient(90deg, #8fe9ff, #c9a6ff); border-color: transparent; }
 #timepill.low { color: #ffd479; border-color: rgba(255,212,121,.5); background: rgba(255,212,121,.1); } #timepill.out { color: #fff; border-color: #ff4d6a; background: rgba(255,60,80,.25); }
-#timewarn { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 55; display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 16px; color: #fff; background: rgba(12,16,26,.94); border: 1px solid #ffd479; border-radius: 999px; box-shadow: 0 6px 28px rgba(0,0,0,.5); font: 700 13px var(--ui); } #timewarn[hidden] { display: none; }
-#timewarn.ok { border-color: #5be39a; } #timewarn .twt { font-variant-numeric: tabular-nums; }
-#timewarn .twadd { padding: 8px 14px; font: 700 11px var(--label); letter-spacing: 1.2px; color: #07121d; background: linear-gradient(90deg, #ffd479, #ffb347); border: 0; border-radius: 999px; cursor: pointer; } #timewarn .twadd[hidden] { display: none; }
-#timewarn .twx { width: 26px; height: 26px; color: #8a94a6; background: transparent; border: 0; border-radius: 50%; cursor: pointer; font-size: 12px; }
+#timewarn { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 55; display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; color: #f4f4f2; background: rgba(13,13,14,.95); border: 1px solid rgba(255,255,255,.18); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.5); font: 500 14px var(--ui); } #timewarn[hidden] { display: none; } #timewarn .twt { font-variant-numeric: tabular-nums; }
+#timewarn .twadd { padding: 9px 14px; font: 600 13px var(--ui); color: #050505; background: #f4f4f2; border: 0; border-radius: 8px; cursor: pointer; }
 #timeshop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(2,4,8,.78); backdrop-filter: blur(4px); } #timeshop[hidden] { display: none; }
-#timeshop .tsbox { width: min(440px, 90%); background: #0b0f18; border: 1px solid #24304a; border-radius: 14px; padding: 22px; color: #e9eaec; font-family: var(--ui); }
-#timeshop.grace { background: transparent; backdrop-filter: none; pointer-events: none; } #timeshop.grace .tsbox { pointer-events: auto; border-color: #ffb347; box-shadow: 0 0 0 1px rgba(255,179,71,.35), 0 12px 48px rgba(0,0,0,.6); } #timeshop .tsgrace { color: #ffd479; font-weight: 600; } #timeshop .tsgrace b { font-variant-numeric: tabular-nums; }
-#timeshop h3 { margin: 0 0 8px; font: 700 16px var(--label); letter-spacing: 2px; } #timeshop p { font: 500 13px/1.5 var(--ui); color: #b8c6da; margin: 8px 0; }
-#timeshop .tsopts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
-#timeshop .tsopts button { display: flex; flex-direction: column; gap: 3px; align-items: center; padding: 10px 4px; color: #e9eaec; background: rgba(255,255,255,.05); border: 1px solid rgba(120,150,200,.25); border-radius: 10px; cursor: pointer; font: 600 12px var(--ui); } #timeshop .tsopts button i { font-style: normal; color: #41e7ff; font-weight: 700; } #timeshop .tsopts button:hover { border-color: #41e7ff; }
-#timeshop .tspro { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 14px 0 6px; padding: 12px; border: 1px solid rgba(143,233,255,.45); border-radius: 12px; background: linear-gradient(120deg, rgba(143,233,255,.1), rgba(201,166,255,.12)); } #timeshop .tspro b { display: block; font: 700 13px var(--label); letter-spacing: 1px; } #timeshop .tspro span { font: 500 12px var(--ui); color: #b8c6da; } #timeshop .tspro button { flex: none; padding: 9px 14px; font: 700 11px var(--label); letter-spacing: 1.5px; color: #07121d; background: linear-gradient(90deg, #8fe9ff, #c9a6ff); border: 0; border-radius: 8px; cursor: pointer; }
-#timeshop .tscode { display: flex; gap: 8px; margin: 10px 0 2px; } #timeshop .tscodein { flex: 1; min-width: 0; padding: 9px 10px; font: 600 13px var(--ui); letter-spacing: 1px; text-transform: uppercase; color: #e9eaec; background: rgba(255,255,255,.06); border: 1px solid rgba(120,150,200,.28); border-radius: 8px; } #timeshop .tscode button { flex: none; padding: 9px 14px; font: 700 11px var(--label); letter-spacing: 1.2px; color: #c9d6ea; background: rgba(255,255,255,.07); border: 1px solid rgba(120,150,200,.3); border-radius: 8px; cursor: pointer; }
-#timeshop .tscodemsg { margin: 4px 0 0; min-height: 16px; font: 600 12px var(--ui); } #timeshop .tscodemsg.err { color: #ff8a9b; } #timeshop .tscodemsg.ok { color: #6df0a8; }
-#timeshop .tsopts button.on { border-color: #8fe9ff; background: rgba(143,233,255,.16); }
-#timeshop .tspay { display: block; width: 100%; padding: 14px; margin: 0 0 8px; font: 700 13px var(--label); letter-spacing: 2px; color: #07121d; background: linear-gradient(90deg, #8fe9ff, #6aa6ff); border: 0; border-radius: 10px; cursor: pointer; } #timeshop .tspay:disabled { opacity: .6; cursor: default; }
-#timeshop .tserr { margin: 0 0 10px; padding: 9px 12px; color: #ff9aa8; background: rgba(255,60,80,.12); border: 1px solid rgba(255,90,110,.4); border-radius: 8px; } #timeshop .tserr[hidden] { display: none; }
-#timeshop .tsnote { font-size: 11px; color: #7f93a8; } #timeshop .tsclose { margin-top: 6px; width: 100%; padding: 9px; font: 700 11px var(--label); letter-spacing: 1.5px; color: #c9d6ea; background: transparent; border: 1px solid rgba(120,150,200,.25); border-radius: 8px; cursor: pointer; }
+#timeshop .tsbox { width: min(560px, 92%); max-height: 92vh; overflow: auto; background: #0d0d0e; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 24px; color: #f4f4f2; font-family: var(--ui); box-shadow: 0 24px 80px rgba(0,0,0,.6); }
+#timeshop h3 { margin: 0 0 6px; font: 600 22px/1.2 var(--ui); letter-spacing: -.01em; } #timeshop .tssub { margin: 0 0 18px; color: #a3a7ad; font: 400 14.5px/1.5 var(--ui); }
+#timeshop .tsplans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } #timeshop .tsplans:has(.tsplan:only-child) { grid-template-columns: 1fr; }
+#timeshop .tsplan { display: flex; flex-direction: column; padding: 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; } #timeshop .tsplan.pro { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.3); }
+#timeshop .tsplan > b { font: 500 13px var(--ui); color: #a3a7ad; } #timeshop .tsprice { margin: 8px 0 12px; font: 600 28px/1 var(--ui); letter-spacing: -.03em; } #timeshop .tsprice small { font: 400 13px var(--ui); color: #8e9196; letter-spacing: 0; }
+#timeshop .tsplan ul { list-style: none; margin: 0 0 16px; padding: 0; flex: 1; } #timeshop .tsplan li { padding: 5px 0; font: 400 13.5px var(--ui); color: #c8cbd0; border-top: 1px solid rgba(255,255,255,.07); }
+#timeshop .tsplan button { padding: 12px; font: 600 14px var(--ui); color: #f4f4f2; background: transparent; border: 1px solid rgba(255,255,255,.25); border-radius: 9px; cursor: pointer; } #timeshop .tsplan.pro button { color: #050505; background: #f4f4f2; border-color: #f4f4f2; } #timeshop .tsplan button:disabled { opacity: .6; }
+#timeshop .tscodewrap { margin: 14px 0 0; font: 400 13.5px var(--ui); color: #a3a7ad; } #timeshop .tscodewrap summary { cursor: pointer; }
+#timeshop .tscode { display: flex; gap: 8px; margin: 10px 0 2px; } #timeshop .tscodein { flex: 1; padding: 10px 12px; font: 500 15px var(--ui); color: #f4f4f2; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; } #timeshop .tscode button { padding: 10px 14px; font: 600 13px var(--ui); color: #050505; background: #f4f4f2; border: 0; border-radius: 8px; cursor: pointer; }
+#timeshop .tscodemsg { margin: 6px 0 0; min-height: 16px; font: 500 12.5px var(--ui); } #timeshop .tscodemsg.err { color: #ff8a9b; } #timeshop .tscodemsg.ok { color: #7ee2a8; }
+#timeshop .tserr { margin: 0 0 12px; padding: 9px 12px; color: #ff9aa8; background: rgba(255,60,80,.12); border: 1px solid rgba(255,60,80,.4); border-radius: 8px; font: 500 13px var(--ui); } #timeshop .tserr[hidden] { display: none; }
+#timeshop .tsnote { margin: 12px 0 0; font-size: 12px; color: #8e9196; }
+#timeshop .tsclose { display: block; width: 100%; margin-top: 14px; padding: 11px; font: 500 14px var(--ui); color: #a3a7ad; background: transparent; border: 0; cursor: pointer; } #timeshop .tsclose:hover { color: #f4f4f2; }
+@media (max-width: 520px) { #timeshop .tsplans { grid-template-columns: 1fr; } }
 #signinbtn { font: 700 10px var(--label); letter-spacing: 1px; color: #07121d; background: #8fe9ff; border: 0; border-radius: 999px; padding: 7px 12px; cursor: pointer; } #signinbtn.on { color: #c9d6ea; background: rgba(255,255,255,.07); border: 1px solid rgba(120,150,200,.3); }
 #lobby .lplay { display: inline-flex; align-items: center; gap: 7px; font: 700 11px var(--label); letter-spacing: 1.5px; color: #07121d; background: linear-gradient(90deg, #8fe9ff, #7fb6ff); border: 0; border-radius: 9px; padding: 9px 14px; cursor: pointer; } #lobby .lpi { width: 0; height: 0; border-left: 9px solid #07121d; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
 #lobby .lpro { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 18px; padding: 12px 14px; border: 1px solid rgba(143,233,255,.4); border-radius: 12px; background: linear-gradient(120deg, rgba(143,233,255,.09), rgba(201,166,255,.1)); } #lobby .lpro b { display: block; font: 700 12px var(--label); letter-spacing: 1px; color: #e9eaec; } #lobby .lpro span { font: 500 12px var(--ui); color: #b8c6da; } #lobby .lprobtn { flex: none; font: 700 11px var(--label); letter-spacing: 1.2px; color: #07121d; background: linear-gradient(90deg, #8fe9ff, #c9a6ff); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
@@ -472,7 +472,6 @@ canvas.cv { position: absolute; pointer-events: none; }
   <div id="splitbar" hidden></div>
   <div id="lobby" hidden>
     <div class="lhead"><b>HOME</b><span>Watch live sets, or play the decks yourself.</span><button class="lplay"><i class="lpi"></i>PLAY THE DECKS</button><button class="lclose" aria-label="Close">✕</button></div>
-    <div class="lpro"><div><b>PRO · £9.99 a month</b><span>Go live, record your sets, unlimited deck time, and no tag over your sound.</span></div><button class="lprobtn">SEE PRO</button></div>
     <p class="lsub">Live now</p>
     <div class="lgrid"></div>
     <p class="lempty">Nobody is live right now. Go live from your own room (Pro) and you will appear here.</p>
@@ -492,8 +491,8 @@ canvas.cv { position: absolute; pointer-events: none; }
 <script src="app.js?v=127"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=190"></script>
-<script type="module" src="chat.js?v=118"></script>
-<script type="module" src="billing.js?v=22"></script>
+<script type="module" src="chat.js?v=119"></script>
+<script type="module" src="billing.js?v=23"></script>
 <script type="module" src="record.js?v=4"></script>
 <script type="module" src="music.js?v=2"></script>
 <script type="module" src="house.js?v=5"></script>

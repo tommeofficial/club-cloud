@@ -23,7 +23,7 @@ function pill() {
     const left = B.free + B.paid;
     bar.hidden = !B.ready || B.pro;
     bar.classList.toggle('out', left <= 0); bar.classList.toggle('low', left > 0 && left <= 120);
-    bar.textContent = left <= 0 ? 'GO PRO / PAY PER PLAY' : B.paid > 0 ? fmtH(left) : 'FREE ' + fmt(left);
+    bar.textContent = left <= 0 ? 'Upgrade' : B.paid > 0 ? fmtH(left) : 'FREE ' + fmt(left);
   }
   const el = document.getElementById('timepill'); if (!el) return;
   if (!B.ready) { el.hidden = true; return; }
@@ -33,7 +33,7 @@ function pill() {
   const left = B.free + B.paid;
   el.classList.toggle('out', left <= 0);
   el.classList.toggle('low', left > 0 && left <= 180);
-  el.textContent = left <= 0 ? 'GO PRO / PAY PER PLAY' : B.paid > 0 ? fmtH(B.paid + B.free) : `FREE ${fmt(B.free)}`;
+  el.textContent = left <= 0 ? 'Upgrade' : B.paid > 0 ? fmtH(B.paid + B.free) : `FREE ${fmt(B.free)}`;
   el.title = left <= 0 ? 'Buy time to keep going' : 'Deck time left. Streams and chat are free; only playing the decks uses it.';
 }
 
@@ -59,41 +59,26 @@ async function flush() {
   B.busy = false; check(); pill();
 }
 
-// ------------------------------------------------------------------ the "running low" prompt: one tap to add an hour, without stopping the music
-const WARN_AT = [180, 60, 30];   // seconds left when the prompt appears (again each time, if dismissed)
-let warnEl = null, prevLeft = null, dismissedAt = null, flashUntil = 0;
+// ------------------------------------------------------------------ the one prompt while playing: when the time runs out mid-set, the music carries on for two minutes and this bar offers the upgrade
+let warnEl = null, prevLeft = null;
 function warn() {
   if (!warnEl) {
     warnEl = document.createElement('div'); warnEl.id = 'timewarn';
-    warnEl.innerHTML = '<span class="twt"></span><button class="twadd">ADD 1 HOUR \u00b7 \u00a3' + PRICE + '</button><button class="twx" aria-label="Dismiss">\u2715</button>';
+    warnEl.innerHTML = '<span class="twt"></span><button class="twadd">Upgrade</button>';
     document.body.appendChild(warnEl);
-    warnEl.addEventListener('click', async (e) => {
-      if (e.target.closest('.twx')) { dismissedAt = B.free + B.paid; warnEl.hidden = true; return; }
-      const add = e.target.closest('.twadd'); if (!add || B.busy) return;
-      B.busy = true; add.disabled = true;
-      try { await buy('hours', 1); if (!B.live) { flashUntil = Date.now() + 2500; prevLeft = B.free + B.paid; dismissedAt = null; pill(); } }
-      catch (err) { console.warn('could not add an hour', err); }
-      add.disabled = false; B.busy = false; warnRefresh();
-    });
+    warnEl.addEventListener('click', (e) => { if (e.target.closest('.twadd')) showShop('out'); });
   }
   warnEl.hidden = false; warnRefresh();
 }
 function warnRefresh() {
-  if (!warnEl || (warnEl.hidden && !B.inGrace)) return;
-  const left = B.free + B.paid;
-  if (B.inGrace) { if (shop && !shop.hidden) { warnEl.hidden = true; return; } warnEl.hidden = false; warnEl.classList.remove('ok'); warnEl.querySelector('.twadd').hidden = false; warnEl.querySelector('.twt').textContent = `Out of time \u00b7 ${fmt(B.grace)} left to keep playing`; return; }
-  if (Date.now() < flashUntil) { warnEl.classList.add('ok'); warnEl.querySelector('.twt').textContent = '\u2713 1 hour added'; warnEl.querySelector('.twadd').hidden = true; return; }
-  if (B.pro || left > WARN_AT[0] + 1) { warnEl.hidden = true; warnEl.classList.remove('ok'); return; }
-  warnEl.classList.remove('ok'); warnEl.querySelector('.twadd').hidden = false;
-  warnEl.querySelector('.twt').textContent = `\u23f1 ${fmt(left)} left`;
+  if (!warnEl) return;
+  if (B.inGrace && !(shop && !shop.hidden)) { warnEl.hidden = false; warnEl.querySelector('.twt').textContent = `Time’s up · ${fmt(B.grace)} left to keep playing`; }
+  else warnEl.hidden = true;
 }
 const TAG_AT_FREE = 150;   // the Club Cloud voice tag also plays once at 2:30 of the 5 free minutes, so free sets carry it too
 function lowCheck() {
   const left = B.free + B.paid;
   if (!B.pro && B.paid === 0 && prevLeft !== null && prevLeft > TAG_AT_FREE && left <= TAG_AT_FREE) window.__cc?.watermark?.();
-  if (!B.pro && left > 0 && prevLeft !== null) {
-    for (const s of WARN_AT) if (prevLeft > s && left <= s) { dismissedAt = null; warn(); break; }
-  }
   prevLeft = left; warnRefresh();
 }
 
@@ -116,7 +101,7 @@ function check() {
   if (!out) { if (B.locked || B.inGrace) { const wasLocked = B.locked; B.locked = false; B.inGrace = false; hideShop(); warnRefresh(); if (wasLocked) dispatchEvent(new Event('cc-timeback')); } return; }
   if (B.locked || B.inGrace) return;
   // out of time in the middle of a set: the music carries on for two minutes while a big offer is on screen; otherwise lock straight away
-  if (playing()) { B.inGrace = true; B.grace = GRACE; flush(); showShop('grace'); }
+  if (playing()) { B.inGrace = true; B.grace = GRACE; flush(); warn(); }
   else lockDecks(false);        // out of time but not playing (for example just watching a stream): lock quietly, and show the shop only when they try to play
 }
 function lockDecks(show = true) {
@@ -155,21 +140,21 @@ function showShop(why) {
     return;
   }
   if (!shop) { shop = document.createElement('div'); shop.id = 'timeshop'; document.body.appendChild(shop); shop.addEventListener('click', onShopClick); }
-  const resets = B.resets && B.free <= 0 ? `Your 5 free minutes come back ${B.resets.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.` : '';
-  shop.className = why === 'grace' ? 'grace' : '';
+  const resets = B.resets && B.free <= 0 ? ` They come back ${B.resets.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.` : '';
+  const proOnly = why === 'golive' || why === 'rec';
+  const title = B.pro ? 'You’re on Pro' : why === 'out' || why === 'grace' ? 'Your free time is up' : why === 'golive' ? 'Going live is for Pro' : why === 'rec' ? 'Recording is for Pro' : 'Upgrade';
+  const sub = B.pro ? `Unlimited deck time, going live and recording${B.proUntil ? ', until ' + B.proUntil.toLocaleDateString() : ''}.` : proOnly ? 'Pay-as-you-go hours don’t include it.' : `Everyone gets 5 free minutes on the decks every day.${resets}`;
+  shop.className = '';
   shop.innerHTML = `<div class="tsbox">
     <p class="tserr" role="alert" hidden></p>
-    <h3>${why === 'out' || why === 'grace' ? 'Your deck time is up' : why === 'golive' ? 'Going live is for Pro members' : why === 'rec' ? 'Recording is for Pro members' : 'Deck time'}</h3>
-    ${why === 'grace' ? `<p class="tsgrace">You can keep playing for <b>${fmt(B.grace)}</b>. Add time now to carry on without a break.</p>` : ''}
-    ${why === 'rec' ? '<p>Recording your set and downloading it is for Pro members. Pro is £9.99 a month, with unlimited deck time and going live. Pay-as-you-go hours do not unlock it.</p>' : ''}
-    ${why === 'golive' ? '<p>Going live is for Pro members. Pro is £9.99 a month, with unlimited deck time. Pay-as-you-go hours do not unlock it.</p>' : ''}
-    <div class="tspro"><div><b>PRO · £${PRO_PRICE} a month</b><span>Unlimited deck time, going live and recording, and no tag over your sound.</span></div><button data-pro="30">${B.pro ? 'EXTEND' : 'GO PRO'}</button></div>
-    <div class="tscode"><input class="tscodein" placeholder="Have a code? Enter it here" autocomplete="off" autocapitalize="characters" spellcheck="false"><button data-code>APPLY</button></div><p class="tscodemsg"></p>
-    <p>Or pay as you go. Playing the decks uses deck time: <b>5 free minutes every 24 hours</b>, then <b>£${PRICE} an hour</b>. Hours never expire, and only count down while a deck is playing. A short Club Cloud tag plays over the sound every 10 minutes on pay-as-you-go; Pro removes it. ${resets}</p>
-    <div class="tsopts">${[1, 3, 5, 10].map((h) => `<button data-h="${h}"${h === 1 ? ' class="on"' : ''}><b>${h} hour${h > 1 ? 's' : ''}</b><i>£${PRICE * h}</i></button>`).join('')}</div>
-    <button class="tspay" data-pay>PAY £${PRICE}</button>
-    ${B.live ? '' : '<p class="tsnote">Test mode: payments are not connected yet, so hours and Pro are added for free.</p>'}
-    <button class="tsclose">${why === 'grace' ? 'KEEP PLAYING' : B.free + B.paid > 0 ? 'CLOSE' : 'NOT NOW'}</button></div>`;
+    <h3>${title}</h3><p class="tssub">${sub}</p>
+    ${B.pro ? '' : `<div class="tsplans">
+      <div class="tsplan pro"><b>Pro</b><span class="tsprice">£${PRO_PRICE}<small> / month</small></span><ul><li>Unlimited deck time</li><li>Go live and record</li><li>No tag over your sound</li></ul><button data-pro="30">Go Pro</button></div>
+      ${proOnly ? '' : `<div class="tsplan"><b>Pay as you go</b><span class="tsprice">£${PRICE}<small> / hour</small></span><ul><li>Hours never expire</li><li>Only counts while a deck plays</li></ul><button data-pay>Buy 1 hour</button></div>`}
+    </div>`}
+    <details class="tscodewrap"><summary>Have a code?</summary><div class="tscode"><input class="tscodein" placeholder="Enter your code" autocomplete="off" autocapitalize="characters" spellcheck="false"><button data-code>Apply</button></div><p class="tscodemsg"></p></details>
+    ${B.live ? '' : '<p class="tsnote">Test mode: payments are not connected, so this is free.</p>'}
+    <button class="tsclose">${B.free + B.paid > 0 || B.pro ? 'Close' : 'Not now'}</button></div>`;
   shop.hidden = false;
   shop.querySelector('.tscodein')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') redeemCode(); });
 }
@@ -190,7 +175,7 @@ async function pay(kind, hours, btn) {
   btn.disabled = false; btn.textContent = label; B.busy = false;      // if it worked, the page is already on its way to the payment screen
 }
 async function onShopClick(e) {
-  if (e.target.closest('.tsclose')) { hideShop(); if (B.inGrace) { warn(); } return; }
+  if (e.target.closest('.tsclose')) { hideShop(); if (B.inGrace) warn(); return; }
   if (e.target.closest('[data-code]')) { await redeemCode(); return; }   // in the grace minutes, 'keep playing' shrinks the offer to the small bar
   const hb = e.target.closest('[data-h]');
   if (hb) {                                                              // choosing how many hours: highlight it and show the price on the PAY button
@@ -200,7 +185,7 @@ async function onShopClick(e) {
     return;
   }
   const payBtn = e.target.closest('[data-pay]');
-  if (payBtn) { await pay('hours', pickH, payBtn); return; }
+  if (payBtn) { await pay('hours', 1, payBtn); return; }
   const proBtn = e.target.closest('[data-pro]');
   if (proBtn) { await pay('pro', 0, proBtn); return; }
 }

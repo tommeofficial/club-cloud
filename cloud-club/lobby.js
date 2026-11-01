@@ -42,7 +42,6 @@ export function createLobby({ backend, me, enter }) {
     L.close(); enter(b.dataset.room);
   });
   root.querySelector('.lplay')?.addEventListener('click', () => { L.close(); document.querySelector('#tabs [data-mode=normal]')?.click(); });
-  root.querySelector('.lprobtn')?.addEventListener('click', () => window.__billing?.showShop('info'));
   root.querySelector('.lclose').addEventListener('click', L.close);
   setInterval(() => { if (L.isOpen) render(); }, 30000); // keep the "x min" times fresh
   return L;
