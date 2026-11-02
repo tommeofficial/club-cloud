@@ -21,7 +21,6 @@ const hudMood = document.querySelector('#clubhud .mood');
 const loadMsg = document.getElementById('clubload');
 const splash = document.getElementById('splash');
 
-const MODELS = ['models/crowd_ava.glb', 'models/crowd_leo.glb', 'models/crowd_kai.glb'];
 // a scanned, rigged dancer who takes one spot at the front of the crowd
 // scanned, rigged people who take spots at the front; they have the full set of moves
 const FEATURED_SCANNED = [{ model: 'models/crowd_mia.glb?v=3', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb?v=3', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb?v=3', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb?v=3', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb?v=3', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb?v=3', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb?v=3', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb?v=3', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb?v=3', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/dj.glb', sex: 'f', spot: 8, scale: 0.9, style: 'raver', rename: { play: 'dance4', idle: 'idle', hype: 'hype', wave: 'handsup', kiss: 'clap' } }];
@@ -1038,15 +1037,14 @@ function sharedClips(star, donor) {
 
 async function loadCrowd() {
   const loader = new GLTFLoader();
-  const total = MODELS.length + FEATURED.length + 1; let done = 0; // the loading screen's bar
-  const tick = (p) => p.finally(() => loadMsg.querySelector('.ldbar')?.style.setProperty('--p', Math.min(1, ++done / total)));
   const sharedDonor = FEATURED.some((f) => f.shared) ? await loader.loadAsync('models/crowd_clips.glb?v=3').catch(() => null) : null; // the built characters' shared moves
-  const [gltfs, stars] = await Promise.all([Promise.all(MODELS.map((u) => tick(loader.loadAsync(u)))), Promise.all(FEATURED.map((f) => tick(loader.loadAsync(f.model)).catch(() => null)))]);
+  // The retired fallback avatars used to be fetched here even though this floor never displayed them.
+  const stars = await Promise.all(FEATURED.map((f) => loader.loadAsync(f.model).catch(() => null)));
   SPOTS.forEach(([x, z], i) => {
     const fi = FEATURED.findIndex((f, k) => f.spot === i && stars[k]);
     const star = fi >= 0 ? FEATURED[fi] : null;
     if (!star) return; // only the scanned, rigged people; the old blocky dancers are retired
-    const src = star ? stars[fi] : gltfs[i % gltfs.length];
+    const src = stars[fi];
     const anims = star.shared ? sharedClips(star, sharedDonor) : star.rename ? src.animations.map((c) => { const k = c.clone(); k.name = star.rename[c.name] || c.name; return k; }) : src.animations;
     const root = SkeletonUtils.clone(src.scene);
     root.position.set(x, 0, z);
@@ -1255,7 +1253,10 @@ let djRenderer = null, djScene = null;
 function placeDecks() {
   const view = document.getElementById('view');
   if (!view) return;
-  view.style.visibility = mode === 'club' && camView !== 'booth' ? 'hidden' : '';
+  // Never show the full 2D decks over CLUB's loading screen. They are only made
+  // visible once the booth camera and its 3D DJ layer both exist, when this view
+  // can be perspective-mapped onto the booth table.
+  view.style.visibility = mode === 'club' && (camView !== 'booth' || !camera || !dj) ? 'hidden' : '';
   if (mode !== 'club' || !camera || camView !== 'booth') return;
   const vw = view.offsetWidth, vh = view.offsetHeight, w = el.clientWidth, h = el.clientHeight;
   if (!vw || !vh || !w || !h) return;
@@ -2270,8 +2271,15 @@ async function start() {
   bloom = LITE ? new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.86) : new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.55, 0.82); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   resize();
-  try { await loadCrowd(); await loadDj(); try { if (renderer.compileAsync) await renderer.compileAsync(scene, camera); } catch (_) {} loadMsg.querySelector('.ldbar')?.style.setProperty('--p', 1); resize(); loadMsg.hidden = true; }   // shaders are compiled now too, so the first frame has no hitch
-  catch (e) { console.warn('crowd failed to load', e); loadMsg.textContent = 'The crowd could not load. Check your connection and reopen CLUB.'; }
+  // The DJ and room are enough for the first useful frame. Let the crowd download
+  // in parallel so a slow character asset never blocks a live stream.
+  const crowdLoad = loadCrowd().catch((e) => console.warn('crowd failed to load', e));
+  try { await loadDj(); try { if (renderer.compileAsync) await renderer.compileAsync(scene, camera); } catch (_) {} loadMsg.querySelector('.ldbar')?.style.setProperty('--p', 1); resize(); loadMsg.hidden = true; }
+  catch (e) {
+    console.warn('club failed to load', e);
+    loadMsg.innerHTML = '<span class="ldmsg">THE CLUB COULD NOT LOAD</span><button type="button" class="ldretry">RETRY</button>';
+    loadMsg.querySelector('.ldretry')?.addEventListener('click', () => location.reload(), { once: true });
+  }
 }
 
 window.addEventListener('cc-view', (e) => {
@@ -2282,6 +2290,9 @@ window.addEventListener('cc-view', (e) => {
   start().then(() => { resize(); if (!running) { running = true; clock.getDelta(); frame(); } });
   requestAnimationFrame(() => renderer && resize());
 });
+// app.js can reveal CLUB for a direct /app?house=… link before this module has
+// registered its listener. Re-announce the visible state to prevent a black canvas.
+requestAnimationFrame(() => { if (!el.hidden) window.dispatchEvent(new CustomEvent('cc-view', { detail: { mode: 'club' } })); });
 // Load the club in the background while someone is on the decks, so CLUB opens straight away. It waits for the page to settle and for an idle moment,
 // and does nothing until then so the decks come first.
 const preloadClub = () => { if (!started && mode === 'off') start().catch((e) => console.warn('club preload', e)); };

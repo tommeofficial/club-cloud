@@ -5,7 +5,7 @@
 // Rooms: open the app plainly and you are the DJ in your own room (your username).
 // Open it with ?room=<dj username> and you join that DJ's room as a fan.
 
-import { createLive } from './live.js?v=3';
+import { createLive } from './live.js?v=4';
 import { createLobby } from './lobby.js?v=11';
 import { viewers } from './house-cards.js?v=4';
 
@@ -324,7 +324,7 @@ function setupLive() {
       if (S.isDj && st.on && S.liveListed && S.lobby?.mine && st.listeners !== S.lobby.mine.listeners) S.lobby.update({ listeners: st.listeners });
       goBtn.classList.toggle('on', st.on); goBtn.textContent = st.on ? `LIVE · ${st.listeners} LISTENING` : 'GO LIVE';
       listenRow.hidden = S.isDj || (!st.on && !st.listening);
-      listenBtn.classList.toggle('on', st.listening); listenBtn.textContent = st.listening ? 'STOP LISTENING' : st.full ? 'ROOM FULL, TRY LATER' : 'LISTEN LIVE';
+      listenBtn.classList.toggle('on', st.listening); listenBtn.textContent = st.needsTap ? 'TAP TO HEAR' : st.listening ? 'STOP LISTENING' : st.full ? 'ROOM FULL, TRY LATER' : 'LISTEN LIVE';
     },
     // what a listener hears is also what their club reacts to: lights, crowd and screen follow the stream
     onListenStream: (stream) => { if (stream) window.__club?.useStream(stream); else { window.__club?.stopInput(); window.__club?.endSync(); } },
@@ -370,7 +370,7 @@ function setupLive() {
       }
     });
   };
-  listenBtn.onclick = () => { if (S.live.listening) S.live.leave(); else S.live.join(); };
+  listenBtn.onclick = () => { if (S.live.needsTap) S.live.resume(); else if (S.live.listening) S.live.leave(); else S.live.join(); };
   if (!S.isDj) setTimeout(() => S.live.ask(), 1200); // is the DJ already on air?
 }
 

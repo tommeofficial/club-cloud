@@ -27,11 +27,15 @@ export function createLive({ channel, me, isDj, room = me, getToken = async () =
     peers: new Map(),          // DJ: listener id -> RTCPeerConnection
     dcs: new Map(),            // DJ: listener id -> the data channel that carries beat and light timing
     stream: null,              // DJ: the mix being sent
-    fanPc: null, audio: null,  // listener: the one connection to the DJ, and the element playing it
+    fanPc: null, audio: null, needsTap: false, // listener: the one connection to the DJ, and the element playing it
     count: () => L.peers.size + (L.sfuFans || 0),
     sfu: null, sfuFans: 0, sfuBusy: null, renew: null,   // the big room: the DJ's publishing connection, how many are in it, and a listener's renewal timer
   };
-  const emit = () => onState({ on: L.on, listening: L.listening, full: L.full, listeners: L.peers.size + (L.sfuFans || 0), isDj });
+  const emit = () => onState({ on: L.on, listening: L.listening, full: L.full, listeners: L.peers.size + (L.sfuFans || 0), needsTap: L.needsTap, isDj });
+  const playAudio = () => {
+    if (!L.audio) return;
+    L.audio.play().then(() => { if (L.needsTap) { L.needsTap = false; emit(); } }).catch(() => { if (!L.needsTap) { L.needsTap = true; emit(); } });
+  };
   // a join token from the server (it enforces the budget and the room's cap); null if the big room is full or switched off
   async function lkToken(role) {
     const t = await getToken(); if (!t) return null;
@@ -119,7 +123,7 @@ export function createLive({ channel, me, isDj, room = me, getToken = async () =
     clearTimeout(L.renew); L.renew = null;
     if (L.fanPc) L.fanPc.close();
     if (L.audio) { L.audio.srcObject = null; }
-    L.fanPc = null; L.audio = null; L.listening = false; emit();
+    L.fanPc = null; L.audio = null; L.listening = false; L.needsTap = false; emit();
     onListenStream(null);
   };
   L.ask = () => { if (!isDj) send({ type: 'lv-who' }); };
@@ -135,7 +139,7 @@ export function createLive({ channel, me, isDj, room = me, getToken = async () =
       room_.on(lk.RoomEvent.TrackSubscribed, (track) => {
         if (track.kind !== 'audio') return;
         const stream = new MediaStream([track.mediaStreamTrack]);
-        if (L.audio) { L.audio.srcObject = stream; L.audio.play().catch(() => {}); }
+        if (L.audio) { L.audio.srcObject = stream; playAudio(); }
         onListenStream(stream);
       });
       room_.on(lk.RoomEvent.DataReceived, (payload) => { try { onSync(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} });
@@ -156,13 +160,16 @@ export function createLive({ channel, me, isDj, room = me, getToken = async () =
     pc.ondatachannel = (e) => { e.channel.onmessage = (m) => { try { onSync(JSON.parse(m.data)); } catch (_) {} }; };
     pc.ontrack = (e) => {
       const stream = e.streams[0];
-      L.audio.srcObject = stream; L.audio.play().catch(() => {});
+      L.audio.srcObject = stream; playAudio();
       onListenStream(stream);
     };
     await pc.setRemoteDescription(ev.sdp);
     await pc.setLocalDescription(await pc.createAnswer());
     send({ type: 'lv-answer', to: ev.from, sdp: pc.localDescription.toJSON() });
   }
+  // Safari may refuse delayed audio after an auto-join. This is called by a real
+  // user tap, so the listener can recover without leaving and reconnecting.
+  L.resume = () => playAudio();
 
   // ------------------------------------------------------------------ events from the room's channel
   L.handle = async (ev) => {
