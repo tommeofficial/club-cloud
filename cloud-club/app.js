@@ -45,7 +45,8 @@ const fracLbl = (b) => (b >= 1 ? String(b) : '1/' + Math.round(1 / b));
 const app = $('#app'), tabs = $('#tabs'), view = $('#view'), stage = $('#stage');
 const modal = $('#modal'), veil = $('#veil'), toastEl = $('#toast'), fileIn = $('#filein');
 
-const L = { mode: new URLSearchParams(location.search).has('house') ? 'club' : 'normal', portrait: false, vw: 0, vh: 0, W: 0, H: 0, vx: 0, vy: 0, aw: 0, ah: 0, s: 0.5, tx: 0, ty: 0, zoom: 'all', pan: { d1: 0.5, mix: 0.35, d2: 0.5 }, panRange: 0, panAxis: 'y', clubZoom: 1, splitFrac: 0.5 };
+const initialParams = new URLSearchParams(location.search);
+const L = { mode: initialParams.has('house') || initialParams.has('room') ? 'club' : 'normal', portrait: false, vw: 0, vh: 0, W: 0, H: 0, vx: 0, vy: 0, aw: 0, ah: 0, s: 0.5, tx: 0, ty: 0, zoom: 'all', pan: { d1: 0.5, mix: 0.35, d2: 0.5 }, panRange: 0, panAxis: 'y', clubZoom: 1, splitFrac: 0.5 };
 try { const f = parseFloat(localStorage.getItem('cc-split')); if (f >= 0.25 && f <= 0.75) L.splitFrac = f; } catch (_) {}
 
 let toastT = 0;
@@ -379,6 +380,9 @@ function layout(animate) {
     L.aw = 920; L.ah = Math.round(920 * ZOOMS.all[3] / ZOOMS.all[2]);
   } else if (!split) club.hidden = true;
   view.style.zIndex = L.mode === 'club' ? 4 : '';
+  // The deck layer sits outside the club stacking context. Hide it immediately
+  // on entry, even before the asynchronous club module has loaded.
+  view.style.visibility = L.mode === 'club' ? 'hidden' : '';
   // 1 | M | 2 hang under the active view button (DECKS or SPLIT), which widens to match them
   const zr = tabs.querySelector('.zooms'), db = tabs.querySelector(`[data-mode=${L.mode === 'split' ? 'split' : 'normal'}]`);
   for (const b of tabs.querySelectorAll('[data-mode]')) b.style.minWidth = '';
@@ -424,6 +428,7 @@ function setZoom(z) { L.zoom = L.zoom === z ? 'all' : z; placeStage(true); } // 
 // (fixed), CLUB 2 is the same room with a camera that drifts between shots on the beat
 function setMode(m) {
   if (m === 'djview' || m === 'club' || m === 'club2') { L.cam = m === 'djview' ? 'booth' : m === 'club2' ? 'pan' : 'crowd'; m = 'club'; m = 'club'; window.dispatchEvent(new CustomEvent('cc-cam', { detail: L.cam })); }
+  if (m !== 'club' && !deckUIReady) { ensureDecks().catch((e) => console.warn('deck startup failed', e)); unlockAudio(); }
   L.mode = m; L.zoom = 'all'; layout(false); // picking a view always starts zoomed out
 }
 // drag bar between the club and the decks in SPLIT
@@ -628,6 +633,13 @@ async function initAudio() {
       } catch (e2) { console.warn('AudioWorklet unavailable, using ScriptProcessor', e, e2); engineInfo.audio = 'ScriptProcessor fallback'; }
     }
   } else engineInfo.audio = 'ScriptProcessor fallback';
+  if (!worklet && !window.CCDSP) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script'); script.src = 'dsp.js';
+      script.onload = resolve; script.onerror = () => reject(new Error('The DJ audio engine could not load'));
+      document.head.appendChild(script);
+    });
+  }
   master.sum = ctx.createGain();
   master.ip = insertPoint(); master.sum.connect(master.ip.pre);
   master.level = ctx.createGain(); master.ip.post.connect(master.level);
@@ -1999,7 +2011,17 @@ async function analyzeBuffer(buf) {
   });
 }
 
-function readTags(file) {
+let tagsPromise;
+function loadTags() {
+  if (window.jsmediatags) return Promise.resolve();
+  return tagsPromise ||= new Promise((resolve) => {
+    const script = document.createElement('script'); script.src = 'https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js';
+    script.onload = script.onerror = resolve; document.head.appendChild(script);
+    setTimeout(resolve, 3000);
+  });
+}
+async function readTags(file) {
+  await loadTags();
   return new Promise((res) => {
     const jt = window.jsmediatags;
     if (!jt) return res(null);
@@ -2329,9 +2351,11 @@ async function wakeLock() { try { if (!wl && navigator.wakeLock) { wl = await na
 
 // ============================================================ main loop
 let lastT = nowS(), lastFx = 0;
+let deckUIReady = false, deckStartPromise = null;
 function frame() {
   requestAnimationFrame(frame);
   const t = nowS(), dt = Math.min(0.1, t - lastT); lastT = t;
+  if (!deckUIReady || window.__ccWatching) return; // viewers don't run the DJ screens
   const at = ctx ? ctx.currentTime : 0;
   for (const d of decks) { d.update(dt, at, t); d.sendStrip(); }
   fx.update();
@@ -2344,14 +2368,15 @@ function frame() {
 }
 
 // ============================================================ boot
-async function boot() {
+function ensureDecks() { return deckStartPromise ||= bootDecks(); }
+async function bootDecks() {
   for (const d of decks) buildDeck(d);
   buildMixer();
   buildCenter();
   buildArt();
+  deckUIReady = true;
   layout(false);
   renderCenter();
-  requestAnimationFrame(frame);
   await initAudio();
   const ok = await DB.open();
   if (ok) {
@@ -2367,6 +2392,15 @@ async function boot() {
   renderCenter();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const d of decks) d.ovl = null; });
 }
+function boot() {
+  const viewing = initialParams.has('house') || initialParams.has('room');
+  if (viewing) document.body.classList.add('cc-watching');
+  layout(false);
+  requestAnimationFrame(frame);
+  if (!viewing) ensureDecks().catch((e) => console.warn('deck startup failed', e));
+}
+addEventListener('cc-deck-owner', () => { if (!initialParams.has('house')) ensureDecks().catch((e) => console.warn('deck startup failed', e)); });
+addEventListener('cc-watch-mode', () => { if (deckUIReady) for (const deck of decks) if (deck.playing) deck.pauseNow(); });
 $('#signOut')?.addEventListener('click', async () => { try { if (window.__auth) await window.__auth.signOut(); } catch (_) {} location.href = '/'; });
 
 window.__cc = { watermark: playWatermark, loadTag, engineInfo, master, chanGain, nowS, decks, mix, fx, lib, controls, L, get ctx() { return ctx; }, unlock: unlockAudio, setMode, addFiles, analyzeBuffer, layout, bubble, optWheel, zoomBox(box) { ZOOMS.ad = box; L.zoom = 'ad'; placeStage(false); } };

@@ -19,6 +19,7 @@ const canvas = document.getElementById('clubcv');
 const hudBar = document.querySelector('#clubhud .bar i');
 const hudMood = document.querySelector('#clubhud .mood');
 const loadMsg = document.getElementById('clubload');
+loadMsg.setAttribute('aria-live', 'polite');
 const splash = document.getElementById('splash');
 
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
@@ -553,6 +554,10 @@ function updatePeople(dt) {
   const kickPulse = beats != null ? Math.pow(1 - (((beats % 1) + 1) % 1), 3) : 0;
   lastBeats = beats; lastKick = kickPulse;
   for (const p of people) {
+    if (p.fadeMaterials && p.fade < 1) {
+      p.fade = Math.min(1, p.fade + dt / 0.8);
+      for (const material of p.fadeMaterials) { material.opacity = p.fade; if (p.fade === 1) { material.transparent = false; material.needsUpdate = true; } }
+    }
     if (t > p.nextThink) { p.nextThink = t + rnd(3, 8); think1(p, t, playing); }
     if (p.hold && t > p.hold.until) { p.hold = null; p.yawTarget = 0; p.look = null; }
     // every new phrase, dancers may switch to another of their dances
@@ -1004,10 +1009,13 @@ function buildSplatVenue() {
 
 async function loadCrowd() {
   const loader = new GLTFLoader();
-  const hairTextures = await Promise.all(Array.from({length: 14}, (_, i) => new THREE.TextureLoader().loadAsync(`models/female_look_${i}.jpg?v=1`)));
-  const maleTextures = await Promise.all(Array.from({length: 6}, (_, i) => new THREE.TextureLoader().loadAsync(`models/male_look_${i}.jpg?v=1`)));
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [hairTextures, maleTextures, sources] = await Promise.all([
+    Promise.all(Array.from({length: 14}, (_, i) => new THREE.TextureLoader().loadAsync(`models/female_look_${i}.jpg?v=1`))),
+    Promise.all(Array.from({length: 6}, (_, i) => new THREE.TextureLoader().loadAsync(`models/male_look_${i}.jpg?v=1`))),
+    Promise.all(['f', 'm'].map((sex) => loader.loadAsync(`models/new_crowd_${sex}.glb?v=1`))),
+  ]);
   for (const texture of [...hairTextures, ...maleTextures]) { texture.flipY = false; texture.colorSpace = THREE.SRGBColorSpace; }
-  const sources = await Promise.all(['f', 'm'].map((sex) => loader.loadAsync(`models/new_crowd_${sex}.glb?v=1`)));
   const stars = FEATURED.map((f) => sources[f.sex === 'f' ? 0 : 1]);
   SPOTS.forEach(([x, z], i) => {
     const fi = FEATURED.findIndex((f, k) => f.spot === i && stars[k]);
@@ -1020,11 +1028,13 @@ async function loadCrowd() {
     const face = Math.atan2(-x, -z); // face the booth (models face +Z)
     root.rotation.y = face;
     root.scale.setScalar(star ? star.scale : rnd(0.96, 1.04));
+    const fadeMaterials = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
       o.frustumCulled = false;
       const vary = (material) => {
         const mat = material.clone();
+        if (!reducedMotion) { mat.transparent = true; mat.opacity = 0; fadeMaterials.push(mat); }
         if (star.sex === 'f' && mat.emissiveMap) mat.emissiveMap = hairTextures[FEATURED.slice(0, i).filter((f) => f.sex === 'f').length];
         if (star.sex === 'm' && mat.emissiveMap) mat.emissiveMap = maleTextures[FEATURED.slice(0, i).filter((f) => f.sex === 'm').length];
         return mat;
@@ -1040,7 +1050,7 @@ async function loadCrowd() {
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const armL = bone(/^mixamorigLeftArm$/i), armR = bone(/^mixamorigRightArm$/i);
-    const p = { root, mixer, actions, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: actions.idle || null, loopName: actions.idle ? 'idle' : null, busy: false,
+    const p = { root, mixer, actions, fadeMaterials, fade: reducedMotion ? 1 : 0, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: actions.idle || null, loopName: actions.idle ? 'idle' : null, busy: false,
       bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || anims.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
@@ -1237,8 +1247,10 @@ function placeDecks() {
   // Never show the full 2D decks over CLUB's loading screen. They are only made
   // visible once the booth camera and its 3D DJ layer both exist, when this view
   // can be perspective-mapped onto the booth table.
-  view.style.visibility = mode === 'club' && (camView !== 'booth' || !camera || !dj) ? 'hidden' : '';
-  if (mode !== 'club' || !camera || camView !== 'booth') return;
+  if (mode !== 'club') { view.style.visibility = ''; return; }
+  view.style.visibility = 'hidden';
+  const watching = !!HOUSE || window.__ccWatching === true || (window.__ccWatching == null && new URLSearchParams(location.search).has('room'));
+  if (watching || !loadMsg.hidden || !camera || !dj || camView !== 'booth') return;
   const vw = view.offsetWidth, vh = view.offsetHeight, w = el.clientWidth, h = el.clientHeight;
   if (!vw || !vh || !w || !h) return;
   const d = DECKS.w * vh / vw, y = BOOTH.tableY + 0.003;
@@ -1248,6 +1260,7 @@ function placeDecks() {
     return [(p.x + 1) / 2 * w, (1 - p.y) / 2 * h];
   });
   view.style.transform = quadMatrix(vw, vh, pts);
+  view.style.visibility = '';
 }
 // CSS matrix3d that maps a w x h box onto four screen points (top-left, top-right, bottom-right, bottom-left)
 function quadMatrix(w, h, q) {
@@ -2237,8 +2250,15 @@ function updateDj(dt, t) {
   if (camView === 'booth') djRenderer.render(djScene, camera);
 }
 
-async function start() {
-  if (started) return;
+let startPromise;
+function clubLoadError(e) {
+  console.warn('club failed to load', e);
+  loadMsg.classList.add('is-error');
+  loadMsg.innerHTML = '<span class="ldmsg">THE CLUB COULD NOT LOAD</span><button type="button" class="ldretry">RETRY</button>';
+  loadMsg.querySelector('.ldretry')?.addEventListener('click', () => location.reload(), { once: true });
+}
+function start() { return startPromise ||= startClub().catch((e) => { clubLoadError(e); return false; }); }
+async function startClub() {
   started = true;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -2254,12 +2274,27 @@ async function start() {
   resize();
   // The DJ and room are enough for the first useful frame. Let the crowd download
   // in parallel so a slow character asset never blocks a live stream.
-  const crowdLoad = loadCrowd().catch((e) => console.warn('crowd failed to load', e));
-  try { await loadDj(); try { if (renderer.compileAsync) await renderer.compileAsync(scene, camera); } catch (_) {} loadMsg.querySelector('.ldbar')?.style.setProperty('--p', 1); resize(); loadMsg.hidden = true; }
+  const status = (message, stage) => { const label = loadMsg.querySelector('.ldmsg'); if (label) label.textContent = message; loadMsg.dataset.stage = stage; };
+  status('WARMING UP THE LIGHTS', 'lights');
+  const crowdLoad = loadCrowd().then(() => 'ready').catch((e) => { console.warn('crowd failed to load', e); return 'failed'; });
+  try {
+    await loadDj();
+    try { if (renderer.compileAsync) await renderer.compileAsync(scene, camera); } catch (_) {}
+    status('GETTING THE CROWD READY', 'crowd');
+    // A slow crowd must never hold the room or its audio indefinitely.
+    const crowdStatus = await Promise.race([crowdLoad, new Promise((resolve) => setTimeout(() => resolve('pending'), 1800))]);
+    status(crowdStatus === 'ready' ? 'THE CLUB IS READY' : crowdStatus === 'pending' ? 'THE CROWD IS JOINING' : 'CROWD UNAVAILABLE', 'ready');
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    resize();
+    if (mode !== 'off' && !running) { running = true; clock.getDelta(); frame(); }
+    loadMsg.classList.add('is-leaving');
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    loadMsg.hidden = true; placeDecks();
+    return true;
+  }
   catch (e) {
-    console.warn('club failed to load', e);
-    loadMsg.innerHTML = '<span class="ldmsg">THE CLUB COULD NOT LOAD</span><button type="button" class="ldretry">RETRY</button>';
-    loadMsg.querySelector('.ldretry')?.addEventListener('click', () => location.reload(), { once: true });
+    clubLoadError(e);
+    return false;
   }
 }
 
@@ -2268,7 +2303,7 @@ window.addEventListener('cc-view', (e) => {
   placeDecks();
   djCanvas.hidden = mode === 'off';
   if (mode === 'off') { running = false; return; }
-  start().then(() => { resize(); if (!running) { running = true; clock.getDelta(); frame(); } });
+  start().then((ok) => { if (!ok || mode === 'off') return; resize(); if (!running) { running = true; clock.getDelta(); frame(); } });
   requestAnimationFrame(() => renderer && resize());
 });
 // app.js can reveal CLUB for a direct /app?house=… link before this module has

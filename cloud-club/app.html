@@ -86,6 +86,7 @@ body { font-family: var(--ui); -webkit-user-select: none; user-select: none; -we
 
 /* the 24/7 Club Cloud room */
 body.house #tabs [data-mode=normal], body.house #tabs [data-mode=split], body.house #tabs [data-mode=djview], body.house #tabs .zooms, body.house #recbtn, body.house #timebar, body.house #golivebtn, body.house #chatpanel .cdj, body.house #chatpanel .clisten { display: none !important; }
+body.cc-watching #tabs [data-mode=normal], body.cc-watching #tabs [data-mode=split], body.cc-watching #tabs [data-mode=djview], body.cc-watching #tabs .zooms, body.cc-watching #recbtn, body.cc-watching #timebar, body.cc-watching #golivebtn { display:none !important; }
 #houseov { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #0d1626 0%, #04060a 72%); font-family: var(--ui); color: #e9eaec; }
 #houseov .hbox { text-align: center; padding: 28px; max-width: 420px; }
 #houseov .hbadge { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #ff3b5c; color: #fff; font: 700 11px var(--label); letter-spacing: 2px; }
@@ -430,12 +431,22 @@ canvas.cv { position: absolute; pointer-events: none; }
 @keyframes recpulse { 50% { box-shadow: 0 0 0 10px rgba(255,59,78,.25); } }
 #chatmodal .ctime { font: 700 22px var(--label); } #chatmodal .cbig { text-align: center; font-size: 30px; color: #41e7ff; }
 #chatmodal .cvid { position: relative; } #chatmodal .vthem { width: 100%; border-radius: 8px; background: #000; aspect-ratio: 4/3; } #chatmodal .vme { position: absolute; right: 8px; bottom: 8px; width: 28%; border-radius: 6px; border: 1px solid #fff3; }
-#clubload { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: radial-gradient(ellipse at 50% 40%, #0d1626 0%, #05070b 70%); font: 600 13px var(--ui); letter-spacing: 2px; color: #8a94a6; pointer-events: none; z-index: 5; }
+#clubload { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 50%,#122239 0%,#060a13 52%,#020308 100%); color:#d7f8ff; font:600 12px var(--ui); letter-spacing:2px; pointer-events:none; z-index:20; transition:opacity .55s ease; }
+#clubload::before { content:'WELCOME TO CLUB CLOUD'; z-index:2; width:min(68%,640px); padding:clamp(18px,4vh,38px) 18px; text-align:center; font:800 clamp(18px,4vw,42px) var(--label); letter-spacing:.12em; color:#f1fdff; border:1px solid #65eeff88; background:repeating-linear-gradient(0deg,transparent 0 3px,#03081499 4px 5px),radial-gradient(ellipse at center,#17617b99,#091422 70%); box-shadow:0 0 0 5px #060d18,0 0 0 6px #194a63,0 0 32px #00ccff4d,inset 0 0 24px #1ce4ff40; text-shadow:0 0 15px #64eaff; }
+#clubload::after { content:''; position:absolute; inset:0; z-index:-1; opacity:.8; background:linear-gradient(90deg,transparent 12%,#48eeff70 12.15%,transparent 12.4%,transparent 25%,#9f5cff80 25.2%,transparent 25.45%,transparent 75%,#39edff80 75.2%,transparent 75.45%,transparent 88%,#ff4bce70 88.15%,transparent 88.4%),conic-gradient(from 172deg at 19% 0%,transparent 0deg,#29daff33 8deg,transparent 16deg),conic-gradient(from 172deg at 81% 0%,transparent 0deg,#dd4bff2b 8deg,transparent 16deg); animation:ldlights 2.4s steps(4,end) both; }
+#clubload[data-stage="ready"]::before { content:"LET'S GO"; }
+#clubload.is-leaving { opacity:0; }
+#clubload.is-error { pointer-events:auto; }
+#clubload.is-error::before { content:'CLUB CONNECTION'; }
 #clubload[hidden] { display: none; }
-#clubload svg { width: min(34vmin, 220px); height: auto; filter: drop-shadow(0 0 14px rgba(65,231,255,.45)); animation: ldpulse 1.8s ease-in-out infinite; }
+#clubload svg { width:min(10vmin,64px); height:auto; z-index:2; filter:drop-shadow(0 0 12px #41e7ff88); }
+#clubload .ldmsg { z-index:2; text-align:center; color:#a4c2d2; font:700 clamp(10px,1.4vw,13px) var(--label); letter-spacing:.24em; }
 #clubload .ldbar { width: min(46vw, 260px); height: 3px; border-radius: 2px; background: #16202e; overflow: hidden; }
-#clubload .ldbar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: linear-gradient(90deg, #4cebff, #f2fcff); box-shadow: 0 0 10px #41e7ff; transition: width .25s ease-out; }
+#clubload .ldbar i { display:block; height:100%; width:32%; background:linear-gradient(90deg,transparent,#4cebff,#f2fcff,transparent); box-shadow:0 0 10px #41e7ff; animation:ldscan 1.4s ease-in-out infinite alternate; }
+@keyframes ldscan { from { transform:translateX(0); } to { transform:translateX(210%); } }
 @keyframes ldpulse { 50% { filter: drop-shadow(0 0 26px rgba(65,231,255,.8)); } }
+@keyframes ldlights { 0% { opacity:.1; clip-path:inset(0 100% 0 0); } 100% { opacity:.8; clip-path:inset(0 0 0 0); } }
+@media (prefers-reduced-motion:reduce) { #clubload::after,#clubload .ldbar i { animation:none; } #clubload { transition:none; } }
 #splash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle at var(--sx,50%) var(--sy,40%), rgba(255,214,120,.0) 0, rgba(255,196,80,.35) 18%, rgba(255,170,40,.18) 35%, transparent 60%); transition: opacity .9s; }
 #splash.hit { opacity: 1; transition: none; }
 #splash i { position: absolute; border-radius: 50%; background: rgba(255,205,110,.75); filter: blur(.5px); }
@@ -490,12 +501,10 @@ canvas.cv { position: absolute; pointer-events: none; }
   <input id="filein" type="file" multiple accept="audio/*,.mp3,.wav,.aif,.aiff,.flac,.m4a,.aac,.ogg,.opus" hidden>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
-<script src="dsp.js"></script>
-<script src="app.js?v=130"></script>
+<script src="app.js?v=131"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
-<script type="module" src="club.js?v=198"></script>
-<script type="module" src="chat.js?v=122"></script>
+<script type="module" src="club.js?v=199"></script>
+<script type="module" src="chat.js?v=123"></script>
 <script type="module" src="billing.js?v=23"></script>
 <script type="module" src="record.js?v=4"></script>
 <script type="module" src="house.js?v=7"></script>

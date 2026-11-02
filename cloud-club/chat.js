@@ -111,6 +111,11 @@ async function connect(roomName) {
   teardownRoom();
   S.room = roomName || urlRoom || S.me.username;
   S.isDj = S.room === S.me.username;
+  window.__ccWatching = !S.isDj;
+  document.body.classList.toggle('cc-watching', !S.isDj);
+  if (S.isDj) window.dispatchEvent(new Event('cc-deck-owner'));
+  else window.dispatchEvent(new Event('cc-watch-mode'));
+  window.dispatchEvent(new Event('cc-deckplace'));
   try { if (window.__club) window.__club.screen.djName = '@' + S.room; } catch (_) {}   // the screen shows the DJ's name now and then
   djRow.hidden = !S.isDj; backBtn.hidden = S.isDj;
   makeLobby();
