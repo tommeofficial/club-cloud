@@ -21,41 +21,17 @@ const hudMood = document.querySelector('#clubhud .mood');
 const loadMsg = document.getElementById('clubload');
 const splash = document.getElementById('splash');
 
-// a scanned, rigged dancer who takes one spot at the front of the crowd
-// scanned, rigged people who take spots at the front; they have the full set of moves
-const FEATURED_SCANNED = [{ model: 'models/crowd_mia.glb?v=3', sex: 'f', spot: 1, scale: 0.92, style: 'social' }, { model: 'models/crowd_leon.glb?v=3', sex: 'm', spot: 2, scale: 0.94, style: 'chill' }, { model: 'models/crowd_skye.glb?v=3', sex: 'f', spot: 3, scale: 0.92, style: 'raver' }, { model: 'models/crowd_lola.glb?v=3', sex: 'f', spot: 4, scale: 0.92, style: 'social' }, { model: 'models/crowd_nova.glb?v=3', sex: 'f', spot: 0, scale: 0.9, style: 'filmer' }, { model: 'models/crowd_jay.glb?v=3', sex: 'm', spot: 5, scale: 0.94, style: 'raver' }, { model: 'models/crowd_781269e6.glb?v=3', sex: 'm', spot: 6, scale: 0.93, style: 'raver' }, { model: 'models/crowd_white_mixamo.glb?v=3', sex: 'm', spot: 7, scale: 0.94, style: 'social' }, { model: 'models/crowd_34cb054a.glb?v=3', sex: 'f', spot: 9, scale: 0.9, style: 'chill' }, { model: 'models/dj.glb', sex: 'f', spot: 8, scale: 0.9, style: 'raver', rename: { play: 'dance4', idle: 'idle', hype: 'hype', wave: 'handsup', kiss: 'clap' } }];
-// friends stand together and turn to each other to talk, hug and high-five
-// the built characters (free MPFB bodies, 5 outfits each in several colours). They share one set of moves with the scanned crowd (the same skeleton), so they carry no animation of their own.
-const BUILT = [
-  { model: 'models/crowd_g01.glb?v=2', sex: 'f', spot: 10, scale: 1, style: 'raver', shared: true, hip: 1.0 },
-  { model: 'models/crowd_b01.glb?v=2', sex: 'm', spot: 11, scale: 1, style: 'chill', shared: true, hip: 1.1658 },
-  { model: 'models/crowd_g02.glb?v=2', sex: 'f', spot: 12, scale: 1, style: 'social', shared: true, hip: 0.9719 },
-  { model: 'models/crowd_b02.glb?v=2', sex: 'm', spot: 13, scale: 1, style: 'raver', shared: true, hip: 1.0952 },
-  { model: 'models/crowd_g03.glb?v=2', sex: 'f', spot: 14, scale: 1, style: 'chill', shared: true, hip: 0.972 },
-  { model: 'models/crowd_b03.glb?v=2', sex: 'm', spot: 15, scale: 1, style: 'social', shared: true, hip: 1.1771 },
-  { model: 'models/crowd_g04.glb?v=2', sex: 'f', spot: 16, scale: 1, style: 'raver', shared: true, hip: 1.0051 },
-  { model: 'models/crowd_b04.glb?v=2', sex: 'm', spot: 17, scale: 1, style: 'raver', shared: true, hip: 1.1545 },
-  { model: 'models/crowd_g05.glb?v=2', sex: 'f', spot: 18, scale: 1, style: 'social', shared: true, hip: 1.0051 },
-  { model: 'models/crowd_b05.glb?v=2', sex: 'm', spot: 19, scale: 1, style: 'social', shared: true, hip: 1.2047 },
-  { model: 'models/crowd_g06.glb?v=2', sex: 'f', spot: 20, scale: 1, style: 'raver', shared: true, hip: 0.989 },
-  { model: 'models/crowd_b06.glb?v=2', sex: 'm', spot: 21, scale: 1, style: 'chill', shared: true, hip: 1.1471 },
-  { model: 'models/crowd_g07.glb?v=2', sex: 'f', spot: 22, scale: 1, style: 'social', shared: true, hip: 1.0314 },
-  { model: 'models/crowd_b07.glb?v=2', sex: 'm', spot: 23, scale: 1, style: 'raver', shared: true, hip: 1.1828 },
-  { model: 'models/crowd_g08.glb?v=2', sex: 'f', spot: 24, scale: 1, style: 'chill', shared: true, hip: 0.9719 },
-  { model: 'models/crowd_b08.glb?v=2', sex: 'm', spot: 25, scale: 1, style: 'social', shared: true, hip: 1.1004 },
-  { model: 'models/crowd_g09.glb?v=2', sex: 'f', spot: 26, scale: 1, style: 'raver', shared: true, hip: 0.9838 },
-  { model: 'models/crowd_b09.glb?v=2', sex: 'm', spot: 27, scale: 1, style: 'raver', shared: true, hip: 1.1073 },
-  { model: 'models/crowd_g10.glb?v=2', sex: 'f', spot: 28, scale: 1, style: 'social', shared: true, hip: 1.0796 },
-  { model: 'models/crowd_b10.glb?v=2', sex: 'm', spot: 29, scale: 1, style: 'social', shared: true, hip: 1.1702 }
-];
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const PX_CAP = +new URLSearchParams(location.search).get('px') || 1.75;   // ?px=1 renders at 1x (for capturing smooth footage)
 const HOUSE = new URLSearchParams(location.search).get('house');   // ?house=<id>: the 24/7 Club Cloud room, where the robot is the DJ
-const FEATURED = (LITE_EARLY ? FEATURED_SCANNED : FEATURED_SCANNED.concat(BUILT));
+const FEATURED = Array.from({length: 20}, (_, spot) => {
+  const sex = [1, 4, 7, 10, 13, 16].includes(spot) ? 'm' : 'f';
+  return {model: `models/new_crowd_${sex}.glb?v=1`, sex, spot, scale: 1, style: ['raver', 'chill', 'social'][spot % 3]};
+});
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9], [10, 11], [12, 13, 14], [15, 16], [17, 18], [19, 20], [21, 22, 23], [24, 25], [26, 27], [28, 29]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
-const RESTS = ['idle', 'lookaround', 'talk']; // what people do between songs, so nobody stands in step
+const RESTS = ['idle', 'bored', 'nails', 'fan', 'offensive'];
 // the dance floor's repertoire. Measured from the mocap: dance4 and dance5 are the small, low two-step grooves (feet
 // close and open, little arm), dance3 a shuffle, dance the wide hip-hop bounce, dance2 the big hip-swinging house move.
 // The two-step is what most people do most of the time; the wide hip-hop is kept to the lads and the hip-swinging one to the girls.
@@ -64,7 +40,8 @@ const TIERS = {
   mid:  { m: ['dance4', 'dance4', 'dance3', 'dance5'], f: ['dance4', 'dance4', 'dance3', 'dance2'] },
   high: { m: ['dance4', 'dance4', 'dance3', 'dance'], f: ['dance4', 'dance4', 'dance3', 'dance2'] },
 };
-const BEAT_LOOPS = new Set(['dance', 'dance2', 'dance3', 'dance4', 'dance5', 'hype']); // 2-beat clips locked to the music
+// Mixamo clips have different lengths and should play at their authored speed.
+const BEAT_LOOPS = new Set();
 // where the crowd stands (x, z) — the DJ looks down -Z from the booth at z = 0
 // kept on the open floor: clear of the counter between the columns (z < -4.3) and the side tables (|x| > 2.2)
 const SPOTS = [[-1.2, -2.6], [0.1, -2.4], [1.25, -2.7], [-0.55, -3.3], [0.7, -3.35], [-2.1, -4.4], [1.9, -4.6], [-0.9, -5.4], [0.8, -5.9], [-2.0, -6.0],
@@ -317,6 +294,7 @@ function everyone(clip, chance, lines) {
 
 function react(p, clip, lines, force) {
   if (!p || (p.busy && !force)) return;
+  if (clip === 'cheer') clip = p.actions.hype ? 'hype' : 'clap';
   if (clip === 'fall' && p.actions.talk) clip = 'boo'; // scanned people don't keel over
   if (clip === 'laugh') return; // the laugh's lean looked wrong, so nobody does it
   const act = p.actions[clip]; if (!act) return;
@@ -608,7 +586,6 @@ function updatePeople(dt) {
     if (p.chest && p.chestQ) p.chest.quaternion.copy(p.chestQ);
     if (p.head && p.headQ) p.head.quaternion.copy(p.headQ);
     p.mixer.update(dt);
-    spreadArms(p, dt);
     if (p.chest) (p.chestQ ||= new THREE.Quaternion()).copy(p.chest.quaternion);
     if (p.head) (p.headQ ||= new THREE.Quaternion()).copy(p.head.quaternion);
     // turn towards a friend when talking, drift a little on the spot, breathe, and keep an eye on the DJ
@@ -1025,41 +1002,45 @@ function buildSplatVenue() {
   ledMat = new THREE.MeshBasicMaterial({ color: 0x2f8cff });
 }
 
-// The built characters carry no moves of their own: one shared set (models/crowd_clips.glb, written from the same skeleton), with the hips' travel scaled to each body's height.
-function sharedClips(star, donor) {
-  if (!donor) return [];
-  return donor.animations.map((clip) => {
-    const c = clip.clone();
-    for (const t of c.tracks) if (t.name === 'mixamorigHips.position') for (let i = 0; i < t.values.length; i++) t.values[i] *= star.hip;
-    return c;
-  });
-}
-
 async function loadCrowd() {
   const loader = new GLTFLoader();
-  const sharedDonor = FEATURED.some((f) => f.shared) ? await loader.loadAsync('models/crowd_clips.glb?v=3').catch(() => null) : null; // the built characters' shared moves
-  // The retired fallback avatars used to be fetched here even though this floor never displayed them.
-  const stars = await Promise.all(FEATURED.map((f) => loader.loadAsync(f.model).catch(() => null)));
+  const hairTextures = await Promise.all(Array.from({length: 14}, (_, i) => new THREE.TextureLoader().loadAsync(`models/female_look_${i}.jpg?v=1`)));
+  const maleTextures = await Promise.all(Array.from({length: 6}, (_, i) => new THREE.TextureLoader().loadAsync(`models/male_look_${i}.jpg?v=1`)));
+  for (const texture of [...hairTextures, ...maleTextures]) { texture.flipY = false; texture.colorSpace = THREE.SRGBColorSpace; }
+  const sources = await Promise.all(['f', 'm'].map((sex) => loader.loadAsync(`models/new_crowd_${sex}.glb?v=1`)));
+  const stars = FEATURED.map((f) => sources[f.sex === 'f' ? 0 : 1]);
   SPOTS.forEach(([x, z], i) => {
     const fi = FEATURED.findIndex((f, k) => f.spot === i && stars[k]);
     const star = fi >= 0 ? FEATURED[fi] : null;
     if (!star) return; // only the scanned, rigged people; the old blocky dancers are retired
     const src = stars[fi];
-    const anims = star.shared ? sharedClips(star, sharedDonor) : star.rename ? src.animations.map((c) => { const k = c.clone(); k.name = star.rename[c.name] || c.name; return k; }) : src.animations;
+    const anims = src.animations;
     const root = SkeletonUtils.clone(src.scene);
     root.position.set(x, 0, z);
     const face = Math.atan2(-x, -z); // face the booth (models face +Z)
     root.rotation.y = face;
     root.scale.setScalar(star ? star.scale : rnd(0.96, 1.04));
-    root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; } });
-    scene.add(root);
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      o.frustumCulled = false;
+      const vary = (material) => {
+        const mat = material.clone();
+        if (star.sex === 'f' && mat.emissiveMap) mat.emissiveMap = hairTextures[FEATURED.slice(0, i).filter((f) => f.sex === 'f').length];
+        if (star.sex === 'm' && mat.emissiveMap) mat.emissiveMap = maleTextures[FEATURED.slice(0, i).filter((f) => f.sex === 'm').length];
+        return mat;
+      };
+      o.material = Array.isArray(o.material) ? o.material.map(vary) : vary(o.material);
+    });
     const mixer = new THREE.AnimationMixer(root);
     const actions = {};
     for (const clip of anims) if (clip.name !== 'listen') actions[clip.name] = mixer.clipAction(clip);   // 'listen' (Old Man Idle) crossed the arms, which looked creepy
+    // Pose the skeleton before adding it to the scene, so no bind-pose flash appears.
+    if (actions.idle) { actions.idle.play(); mixer.update(0); }
+    scene.add(root);
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const armL = bone(/^mixamorigLeftArm$/i), armR = bone(/^mixamorigRightArm$/i);
-    const p = { root, mixer, actions, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
+    const p = { root, mixer, actions, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: actions.idle || null, loopName: actions.idle ? 'idle' : null, busy: false,
       bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || anims.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
