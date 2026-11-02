@@ -214,7 +214,8 @@ function listen() {
 }
 
 function think(dt, t) {
-  const c = cc(); if (!c) return;
+  const c = cc() || { decks: [], chanGain: () => 0 };
+  if (!cc() && !inputMode) return;
   const [a, b] = c.decks;
   const aud = inputMode ? [0, 0] : c.decks.map((d, i) => (d.loaded && d.playing ? c.chanGain(i) : 0));
   const { bass, peak } = listen();
@@ -553,7 +554,7 @@ function spreadArms(p, dt) {
 
 let lastBeats = null, lastKick = 0;   // the beat this frame, for the DJ
 function updatePeople(dt) {
-  const c = cc(); if (!c) return;
+  const c = cc() || { decks: [], chanGain: () => 0 };
   const t = clock.elapsedTime;
   const M = c.decks.find((d) => d.master && d.loaded && d.playing) || c.decks.find((d) => d.loaded && d.playing && c.chanGain(d.i) > 0.1);
   const lockedIn = inputMode && !M && live.conf > 0.4;
@@ -574,7 +575,7 @@ function updatePeople(dt) {
     // every new phrase, dancers may switch to another of their dances
     if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.dance = chooseDance(p, tempo); }
     if (!playing && t > (p.restUntil || 0)) { p.restUntil = t + rnd(8, 20); if (p.rests.length > 1 && Math.random() < 0.5) p.rest = pick(p.rests); }
-    let want = p.rest || 'idle';
+    let want = t < p.startupUntil ? (p.dance || p.rest || 'idle') : (p.rest || 'idle');
     if (playing) {
       // the crowd follows the lights setting: chill is a mellow sway (no big moves), energetic as before, rave is the whole room going off
       const vibe = light.style === 'chill' ? -22 : light.style === 'rave' ? 14 : 0;
@@ -602,6 +603,7 @@ function updatePeople(dt) {
     if (p.chest && p.chestQ) p.chest.quaternion.copy(p.chestQ);
     if (p.head && p.headQ) p.head.quaternion.copy(p.headQ);
     p.mixer.update(dt);
+    p.root.visible = true;
     if (p.chest) (p.chestQ ||= new THREE.Quaternion()).copy(p.chest.quaternion);
     if (p.head) (p.headQ ||= new THREE.Quaternion()).copy(p.head.quaternion);
     // turn towards a friend when talking, drift a little on the spot, breathe, and keep an eye on the DJ
@@ -1055,18 +1057,25 @@ async function loadCrowd() {
     const mixer = new THREE.AnimationMixer(root);
     const actions = {};
     for (const clip of anims) if (clip.name !== 'listen') actions[clip.name] = mixer.clipAction(clip);   // 'listen' (Old Man Idle) crossed the arms, which looked creepy
-    // Pose the skeleton before adding it to the scene, so no bind-pose flash appears.
-    if (actions.idle) { actions.idle.play(); mixer.update(0); }
+    // Keep the character hidden until its first animated frame is ready.
+    root.visible = false;
     scene.add(root);
     const bone = (re) => { let b = null; root.traverse((o) => { if (o.isBone && re.test(o.name)) b = o; }); return b; };
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const armL = bone(/^mixamorigLeftArm$/i), armR = bone(/^mixamorigRightArm$/i);
-    const p = { root, mixer, actions, fadeMaterials, fade: reducedMotion ? 1 : 0, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: actions.idle || null, loopName: actions.idle ? 'idle' : null, busy: false,
+    const p = { root, mixer, actions, fadeMaterials, fade: reducedMotion ? 1 : 0, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
       bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || anims.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
     p.dances = p.dances.filter((d) => d !== (p.sex === 'f' ? 'dance' : 'dance2')); // the wide hip-hop bounce is the lads', the hip-swinging house move the girls'
     p.dance = p.dances.includes('dance4') ? 'dance4' : pick(p.dances);
+    const firstDance = p.actions[p.dance] || p.actions.idle;
+    if (firstDance) {
+      firstDance.setLoop(THREE.LoopRepeat, Infinity);
+      firstDance.play(); firstDance.time = Math.random() * firstDance.getClip().duration;
+      mixer.update(0); p.loop = firstDance; p.loopName = p.dance || 'idle';
+    }
+    p.startupUntil = clock.elapsedTime + 2.5;
     p.rests = RESTS.filter((r) => actions[r]); p.rest = pick(p.rests) || 'idle';
     addProps(p);
     if (star.robot && p.head) { scene.updateMatrixWorld(true); p.robot = buildRobotHead(p.head, p); p.dances = p.dances.filter((d) => d !== 'dance3' || true); }
@@ -1294,7 +1303,10 @@ function aimCamera() {
   if (!camera) return;
   const w = el.clientWidth, h = el.clientHeight;
   if (camView === 'pan') {
-    camera.fov = w / h < 1.3 ? 48 : 32; // CLUB 2: updatePanCam moves it every frame (a longer lens: it shoots from the walls)
+    camera.fov = w / h < 1.3 ? 58 : 50;
+  } else if (camView === 'pov') {
+    camera.fov = w / h < 1.3 ? 68 : 62;
+    updatePovCam(clock ? clock.elapsedTime : 0);
   } else if (camView === 'crowd') {
     // mounted on the back wall under the logo, looking over the crowd at the booth
     camera.fov = w / h < 1.3 ? 36 : 28;
@@ -1310,33 +1322,52 @@ function aimCamera() {
   camera.updateMatrixWorld(); // placeDecks projects through the camera, so it must already be in its new spot
   placeDecks();
 }
-// CLUB 2: a camera that drifts between shots on the beat: a new shot every 16 beats, every 8 when the crowd is flying
-const PAN = { shot: -1, start: -999, len: 64, drift: false, dolly: 0 };
+// Camera B uses wider, room-scale views with a gentle move on every shot.
+const PAN = { shot: -1, start: -999, len: 64, count: 0, dolly: 0 };
 const mix_ = THREE.MathUtils.lerp;
-// Camera B is a club's own cameras: mounted high on the walls and the bar-wall truss, on a long lens, never down in the crowd. Wide and medium shots, with a slow pan from high up.
 const PAN_SHOTS = [
-  (k) => [[mix_(-1.5, 1.5, k), 3.6, -12.6], [0, 1.7, 0]],                                                              // high at the bar wall, wide on the whole stage
-  (k) => [[mix_(-4.2, 4.2, k), 3.8, -11.4], [mix_(2.4, -2.4, k), 1.6, -1.0]],                                          // the pan: high across the back of the room, sweeping the stage
-  (k) => [[-5.0, 3.3, mix_(-7.5, -6.3, k)], [mix_(0.8, -0.4, k), 1.5, -0.5]],                                          // left wall mount, high, looking at the stage
-  (k) => [[5.0, 3.3, mix_(-7.5, -6.3, k)], [mix_(-0.8, 0.4, k), 1.5, -0.5]],                                           // right wall mount
-  (k) => [[mix_(-4.6, -3.8, k), 2.7, 1.6], [0, 1.4, -4.2]],                                                            // by the stage, high, looking down the room over the crowd
-  (k) => [[mix_(-4.4, -3.6, k), 2.4, 0.4], [0, 1.7, 0]],                                                               // the DJ from the side, at a distance
-  (k) => { const a = mix_(-0.9, 0.9, k); return [[Math.sin(a) * 4.6, 3.6, -3.8 - Math.cos(a) * 4.4], [0, 1.0, -3.8]]; }, // high arc round the back of the floor
+  (k) => [[mix_(-1.3, 1.3, k), 3.0, -11.8], [0, 1.5, -0.5]],
+  (k) => [[-4.2, 2.8, mix_(-9.0, -7.8, k)], [mix_(0.4, -0.4, k), 1.5, -0.8]],
+  (k) => [[4.2, 2.8, mix_(-9.0, -7.8, k)], [mix_(-0.4, 0.4, k), 1.5, -0.8]],
+  // Over the DJ's shoulder, looking out across the dance floor.
+  (k) => [[mix_(0.75, 1.05, k), 2.2, 1.25], [mix_(-0.3, 0.3, k), 1.4, -4.8]],
+  (k) => [[mix_(-3.8, -3.2, k), 2.7, 0.5], [0, 1.4, -4.8]],
+  (k) => [[mix_(3.8, 3.2, k), 2.7, 0.5], [0, 1.4, -4.8]],
+  (k) => [[mix_(-2.0, 2.0, k), 3.1, -10.5], [mix_(0.5, -0.5, k), 1.4, -2.0]],
 ];
-// The auto camera follows the lights setting. Chill: fixed shots with a very slow push in or pull out, a new angle every 32 bars. Energetic: a new angle every 16 or 32 bars, some slow pans and a gentle zoom.
-// Rave: the same cuts, but it pans more often and moves a little more. Cuts always land on the first beat of a bar.
 function updatePanCam(beat) {
-  const chill = light.style === 'chill', rave = light.style === 'rave';
-  if (beat >= PAN.start + PAN.len || beat < PAN.start) {                    // time for a new shot (or the track jumped back)
-    PAN.start = Math.floor(beat / 4) * 4; PAN.len = chill ? 128 : Math.random() < 0.5 ? 64 : 128;
-    let n; do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot || (chill && n === 1));   // the sweeping high pan is not a chill shot
-    PAN.shot = n; PAN.drift = chill ? false : n === 1 || Math.random() < (rave ? 0.75 : 0.45);
-    PAN.dolly = (Math.random() < 0.5 ? -1 : 1) * (chill ? 0.3 : rave ? 0.2 : 0.15);
+  if (beat >= PAN.start + PAN.len || beat < PAN.start) {
+    PAN.start = Math.floor(beat / 4) * 4;
+    PAN.len = light.style === 'chill' ? 96 : 64;
+    let n;
+    if (++PAN.count % 4 === 0 && PAN.shot !== 3) n = 3;
+    else { do n = Math.floor(Math.random() * PAN_SHOTS.length); while (n === PAN.shot || n === 3); }
+    PAN.shot = n;
+    PAN.dolly = (Math.random() < 0.5 ? -1 : 1) * 0.035;
   }
-  const prog = Math.min(1, (beat - PAN.start) / PAN.len);
-  const [pos, look] = PAN_SHOTS[PAN.shot](PAN.drift ? prog : 0.5);
-  const f = PAN.dolly * (prog - 0.5);                                         // slow zoom: moves along the line of sight, in or out
-  camera.position.set(pos[0] + (look[0] - pos[0]) * f, pos[1] + (look[1] - pos[1]) * f, pos[2] + (look[2] - pos[2]) * f); camera.lookAt(look[0], look[1], look[2]);
+  const prog = THREE.MathUtils.clamp((beat - PAN.start) / PAN.len, 0, 1);
+  const k = prog * prog * (3 - 2 * prog);
+  const [pos, look] = PAN_SHOTS[PAN.shot](k);
+  const f = PAN.dolly * (prog - 0.5);
+  camera.position.set(pos[0] + (look[0] - pos[0]) * f, pos[1] + (look[1] - pos[1]) * f, pos[2] + (look[2] - pos[2]) * f);
+  camera.lookAt(...look);
+}
+// A slow automatic walk around the back and edges of the dance floor.
+const POV_PATH = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-2.6, 1.7, -7.5), new THREE.Vector3(-2.6, 1.7, -5.7),
+  new THREE.Vector3(-2.6, 1.7, -3.8), new THREE.Vector3(-2.5, 1.7, -2.2),
+  new THREE.Vector3(0, 1.7, -1.7), new THREE.Vector3(2.5, 1.7, -2.2),
+  new THREE.Vector3(2.6, 1.7, -3.8), new THREE.Vector3(2.6, 1.7, -5.7),
+  new THREE.Vector3(2.6, 1.7, -7.5), new THREE.Vector3(0, 1.7, -8.0),
+], true, 'centripetal');
+const POV_POS = new THREE.Vector3(), POV_DIR = new THREE.Vector3(), POV_STAGE = new THREE.Vector3();
+function updatePovCam(t) {
+  const u = (t / 100) % 1;
+  POV_PATH.getPointAt(u, POV_POS); POV_PATH.getTangentAt(u, POV_DIR);
+  POV_STAGE.set(0, 1.55, -0.5).sub(POV_POS).normalize();
+  POV_DIR.multiplyScalar(0.45).add(POV_STAGE).normalize();
+  camera.position.copy(POV_POS);
+  camera.lookAt(POV_POS.x + POV_DIR.x, POV_POS.y + POV_DIR.y, POV_POS.z + POV_DIR.z);
 }
 window.addEventListener('cc-clubzoom', (e) => { clubZoom = e.detail; aimCamera(); });
 
@@ -2209,6 +2240,7 @@ function frame() {
   lights(t, dt);
   sfx.bed(brain.playing, brain.hype);
   if (camView === 'pan' && mode === 'club') updatePanCam(curBeat);
+  if (camView === 'pov' && mode === 'club') updatePovCam(t);
   if (window.__adFrame) window.__adFrame(camera, dt, t);
   syncHaze();
   composer.render();
