@@ -15,6 +15,7 @@
 .plan li::before { content: ''; position: absolute; left: 2px; top: 17px; width: 10px; height: 6px; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: rotate(-45deg); }
 .plan li.no { color: #5d6166; } .plan li.no::before { border-color: #4a4d52; transform: none; width: 9px; height: 0; border-left: 0; top: 22px; }
 .plan .btn { text-align: center; }
+.compare-scroll { overflow-x:auto; } .compare { width:100%; min-width:560px; border-collapse:collapse; text-align:left; font-size:14px; } .compare caption { text-align:left; color:var(--soft); padding-bottom:12px; } .compare th,.compare td { padding:14px; border-bottom:1px solid var(--line); vertical-align:top; } .compare td { color:var(--soft); }
 .faq { max-width: 720px; margin-top: 12px; } .faq h3 { margin: 30px 0 6px; font: 600 16px/1.3 var(--font); letter-spacing: -.01em; } .faq p { margin: 0; color: var(--soft); font-size: 15.5px; }
 @media (max-width: 860px) { .plans { grid-template-columns: 1fr; max-width: 480px; } .plan { border-left: 0; border-top: 1px solid var(--line); } .plan:first-child { border-top: 0; } .plan.pro { order: -1; border-top: 0; } .plan.pro + .plan, .plan:first-child { border-top: 1px solid var(--line); } }
 </style><link rel="canonical" href="https://clubcloud.vip/pricing">
@@ -26,7 +27,7 @@
 <main class="page"><div class="wrap">
   <p class="eyebrow">Pricing</p>
   <h1 class="big">Watch free. Play when you want.</h1>
-  <p class="lead">Watching live sets is always free. You only pay when you want to play the decks yourself. Prices are in pounds (GBP).</p>
+  <p class="lead">Listening is free: sign up after 5 minutes to keep watching. DJs get 5 free minutes on the decks every 24 hours, with paid options for more time. Prices are in pounds (GBP).</p>
   <div class="plans">
     <section class="plan"><h3>Free</h3><div class="price">£0</div><p class="for">For watching and trying it out</p>
       <ul><li>Watch every live stream</li><li>Chat and request songs in any room</li><li>5 free minutes on the decks every 24 hours</li><li>The club view with the crowd, lights and big screen</li><li class="no">No going live or recording</li></ul>
@@ -35,18 +36,21 @@
       <ul><li>Everything in Free</li><li>Deck time whenever you need it, as many hours as you like</li><li>Hours never expire, and only count down while a deck plays</li><li>A short Club Cloud tag plays over the sound every 10 minutes</li><li class="no">No going live or recording</li></ul>
       <a class="btn ghost" href="/app?shop=1">Buy hours</a></section>
     <section class="plan pro"><span class="tag">Best for DJs</span><h3>Pro</h3><div class="price">£9.99 <small>/ month</small></div><p class="for">For DJs who want an audience</p>
-      <ul><li>Everything in Pay per hour</li><li>Unlimited deck time, and no tag over your sound</li><li>Go live to up to 100 listeners</li><li>Record your sets and download them at 320 kbps</li><li>Set your own prices for entry, song requests, shout-outs, meet and greets and tips</li></ul>
+      <ul><li>Everything in Pay per hour</li><li>Unlimited deck time, and no tag over your sound</li><li>Go live to up to 100 listeners</li><li>Record your sets and download them at 320 kbps</li><li>Set prices for entry, song requests, shout-outs, meet and greets and tips; payment and payout terms are still being finalised</li></ul>
       <a class="btn" href="/app?shop=pro">Go Pro</a></section>
   </div>
+  <h2 class="sec">Compare plans</h2>
+  <div class="compare-scroll"><table class="compare"><caption>Features by plan</caption><thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Pay per hour</th><th scope="col">Pro</th></tr></thead><tbody><tr><th scope="row">Deck time</th><td>5 minutes every 24 hours</td><td>£1 per hour</td><td>Unlimited</td></tr><tr><th scope="row">Audio tag</th><td>—</td><td>Every 10 minutes</td><td>None</td></tr><tr><th scope="row">Go live and record</th><td>No</td><td>No</td><td>Yes</td></tr><tr><th scope="row">Watch streams</th><td colspan="3">Free; sign up after 5 minutes to keep watching</td></tr></tbody></table></div>
   <h2 class="sec">Good to know</h2>
   <div class="faq">
     <h3>What counts as using the decks?</h3><p>Deck time only runs while a deck is actually playing. Browsing, chatting and watching streams never use it.</p>
     <h3>Do my hours run out?</h3><p>No. Hours you buy stay on your account until you use them.</p>
     <h3>What happens when my time runs out mid-set?</h3><p>You get a two-minute grace period with the music still playing, and a one-tap button to add an hour.</p>
     <h3>Have a promo code?</h3><p>Open the deck time screen in the app and enter it in the box marked "Have a code?".</p>
+    <h3>How do DJ payments and payouts work?</h3><p>Payment, refund, fee and payout terms for room entry, requests and tips are still being finalised. See the <a href="/terms">terms</a> for the current position.</p>
     <h3>Can I play any music when I go live?</h3><p>You confirm you have the rights to broadcast what you play. Read the <a href="/terms">terms</a>.</p>
   </div>
 </div></main>
-<script type="module" src="site.js?v=6"></script>
+<script type="module" src="site.js?v=7"></script>
 <script type="module">document.querySelectorAll('[data-signin]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); const A = window.__auth; if (A && A.signedIn) location.href = '/app'; else if (A) A.require('Club Cloud'); else location.href = '/app'; }));</script>
 </body></html>

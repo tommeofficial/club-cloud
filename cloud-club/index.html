@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Club Cloud</title>
-<meta name="description" content="Club Cloud: the world's first virtual DJ club. Watch live sets free, play the decks, or go live.">
+<meta name="description" content="Club Cloud: play the decks in a virtual nightclub, watch live sets, or go live.">
 <meta name="theme-color" content="#050505">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -38,6 +38,14 @@
 @keyframes fill { to { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { #dots button.on i { animation: none; width: 100%; } }
 #hero .still { display: none; }
+#limits { margin: 14px 0 0; color: #e3e7eb; font-size: 13px; line-height: 1.45; max-width: 66ch; }
+#preview { padding: 0 0 clamp(56px, 8vw, 100px); }
+#preview .preview-layout { display:grid; grid-template-columns: 1fr 1.4fr; gap: 32px; align-items:center; }
+#preview h2 { font: 600 clamp(26px,3vw,38px)/1.1 var(--font); letter-spacing:-.025em; margin:0 0 12px; }
+#preview p { color:var(--soft); }
+#preview video { width:100%; border-radius:12px; background:#111; }
+@media (max-width:700px) { #preview .preview-layout { grid-template-columns:1fr; } #hero { min-height:650px; } }
+:focus-visible { outline: 3px solid #8fe9ff; outline-offset: 3px; }
 
 /* live now */
 #live { padding: clamp(56px, 8vw, 104px) 0 clamp(72px, 10vw, 128px); }
@@ -70,9 +78,9 @@
 </style>
 <link rel="canonical" href="https://clubcloud.vip/">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Club Cloud"><meta property="og:url" content="https://clubcloud.vip/">
-<meta property="og:title" content="Club Cloud"><meta property="og:description" content="The world's first virtual DJ club. Watch live sets free, play the decks, or go live.">
+<meta property="og:title" content="Club Cloud"><meta property="og:description" content="Play the decks in a virtual nightclub, watch live sets, or go live.">
 <meta property="og:image" content="https://clubcloud.vip/og-image.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="The Club Cloud logo">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Club Cloud"><meta name="twitter:description" content="The world's first virtual DJ club. Watch live sets free, play the decks, or go live."><meta name="twitter:image" content="https://clubcloud.vip/og-image.png">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Club Cloud"><meta name="twitter:description" content="Play the decks in a virtual nightclub, watch live sets, or go live."><meta name="twitter:image" content="https://clubcloud.vip/og-image.png">
 </head>
 <body>
 <section id="hero" aria-label="Club Cloud">
@@ -85,9 +93,10 @@
   <div class="slide" data-h="A light show that locks to the beat. Lasers, moving heads, blinders and light towers, all following the music you play.">
     <video muted playsinline preload="none" poster="hero/lights.jpg" aria-hidden="true"><source src="hero/lights.mp4" type="video/mp4"></video></div>
   <div id="hcopy">
-    <h1 id="tag">The world’s first DJ club simulator and live stream</h1>
+    <h1 id="tag">Your decks. Your crowd. Your club.</h1>
     <p id="hline"></p>
-    <nav id="below" aria-label="Quick links"><a class="main" href="/app">Play the decks</a><a href="#live">Watch live</a></nav>
+    <nav id="below" aria-label="Choose your experience"><a class="main" href="/app?play=1">DJ: play the decks</a><a href="#live">Listener: watch live</a></nav>
+    <p id="limits">DJs: 5 free minutes on the decks every 24 hours. Listeners: watch free; sign up after 5 minutes to keep watching.</p>
   </div>
   <div id="dots" role="tablist" aria-label="Highlights"><button type="button" role="tab" aria-label="The club"><i></i></button><button type="button" role="tab" aria-label="24/7 rooms"><i></i></button><button type="button" role="tab" aria-label="The crowd"><i></i></button><button type="button" role="tab" aria-label="The lights"><i></i></button></div>
 </section>
@@ -97,8 +106,10 @@
   <div class="lgrid" id="liveGrid" aria-live="polite"><div class="lempty"><b>Checking who's on air…</b></div></div>
 </div></section>
 
+<section id="preview"><div class="wrap preview-layout"><div><h2>See the club in action</h2><p>Watch the lights and crowd in the virtual club, then try the decks yourself.</p><a class="btn ghost" href="/app?play=1">Try the decks</a></div><video controls playsinline preload="metadata" poster="hero/clubwide.jpg" aria-label="Preview of the Club Cloud virtual nightclub"><source src="hero/clubwide.mp4" type="video/mp4">Your browser does not support video.</video></div></section>
+
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="site.js?v=6"></script>
+<script type="module" src="site.js?v=7"></script>
 <script type="module" src="hero.js?v=1"></script>
 <script type="module" src="home-grid.js?v=7"></script>
 </body>

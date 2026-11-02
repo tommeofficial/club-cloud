@@ -452,6 +452,8 @@ canvas.cv { position: absolute; pointer-events: none; }
 #splash.hit { opacity: 1; transition: none; }
 #splash i { position: absolute; border-radius: 50%; background: rgba(255,205,110,.75); filter: blur(.5px); }
 @media (prefers-reduced-motion: reduce) { #stage.anim { transition: none; } }
+#quickstart { position:absolute; z-index:30; top:64px; left:16px; width:min(340px, calc(100vw - 32px)); padding:18px; border:1px solid #536a80; border-radius:14px; background:#101b29; color:#f4f8ff; box-shadow:0 12px 40px #0009; font: 14px/1.5 var(--ui); }
+#quickstart h2 { margin:0 0 8px; font-size:18px; } #quickstart ol { padding-left:20px; margin:0 0 14px; } #quickstart button { padding:9px 12px; margin:3px 5px 0 0; border:1px solid #9fdfff; border-radius:7px; color:#fff; background:#233d56; cursor:pointer; } #quickstart .dismiss { background:transparent; }
 </style>
 
 <div id="app">
@@ -486,6 +488,11 @@ canvas.cv { position: absolute; pointer-events: none; }
     </div>
   </div>
   <div id="lightmenu" hidden><div class="row"><span>LIGHTS</span><button data-lm="power" class="on">ON</button><div class="swatches"></div></div><div class="row"><span>AUTO</span><button data-style="chill" title="Slow sweeps and soft glowing colour that melts from one to the next. No flashing or strobes">CHILL</button><button data-style="energetic" title="Fast chases, hits on every kick, strobes and blinders on the drops">ENERGETIC</button><button data-style="rave" title="Lasers all the way, the moving heads kept low, and a white burst on the last beat of every bar. Contains flashing lights">RAVE</button></div><div class="row"><span>BRIGHTNESS</span><input type="range" id="lightIntensity" min="0" max="100" value="50" title="How bright the lights and screens are"></div><div class="row"><span>AUTO FX</span><button data-fx="laser" title="Lasers come in at random on drops, breakdowns and the kick">LASER</button><button data-fx="co2" title="CO2 cannons fire on big drops">CO2</button><button data-fx="blackout" title="Lights go dark when the music cuts out">BLACKOUT</button><button data-fx="blinders" title="The big C's blast white like blinders on some drops, strobe on drops and glow through a blackout">STROBE</button></div><hr><div class="row"><span>CROWD</span><button data-lm="mute" class="icon" title="Mute crowd sound" aria-label="Mute crowd sound"></button><input type="range" id="crowdVol" min="0" max="100" value="70" title="Crowd sound volume: cheers, chatter, shouts, whistles, CO2"></div><hr><div class="row"><span>CHAT</span><button id="chatAuto" class="on" title="Open the chat in the club views and tuck it away in DECKS and SPLIT. Turn off to keep it however you leave it.">AUTO HIDE ON</button></div><hr><div class="row"><span>AUDIO IN</span><button id="inputBtn" title="Listen to an outside audio input instead of the app's decks">CHOOSE</button><select id="inputSel" hidden></select></div><hr><div class="row"><span>ACCESS</span><button id="signOut" title="Sign out and go back to the Club Cloud website">SIGN OUT</button></div></div>
+  <aside id="quickstart" aria-labelledby="quickstart-title" hidden>
+    <h2 id="quickstart-title">Start mixing</h2>
+    <ol><li>Two demo tracks load automatically. Or add your own music in the library.</li><li>Choose a track and load it onto a deck.</li><li>Press play on a deck to start. Your free deck time only runs while a deck plays.</li></ol>
+    <button type="button" id="quick-library">Open library</button><button type="button" id="quick-dismiss" class="dismiss">Got it</button>
+  </aside>
   <div id="splitbar" hidden></div>
   <div id="lobby" hidden>
     <div class="lhead"><b>HOME</b><span>Watch live sets, or play the decks yourself.</span><button class="lplay"><i class="lpi"></i>PLAY THE DECKS</button><button class="lclose" aria-label="Close">✕</button></div>
@@ -503,10 +510,10 @@ canvas.cv { position: absolute; pointer-events: none; }
   <input id="filein" type="file" multiple accept="audio/*,.mp3,.wav,.aif,.aiff,.flac,.m4a,.aac,.ogg,.opus" hidden>
 </div>
 
-<script src="app.js?v=132"></script>
+<script src="app.js?v=133"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
 <script type="module" src="club.js?v=201"></script>
-<script type="module" src="chat.js?v=123"></script>
+<script type="module" src="chat.js?v=124"></script>
 <script type="module" src="billing.js?v=23"></script>
 <script type="module" src="record.js?v=4"></script>
 <script type="module" src="house.js?v=7"></script>

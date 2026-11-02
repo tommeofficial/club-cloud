@@ -2393,6 +2393,13 @@ async function bootDecks() {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const d of decks) d.ovl = null; });
 }
 function boot() {
+  const guide = document.getElementById('quickstart');
+  const guideDismiss = () => { guide.hidden = true; try { localStorage.setItem('cc-quickstart-seen', '1'); } catch (_) {} };
+  const params = new URLSearchParams(location.search);
+  let seen = false; try { seen = localStorage.getItem('cc-quickstart-seen') === '1'; } catch (_) {}
+  if (!seen && !params.has('house') && !params.has('room') && !params.has('shop')) guide.hidden = false;
+  document.getElementById('quick-dismiss').addEventListener('click', guideDismiss);
+  document.getElementById('quick-library').addEventListener('click', () => { guideDismiss(); ensureDecks().then(() => openLibrary(null)).catch((e) => console.warn('deck startup failed', e)); });
   const viewing = initialParams.has('house') || initialParams.has('room');
   if (viewing) document.body.classList.add('cc-watching');
   layout(false);
