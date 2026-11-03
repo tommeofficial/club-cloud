@@ -1239,8 +1239,10 @@ function addProps(p) {
 let clubZoom = 1; // the club view is fixed at the close-up from the booth
 // which camera the club uses: 'booth' (over the DJ's shoulder) or 'crowd' (on the back wall, looking at the booth)
 let camView = 'booth';
+let povStarted = 0;
 try { const v = localStorage.getItem('cc-cam'); if (v === 'crowd' || v === 'pan') camView = v; } catch (_) {}
 function setCamView(v) {
+  if (v === 'pov' && camView !== 'pov') povStarted = clock ? clock.elapsedTime : 0;
   camView = v;
   try { localStorage.setItem('cc-cam', v); } catch (_) {}
   // from the booth the DJ is drawn on her own layer over the deck UI; from the crowd she stands in the room so people can pass in front
@@ -1327,8 +1329,8 @@ const PAN = { shot: -1, start: -999, len: 64, count: 0, dolly: 0 };
 const mix_ = THREE.MathUtils.lerp;
 const PAN_SHOTS = [
   (k) => [[mix_(-1.3, 1.3, k), 3.0, -11.8], [0, 1.5, -0.5]],
-  (k) => [[-4.2, 2.8, mix_(-9.0, -7.8, k)], [mix_(0.4, -0.4, k), 1.5, -0.8]],
-  (k) => [[4.2, 2.8, mix_(-9.0, -7.8, k)], [mix_(-0.4, 0.4, k), 1.5, -0.8]],
+  (k) => [[-2.2, 2.7, mix_(-6.0, -5.4, k)], [0, 1.5, -0.5]],
+  (k) => [[2.2, 2.7, mix_(-6.0, -5.4, k)], [0, 1.5, -0.5]],
   // Over the DJ's shoulder, looking out across the dance floor.
   (k) => [[mix_(0.75, 1.05, k), 2.2, 1.25], [mix_(-0.3, 0.3, k), 1.4, -4.8]],
   (k) => [[mix_(-3.8, -3.2, k), 2.7, 0.5], [0, 1.4, -4.8]],
@@ -1352,22 +1354,20 @@ function updatePanCam(beat) {
   camera.position.set(pos[0] + (look[0] - pos[0]) * f, pos[1] + (look[1] - pos[1]) * f, pos[2] + (look[2] - pos[2]) * f);
   camera.lookAt(...look);
 }
-// A slow automatic walk around the back and edges of the dance floor.
-const POV_PATH = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-2.6, 1.7, -7.5), new THREE.Vector3(-2.6, 1.7, -5.7),
-  new THREE.Vector3(-2.6, 1.7, -3.8), new THREE.Vector3(-2.5, 1.7, -2.2),
-  new THREE.Vector3(0, 1.7, -1.7), new THREE.Vector3(2.5, 1.7, -2.2),
-  new THREE.Vector3(2.6, 1.7, -3.8), new THREE.Vector3(2.6, 1.7, -5.7),
-  new THREE.Vector3(2.6, 1.7, -7.5), new THREE.Vector3(0, 1.7, -8.0),
-], true, 'centripetal');
-const POV_POS = new THREE.Vector3(), POV_DIR = new THREE.Vector3(), POV_STAGE = new THREE.Vector3();
+// A person standing among the crowd: mostly watching the DJ, with brief glances
+// to either side. The small body sway stays in place instead of travelling.
 function updatePovCam(t) {
-  const u = (t / 100) % 1;
-  POV_PATH.getPointAt(u, POV_POS); POV_PATH.getTangentAt(u, POV_DIR);
-  POV_STAGE.set(0, 1.55, -0.5).sub(POV_POS).normalize();
-  POV_DIR.multiplyScalar(0.45).add(POV_STAGE).normalize();
-  camera.position.copy(POV_POS);
-  camera.lookAt(POV_POS.x + POV_DIR.x, POV_POS.y + POV_DIR.y, POV_POS.z + POV_DIR.z);
+  const elapsed = Math.max(0, t - povStarted);
+  const phase = elapsed % 34;
+  const cycle = Math.floor(elapsed / 34);
+  // A quick head turn, a short look around, then a return to the DJ.
+  const ease = (x) => { x = THREE.MathUtils.clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+  const glance = phase < 24 ? 0 : phase < 24.6 ? ease((phase - 24) / 0.6) : phase < 26.2 ? 1 : phase < 26.8 ? 1 - ease((phase - 26.2) / 0.6) : 0;
+  const side = cycle % 2 ? -1 : 1;
+  const sway = Math.sin(elapsed * 1.25) * 0.012 + Math.sin(elapsed * 0.73) * 0.006;
+  const bob = Math.sin(elapsed * 1.25 + 0.8) * 0.008;
+  camera.position.set(0.05 + sway, 1.68 + bob, -3.8);
+  camera.lookAt(side * 3.2 * glance, 1.5 + bob * 0.3, -0.5 - 3.0 * glance);
 }
 window.addEventListener('cc-clubzoom', (e) => { clubZoom = e.detail; aimCamera(); });
 
