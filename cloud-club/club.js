@@ -1513,6 +1513,12 @@ function lights(t, dt) {
     }
   }
   const sc = sceneMix(scn.name, beat);
+  // Keep the moving heads visible during an energetic set, even in a
+  // screen-led scene. Explicit blackouts and chill mode still take precedence.
+  if (brain.playing && light.on && light.style !== 'chill' && !dark) {
+    sc.beam = Math.max(sc.beam, 0.45);
+    sc.wash = Math.max(sc.wash, 0.2);
+  }
   const lit = Math.min(1.5, bright);                               // how much of the brightness slider the lights use
   beams.forEach((b, i) => {
     if (dark) { b.material.opacity = 0; b.userData.lens.material.color.setRGB(0.02, 0.02, 0.02); b.userData.ring.material.color.setRGB(0.03, 0.03, 0.03); return; }
