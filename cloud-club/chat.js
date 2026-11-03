@@ -75,7 +75,7 @@ async function start() {
     S.me = await S.backend.getMyProfile();
   } catch (e) { console.warn('chat offline', e); setStatus('offline'); return; }
   makeLobby();
-  if (!sessionStorage.getItem('cc-home-seen') && !urlRoom && !new URLSearchParams(location.search).has('house')) { sessionStorage.setItem('cc-home-seen', '1'); S.lobby.open(); }   // each visit starts on the home screen
+  if (!sessionStorage.getItem('cc-home-seen') && !urlRoom && !new URLSearchParams(location.search).has('house') && !new URLSearchParams(location.search).has('play')) { sessionStorage.setItem('cc-home-seen', '1'); S.lobby.open(); }   // each visit starts on the home screen
   if (!S.me) { nameRow.hidden = false; setStatus(''); return; }
   connect();
 }

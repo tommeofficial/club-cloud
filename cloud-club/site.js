@@ -10,7 +10,7 @@ const IN_APP = !!document.getElementById('app');   // the app page carries the s
 if (IN_APP) document.body.classList.add('cc-app');
 document.body.insertAdjacentHTML('afterbegin', `<header class="sh">
   <a class="brand" href="/"><svg class="mark" viewBox="0 0 200 200" aria-hidden="true"><defs><clipPath id="hl"><rect x="0" y="0" width="94" height="200"/></clipPath><clipPath id="hr"><rect x="106" y="0" width="100" height="200"/></clipPath></defs><circle cx="100" cy="100" r="78" fill="none" stroke="#dde8f0" stroke-width="30" clip-path="url(#hl)"/><circle cx="100" cy="100" r="78" fill="none" stroke="#4cebff" stroke-width="30" clip-path="url(#hr)"/></svg>Club Cloud<span class="beta">Beta</span></a>
-  <nav id="mainnav" aria-label="Main">${link('/', 'Home')}${link('/about', 'About')}${link('/pricing', 'Pricing')}<a href="/app">Play the decks</a></nav>
+  <nav id="mainnav" aria-label="Main">${link('/', 'Home')}${link('/about', 'About')}${link('/pricing', 'Pricing')}<a href="/app?play=1">Play the decks</a></nav>
   <div class="tools">
     <a class="cta" href="/pricing">Go Pro</a>
     <button class="acct" type="button" aria-label="Account" aria-haspopup="menu" aria-expanded="false">${USER}</button>
