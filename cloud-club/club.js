@@ -28,10 +28,6 @@ el.appendChild(blackoutLayer);
 const LITE_EARLY = /[?&]lite\b/.test(location.search) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const PX_CAP = +new URLSearchParams(location.search).get('px') || 1.75;   // ?px=1 renders at 1x (for capturing smooth footage)
 const HOUSE = new URLSearchParams(location.search).get('house');   // ?house=<id>: the 24/7 Club Cloud room, where the robot is the DJ
-const FEATURED = Array.from({length: 20}, (_, spot) => {
-  const sex = [1, 4, 7, 10, 13, 16].includes(spot) ? 'm' : 'f';
-  return {model: `models/new_crowd_${sex}.glb?v=1`, sex, spot, scale: 1, style: ['raver', 'chill', 'social'][spot % 3]};
-});
 const FRIENDS = [[1, 2, 3, 4], [0, 5], [6, 8], [7, 9], [10, 11], [12, 13, 14], [15, 16], [17, 18], [19, 20], [21, 22, 23], [24, 25], [26, 27], [28, 29]]; // spot 0 and 5 are a pair
 const STYLES = ['raver', 'chill', 'social', 'filmer'];
 const DANCES = ['dance', 'dance2', 'dance3', 'dance4', 'dance5'];
@@ -51,6 +47,21 @@ const BEAT_LOOPS = new Set();
 const SPOTS = [[-1.2, -2.6], [0.1, -2.4], [1.25, -2.7], [-0.55, -3.3], [0.7, -3.35], [-2.1, -4.4], [1.9, -4.6], [-0.9, -5.4], [0.8, -5.9], [-2.0, -6.0],
   // 20 more places for the new built characters (10 girls and 10 guys)
   [1.91, -3.64], [1.72, -5.92], [-0.13, -5.35], [0.19, -3.96], [-2.14, -2.7], [2.07, -2.69], [-2.14, -3.52], [-0.79, -4.35], [0.81, -2.16], [-1.77, -5.24], [1.21, -3.93], [0.71, -4.61], [-1.21, -3.48], [-1.32, -6.25], [-0.54, -6.25], [1.21, -5.36], [2.01, -5.28], [-1.4, -4.65], [-0.57, -2.22], [0.32, -6.39]];
+// Twenty people, standing in the twenty places that are furthest apart from each other (each new place is the one with the most room round it),
+// so the crowd is spread across the floor instead of packed into a block. Fourteen women and six men, each with their own look.
+const SPREAD = (() => {
+  const chosen = [1];
+  while (chosen.length < 20) {
+    let best = -1, bestD = -1;
+    SPOTS.forEach(([x, z], i) => { if (chosen.includes(i)) return; const d = Math.min(...chosen.map((j) => Math.hypot(x - SPOTS[j][0], z - SPOTS[j][1]))); if (d > bestD) { bestD = d; best = i; } });
+    chosen.push(best);
+  }
+  return chosen;
+})();
+const FEATURED = SPREAD.map((spot, k) => {
+  const sex = [1, 4, 7, 10, 13, 16].includes(k) ? 'm' : 'f';
+  return { model: `models/new_crowd_${sex}.glb?v=1`, sex, spot, scale: 1, style: ['raver', 'chill', 'social'][k % 3] };
+});
 // the venue is a gaussian splat; it is scaled to metres and placed so the floor is y = 0
 // the scanned venue is kept behind a switch; the built room below lets the light show actually light the space
 const USE_SPLAT = false;
@@ -595,7 +606,7 @@ function updatePeople(dt) {
     }
     if (p.loop && BEAT_LOOPS.has(p.loopName) && beats != null) {
       // drive the clip's time from the beat so everyone stays on it, each from their own place in the move
-      const dur = p.loop.getClip().duration, bars = (dur > 3 ? 16 : 2) * (light.style === 'chill' ? 2 : 1);   // chill moves at half speed
+      const dur = p.loop.getClip().duration, bars = (dur > 3 ? 16 : 2) * (light.style === 'chill' || p.slow ? 2 : 1);   // chill moves at half speed
       p.loop.time = (((((beats + p.phase + p.offset) % bars) + bars) % bars) / bars) * dur;
       p.loop.timeScale = 0;
     } else if (p.loop) p.loop.timeScale = 1;
@@ -1020,6 +1031,7 @@ function buildSplatVenue() {
   ledMat = new THREE.MeshBasicMaterial({ color: 0x2f8cff });
 }
 
+const crowdMats = [];   // every crowd material, so the light show can dim and tint the glow
 async function loadCrowd() {
   const loader = new GLTFLoader();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1037,8 +1049,9 @@ async function loadCrowd() {
     const src = stars[fi];
     const anims = src.animations;
     const root = SkeletonUtils.clone(src.scene);
-    root.position.set(x, 0, z);
-    const face = Math.atan2(-x, -z); // face the booth (models face +Z)
+    const px = x + rnd(-0.16, 0.16), pz = z + rnd(-0.16, 0.16);                                   // not on exact marks
+    root.position.set(px, 0, pz);
+    const face = Math.atan2(-px, -pz) + rnd(-0.7, 0.7);   // mostly towards the booth, but people turn a little to their friends and the room
     root.rotation.y = face;
     root.scale.setScalar(star ? star.scale : rnd(0.96, 1.04));
     const fadeMaterials = [];
@@ -1048,8 +1061,11 @@ async function loadCrowd() {
       const vary = (material) => {
         const mat = material.clone();
         if (!reducedMotion) { mat.transparent = true; mat.opacity = 0; fadeMaterials.push(mat); }
-        if (star.sex === 'f' && mat.emissiveMap) mat.emissiveMap = hairTextures[FEATURED.slice(0, i).filter((f) => f.sex === 'f').length];
-        if (star.sex === 'm' && mat.emissiveMap) mat.emissiveMap = maleTextures[FEATURED.slice(0, i).filter((f) => f.sex === 'm').length];
+        const look = star.sex === 'f' ? hairTextures[FEATURED.slice(0, fi).filter((f) => f.sex === 'f').length] : maleTextures[FEATURED.slice(0, fi).filter((f) => f.sex === 'm').length];
+        // the picture is the base colour, so the club's lights fall on it; a little of it glows so people are never lost in the dark (the rig dims and tints that, see updateCrowdLight)
+        if (look) { mat.map = look; mat.color.set(0xffffff); mat.metalness = 0; mat.roughness = 0.82; mat.emissiveMap = look; mat.emissive.set(0xffffff); mat.emissiveIntensity = 0.3; crowdMats.push(mat); }
+        if (false && star.sex === 'f' && mat.emissiveMap) mat.emissiveMap = hairTextures[FEATURED.slice(0, fi).filter((f) => f.sex === 'f').length];
+        if (false && star.sex === 'm' && mat.emissiveMap) mat.emissiveMap = maleTextures[FEATURED.slice(0, fi).filter((f) => f.sex === 'm').length];
         return mat;
       };
       o.material = Array.isArray(o.material) ? o.material.map(vary) : vary(o.material);
@@ -1064,7 +1080,7 @@ async function loadCrowd() {
     const hand = bone(/^(hand[._]?R|mixamorigRightHand)$/i), handL = bone(/^(hand[._]?L|mixamorigLeftHand)$/i);
     const armL = bone(/^mixamorigLeftArm$/i), armR = bone(/^mixamorigRightArm$/i);
     const p = { root, mixer, actions, fadeMaterials, fade: reducedMotion ? 1 : 0, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
-      bias: rnd(-10, 10), offset: rnd(-0.2, 0.2), phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(x, 0, z), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
+      bias: rnd(-10, 10), offset: rnd(-0.5, 0.5), slow: Math.random() < 0.3, phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(px, 0, pz), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
       style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || anims.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
     p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
     p.dances = p.dances.filter((d) => d !== (p.sex === 'f' ? 'dance' : 'dance2')); // the wide hip-hop bounce is the lads', the hip-swinging house move the girls'
@@ -1576,6 +1592,9 @@ function lights(t, dt) {
   updateScreen(t, beat, pulse, colours, step, scrDark || preDrop, strobe || hitOn || !!sc.flash, sc.screen * (buildAmt > 0.15 ? Math.max(0.15, calm) : 1), bright);
   updateLasers(t, beat, dark || calm < 0.2 || sc.laser < 0.05);
   updateCo2(dt, t);
+  // the crowd takes the show: its own glow is low (so the beams and washes do the lighting), tints towards the rig's colour, and drops away in a blackout
+  { const glow = (dark || preDrop) ? 0.04 : (0.12 + 0.22 * energy + 0.1 * pulse) * Math.min(1.3, bright) * (chill ? 0.9 : 1);
+    for (const m of crowdMats) { m.emissiveIntensity += (glow - m.emissiveIntensity) * Math.min(1, dt * 8); m.emissive.setRGB(1, 1, 1).lerp(_col.setHex(colours[step % colours.length]), 0.4); } }
 }
 
 // CO2 goes off on most drops, but only once a song: a deck's track is the song; with no deck (a stream, a mix) it is once every few minutes
