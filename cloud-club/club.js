@@ -1036,8 +1036,8 @@ async function loadCrowd() {
   const loader = new GLTFLoader();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [hairTextures, maleTextures, sources] = await Promise.all([
-    Promise.all(Array.from({length: 14}, (_, i) => new THREE.TextureLoader().loadAsync(`models/female_look_${i}.jpg?v=1`))),
-    Promise.all(Array.from({length: 6}, (_, i) => new THREE.TextureLoader().loadAsync(`models/male_look_${i}.jpg?v=1`))),
+    Promise.all(Array.from({length: 14}, (_, i) => new THREE.TextureLoader().loadAsync(`models/female_look_${i}.jpg?v=2`))),
+    Promise.all(Array.from({length: 6}, (_, i) => new THREE.TextureLoader().loadAsync(`models/male_look_${i}.jpg?v=2`))),
     Promise.all(['f', 'm'].map((sex) => loader.loadAsync(`models/new_crowd_${sex}.glb?v=1`))),
   ]);
   for (const texture of [...hairTextures, ...maleTextures]) { texture.flipY = false; texture.colorSpace = THREE.SRGBColorSpace; }
