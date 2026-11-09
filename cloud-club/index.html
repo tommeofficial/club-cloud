@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Club Cloud</title>
+<title>Club Cloud: DJ in a virtual nightclub with a live crowd</title>
 <meta name="description" content="Club Cloud: play the decks in a virtual nightclub, watch live sets, or go live.">
 <meta name="theme-color" content="#050505">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
@@ -47,6 +47,16 @@
 @media (max-width:700px) { #preview .preview-layout { grid-template-columns:1fr; } #hero { min-height:650px; } }
 :focus-visible { outline: 3px solid #8fe9ff; outline-offset: 3px; }
 
+/* how it works */
+#how { padding: 0 0 clamp(72px, 10vw, 128px); }
+#how h2 { font: 600 clamp(26px, 3.2vw, 38px)/1.1 var(--font); letter-spacing: -.025em; margin: 0 0 28px; }
+#how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; counter-reset: how; }
+#how li { counter-increment: how; padding: 24px 22px 26px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+#how li::before { content: counter(how); display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: 18px; border-radius: 50%; font: 600 13px/1 var(--ui); color: var(--blue); border: 1px solid rgba(76,235,255,.4); }
+#how h3 { font: 600 18px/1.25 var(--font); letter-spacing: -.01em; margin: 0 0 8px; }
+#how p { margin: 0; color: var(--soft); font-size: 15px; line-height: 1.6; }
+@media (max-width: 760px) { #how ol { grid-template-columns: 1fr; } }
+
 /* live now */
 #live { padding: clamp(56px, 8vw, 104px) 0 clamp(72px, 10vw, 128px); }
 #live .head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; margin-bottom: 28px; }
@@ -78,9 +88,10 @@
 </style>
 <link rel="canonical" href="https://clubcloud.vip/">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Club Cloud"><meta property="og:url" content="https://clubcloud.vip/">
-<meta property="og:title" content="Club Cloud"><meta property="og:description" content="Play the decks in a virtual nightclub, watch live sets, or go live.">
+<meta property="og:title" content="Club Cloud: DJ in a virtual nightclub with a live crowd"><meta property="og:description" content="Play the decks in a virtual nightclub, watch live sets, or go live.">
 <meta property="og:image" content="https://clubcloud.vip/og-image.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="The Club Cloud logo">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Club Cloud"><meta name="twitter:description" content="Play the decks in a virtual nightclub, watch live sets, or go live."><meta name="twitter:image" content="https://clubcloud.vip/og-image.png">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Club Cloud: DJ in a virtual nightclub with a live crowd"><meta name="twitter:description" content="Play the decks in a virtual nightclub, watch live sets, or go live."><meta name="twitter:image" content="https://clubcloud.vip/og-image.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Club Cloud","url":"https://clubcloud.vip/","applicationCategory":"MusicApplication","operatingSystem":"Web browser","description":"Play the decks in a virtual nightclub with a crowd that reacts to your mix, watch live sets, or go live.","image":"https://clubcloud.vip/og-image.png","offers":{"@type":"Offer","price":"0","priceCurrency":"GBP"}}</script>
 </head>
 <body>
 <section id="hero" aria-label="Club Cloud">
@@ -104,6 +115,15 @@
 <section id="live"><div class="wrap">
   <div class="head"><h2><span class="dot" aria-hidden="true"></span>Live now</h2><p class="sub">Every stream is free to watch. After 5 minutes you’ll just need to sign up with your email to keep watching.</p></div>
   <div class="lgrid" id="liveGrid" aria-live="polite"><div class="lempty"><b>Checking who's on air…</b></div></div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <h2>How it works</h2>
+  <ol>
+    <li><h3>Step up to the decks</h3><p>Load your own tracks onto two decks and a mixer. It all runs in your browser, with nothing to install.</p></li>
+    <li><h3>Play to a crowd that listens</h3><p>Blend it clean and the floor goes off: hands in the air, CO2 and confetti on the drop. Trainwreck it and they will let you know.</p></li>
+    <li><h3>Take it live</h3><p>Go Pro to broadcast your set to up to 100 listeners. They walk into the same club and see the same lights and crowd that you do.</p></li>
+  </ol>
 </div></section>
 
 <section id="preview"><div class="wrap preview-layout"><div><h2>See the club in action</h2><p>Watch the lights and crowd in the virtual club, then try the decks yourself.</p><a class="btn ghost" href="/app?play=1">Try the decks</a></div><video controls playsinline preload="metadata" poster="hero/clubwide.jpg" aria-label="Preview of the Club Cloud virtual nightclub"><source src="hero/clubwide.mp4" type="video/mp4">Your browser does not support video.</video></div></section>

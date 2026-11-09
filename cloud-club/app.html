@@ -511,8 +511,10 @@ canvas.cv { position: absolute; pointer-events: none; }
 </div>
 
 <script src="app.js?v=133"></script>
+<script>/* ?mute: run the whole club silently (the sound still flows, so the crowd and lights react; only the speakers are cut) */
+if (/[?&]mute\b/.test(location.search)) { const orig = AudioNode.prototype.connect; AudioNode.prototype.connect = function (dest, ...a) { if (dest instanceof AudioDestinationNode) { const c = dest.context; if (!c.__mute) { c.__mute = c.createGain(); c.__mute.gain.value = 0; orig.call(c.__mute, dest); } orig.call(this, c.__mute, ...a); return dest; } return orig.call(this, dest, ...a); }; }</script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/", "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js" } }</script>
-<script type="module" src="club.js?v=205"></script>
+<script type="module" src="club.js?v=208"></script>
 <script type="module" src="chat.js?v=124"></script>
 <script type="module" src="billing.js?v=23"></script>
 <script type="module" src="record.js?v=4"></script>

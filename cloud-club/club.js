@@ -458,6 +458,7 @@ function think1(p, t, playing) {
   if (r < social * 0.4 && chat(p, t)) return;
   if (p.style === 'filmer' && r < 0.3 && holdFor(p, 'phone_film', rnd(4, 7))) return;
   if (r < 0.12 && holdFor(p, 'drink', rnd(4, 6))) return;
+  if (r > 0.62 && r < 0.62 + (mood > 72 ? 0.3 : 0.14)) { raise(p, pick(['pump', 'pump', 'point', 'both']), rnd(2.5, 6)); return; }   // a fist pump, a point at the DJ
   const once = ['hairflip', 'clap', 'sing', 'wave', 'handsup'].filter((c) => has(p, c));
   if (r < 0.35 && once.length) react(p, pick(once));
 }
@@ -474,17 +475,28 @@ function crowdMoments(t, playing) {
       p.hold = null; p.nextThink = Math.max(p.nextThink, t + rnd(4, 8));
       const chance = light.style === 'chill' ? 0.12 : p.style === 'chill' ? 0.2 : 0.35;
       if (!p.busy && Math.random() < chance) setTimeout(() => react(p, p.actions.hype && Math.random() < 0.45 ? 'hype' : 'clap'), rnd(100, 800));
+      // the room goes off: hands in the air, people jumping on the beat and pressing towards the booth
+      if (light.style !== 'chill' || Math.random() < 0.25) {
+        const wild = p.style === 'raver' ? 0.85 : p.style === 'chill' ? 0.4 : 0.65;
+        if (Math.random() < wild) setTimeout(() => raise(p, Math.random() < 0.6 ? 'both' : 'pump', rnd(5, 11)), rnd(0, 900));
+        if (Math.random() < wild * 0.8) p.jumpUntil = t + rnd(4, 9);
+        p.surgeUntil = t + rnd(8, 16);
+      }
     }
   }
   // Use a smaller groove during a breakdown; these rigs have no hands-up clip.
   const build = playing && brain.lowSince > 2.5;
-  if (build && !crowdEvents.build) for (const p of people) if (p.dances.includes('dance4')) p.dance = 'dance4';
+  if (build && !crowdEvents.build) for (const p of people) {
+    if (p.dances.includes('dance4')) p.dance = 'dance4';
+    if (light.style !== 'chill' && Math.random() < 0.4) setTimeout(() => { if (brain.lowSince > 2) raise(p, 'both', rnd(4, 8)); }, rnd(200, 3000));   // hands creep up as it builds
+  }
   crowdEvents.build = build;
   // the lasers come in: hands go up across the floor, a few at a time, and stay up for a while
   const lasersOn = playing && !!auto.laser;
   if (lasersOn && !crowdEvents.lasers) {
     for (const p of people) {
-      if (p.robot || !has(p, 'handsup')) continue;
+      if (p.robot) continue;
+      if (!has(p, 'handsup')) { if (Math.random() < (p.style === 'chill' ? 0.25 : 0.55)) setTimeout(() => { if (auto.laser) raise(p, Math.random() < 0.5 ? 'both' : 'point', rnd(4, 9)); }, rnd(150, 1400)); continue; }
       const chance = p.style === 'chill' ? 0.3 : p.style === 'filmer' ? 0.35 : 0.75;
       if (Math.random() < chance) setTimeout(() => { if (auto.laser) holdFor(p, 'handsup', rnd(4, 9)); }, rnd(150, 1400));
     }
@@ -563,6 +575,97 @@ function spreadArms(p, dt) {
   }
 }
 
+// ------------------------------------------------------------------ body mechanics
+// Hand-made movement laid over the mocap: aim a limb along a direction, reach a hand to a point in the room,
+// and remember the bones that were touched so every frame starts from the clip's own pose.
+const Q_ID = new THREE.Quaternion();
+const _m1 = new THREE.Vector3(), _m2 = new THREE.Vector3(), _m3 = new THREE.Vector3(), _mq = new THREE.Quaternion(), _mp = new THREE.Quaternion();
+const _r1 = new THREE.Vector3(), _r2 = new THREE.Vector3(), _r3 = new THREE.Vector3(), _r4 = new THREE.Vector3(), _r5 = new THREE.Vector3();
+const _u1 = new THREE.Vector3();
+const fr = (x) => x - Math.floor(x);
+function rigBones(root) {
+  const by = {}; root.traverse((o) => { if (o.isBone) by[o.name.replace(/^mixamorig:?/, '')] = o; });
+  const g = { hips: by.Hips, spine: by.Spine, chest: by.Spine2, neck: by.Neck, head: by.Head, armL: by.LeftArm, armR: by.RightArm, foreL: by.LeftForeArm, foreR: by.RightForeArm,
+    handL: by.LeftHand, handR: by.RightHand, midL: by.LeftHandMiddle1, midR: by.RightHandMiddle1 };
+  g.list = Object.values(g).filter(Boolean); g.saved = null;
+  return g;
+}
+function rigRestore(g) { if (g && g.saved) for (let i = 0; i < g.list.length; i++) g.list[i].quaternion.copy(g.saved[i]); }
+function rigSave(g) { if (!g) return; g.saved ||= g.list.map(() => new THREE.Quaternion()); for (let i = 0; i < g.list.length; i++) g.saved[i].copy(g.list[i].quaternion); }
+// swing a bone so the line from it to its child points along dir (room space), by weight w
+function aimBone(bone, child, dir, w) {
+  bone.getWorldPosition(_m1); child.getWorldPosition(_m2);
+  swingBone(bone, _m2.sub(_m1), dir, w);
+}
+// turn a bone so its own forward (z) axis points along dir: used to point a head where it should look
+function faceBone(bone, dir, w) {
+  bone.updateWorldMatrix(true, false); const e = bone.matrixWorld.elements;
+  swingBone(bone, _m2.set(e[8], e[9], e[10]), dir, w);
+}
+function swingBone(bone, from, dir, w) {
+  from.normalize(); _m3.copy(dir).normalize();
+  _mq.setFromUnitVectors(from, _m3); if (w < 1) _mq.slerp(Q_ID, 1 - w);
+  bone.parent.getWorldQuaternion(_mp);
+  bone.quaternion.premultiply(_mp).premultiply(_mq).premultiply(_mp.invert());
+}
+// two-bone reach: put the hand on a point, with the elbow pushed towards the pole direction
+function reach(arm, fore, hand, target, pole, w) {
+  arm.getWorldPosition(_r1); fore.getWorldPosition(_r2); hand.getWorldPosition(_r3);
+  const l1 = _r1.distanceTo(_r2), l2 = _r2.distanceTo(_r3);
+  _r4.copy(target).sub(_r1); const d = THREE.MathUtils.clamp(_r4.length(), Math.abs(l1 - l2) + 0.001, (l1 + l2) * 0.999); _r4.normalize();
+  const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  _r5.copy(pole).addScaledVector(_r4, -pole.dot(_r4)).normalize();
+  _r2.copy(_r4).multiplyScalar(a).addScaledVector(_r5, h);          // shoulder to elbow
+  _r3.copy(_r4).multiplyScalar(d).sub(_r2);                          // elbow to hand
+  aimBone(arm, fore, _r2, w); aimBone(fore, hand, _r3, w);
+}
+// arms in the air: a fist pump on the beat, both hands up and waving, or a point at the booth
+function raise(p, kind, secs) {
+  if (p.robot || !p.rig || !p.rig.armL || !p.rig.armR) return;
+  p.raise = { until: clock.elapsedTime + secs, kind, side: kind === 'both' ? 0 : Math.random() < 0.5 ? 1 : -1 };
+}
+function raiseArms(p, hit, side) {
+  const g = p.rig, kind = p.raise.kind, w = p.up * p.up * (3 - 2 * p.up), yaw = p.root.rotation.y, c = Math.cos(yaw), s = Math.sin(yaw);
+  const room = (x, y, z) => _u1.set(x * c + z * s, y, -x * s + z * c);   // body space (x: their left, z: forwards) to the room
+  const arm = (sgn, a, f, h) => {
+    if (!a || !f || !h) return;
+    if (kind === 'point') { aimBone(a, f, room(sgn * 0.25, 0.5, 1), w); aimBone(f, h, room(sgn * 0.08, 0.55 + 0.3 * hit, 1), w); }
+    else if (kind === 'both') { aimBone(a, f, room(sgn * 0.42 + side * 0.3, 1, 0.2), w); aimBone(f, h, room(sgn * 0.12 + side * 0.5, 1, 0.1), w); }
+    else { aimBone(a, f, room(sgn * 0.3, 1, 0.3), w); aimBone(f, h, room(sgn * 0.05, 1, 0.1 + 0.8 * hit), w); }
+  };
+  if (p.raise.side >= 0) arm(1, g.armL, g.foreL, g.handL);
+  if (p.raise.side <= 0) arm(-1, g.armR, g.foreR, g.handR);
+}
+// Everyone on the floor moves with the kick, each in their own way: a dip through the knees, a lean from foot to foot, a chest hit and a
+// head nod that lands a touch late. Drops send people jumping and pressing towards the booth, with hands going up.
+function grooveBody(p, dt, t, beats, playing) {
+  const g = p.rig, chill = light.style === 'chill', rave = light.style === 'rave';
+  const dancing = playing && !p.busy && !p.hold && (DANCES.includes(p.loopName) || p.loopName === 'hype');
+  const ez = (cur, to, rate) => cur + (to - cur) * Math.min(1, dt * rate);
+  p.groove = ez(p.groove, dancing ? 1 : 0, 3);
+  p.jump = ez(p.jump, dancing && t < p.jumpUntil ? 1 : 0, 4);
+  p.surge = ez(p.surge, playing && t < p.surgeUntil ? 1 : 0, 1.1);
+  const raising = playing && !p.busy && !!p.raise && t < p.raise.until;
+  p.up = ez(p.up, raising ? 1 : 0, raising ? 4.5 : 3);
+  const b = (beats != null ? beats : t * 2.07) + p.lag, rate = p.slow || chill ? 0.5 : 1;
+  const hit = Math.pow(1 - fr(b * rate), 2.2), late = Math.pow(1 - fr(b * rate - 0.14), 2.2), side = Math.sin(b * rate * Math.PI);
+  const amp = p.groove * p.energy * (0.5 + brain.hype / 120) * (chill ? 0.6 : rave ? 1.2 : 1);
+  const hx = -p.home.x, hz = -p.home.z, hl = Math.hypot(hx, hz) || 1, push = 0.32 * p.surge;
+  const yaw = p.face + p.yaw + Math.sin(t * 0.21 + p.seed) * 0.1, sx = side * 0.035 * amp;
+  p.root.rotation.set(0, yaw, side * 0.04 * amp);
+  const hop = Math.max(0, Math.sin(fr(b) * Math.PI)) * 0.11 * p.jump;
+  p.root.position.set(p.home.x + Math.sin(t * 0.13 + p.seed) * 0.1 + hx / hl * push + Math.cos(yaw) * sx, hop - 0.03 * hit * amp * (1 - p.jump),
+    p.home.z + Math.cos(t * 0.11 + p.seed) * 0.1 + hz / hl * push - Math.sin(yaw) * sx);
+  if (!g) return;
+  if (amp > 0.01) {
+    if (g.spine) g.spine.rotateX(0.035 * hit * amp);
+    if (g.chest) { g.chest.rotateX(0.06 * hit * amp); g.chest.rotateY(side * 0.07 * amp); }
+    if (g.neck) g.neck.rotateX(0.05 * late * amp);
+    if (g.head) g.head.rotateX(0.09 * late * amp);
+  }
+  if (p.up > 0.01 && p.raise) raiseArms(p, hit, side);
+}
+
 let lastBeats = null, lastKick = 0;   // the beat this frame, for the DJ
 function updatePeople(dt) {
   const c = cc() || { decks: [], chanGain: () => 0 };
@@ -584,7 +687,8 @@ function updatePeople(dt) {
     if (t > p.nextThink) { p.nextThink = t + rnd(3, 8); think1(p, t, playing); }
     if (p.hold && t > p.hold.until) { p.hold = null; p.yawTarget = 0; p.look = null; }
     // every new phrase, dancers may switch to another of their dances
-    if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.dance = chooseDance(p, tempo); }
+    if (phrase !== p.phrase) { p.phrase = phrase; if (p.dances.length > 1 && Math.random() < 0.5) p.swapAt = t + rnd(0.01, 3); }   // not all on the same frame
+    if (p.swapAt && t > p.swapAt) { p.swapAt = 0; p.dance = chooseDance(p, tempo); }
     if (!playing && t > (p.restUntil || 0)) { p.restUntil = t + rnd(8, 20); if (p.rests.length > 1 && Math.random() < 0.5) p.rest = pick(p.rests); }
     let want = t < p.startupUntil ? (p.dance || p.rest || 'idle') : (p.rest || 'idle');
     if (playing) {
@@ -609,7 +713,8 @@ function updatePeople(dt) {
       const dur = p.loop.getClip().duration, bars = (dur > 3 ? 16 : 2) * (light.style === 'chill' || p.slow ? 2 : 1);   // chill moves at half speed
       p.loop.time = (((((beats + p.phase + p.offset) % bars) + bars) % bars) / bars) * dur;
       p.loop.timeScale = 0;
-    } else if (p.loop) p.loop.timeScale = 1;
+    } else if (p.loop) p.loop.timeScale = DANCES.includes(p.loopName) ? THREE.MathUtils.clamp(tempo / 124, 0.85, 1.2) * p.rate : 1;   // the moves follow the tempo
+    rigRestore(p.rig);
     // undo last frame's breathing and head turn first, so they never pile up when no clip is writing these bones
     if (p.chest && p.chestQ) p.chest.quaternion.copy(p.chestQ);
     if (p.head && p.headQ) p.head.quaternion.copy(p.headQ);
@@ -617,10 +722,10 @@ function updatePeople(dt) {
     p.root.visible = true;
     if (p.chest) (p.chestQ ||= new THREE.Quaternion()).copy(p.chest.quaternion);
     if (p.head) (p.headQ ||= new THREE.Quaternion()).copy(p.head.quaternion);
+    rigSave(p.rig);
     // turn towards a friend when talking, drift a little on the spot, breathe, and keep an eye on the DJ
     p.yaw += (p.yawTarget - p.yaw) * Math.min(1, dt * 3);
-    p.root.rotation.y = p.face + p.yaw;
-    p.root.position.set(p.home.x + Math.sin(t * 0.13 + p.seed) * 0.07, 0, p.home.z + Math.cos(t * 0.11 + p.seed) * 0.07);
+    grooveBody(p, dt, t, beats, playing);
     if (BEAT_LOOPS.has(p.loopName) && kickPulse != null) { // everyone hits the kick: a little drop through the knees and a chest punch, harder when the room is up
       const hit = kickPulse * (0.5 + brain.hype / 100);
       p.root.position.y -= 0.035 * hit; if (p.chest) p.chest.rotateX(0.07 * hit);
@@ -1081,10 +1186,11 @@ async function loadCrowd() {
     const armL = bone(/^mixamorigLeftArm$/i), armR = bone(/^mixamorigRightArm$/i);
     const p = { root, mixer, actions, fadeMaterials, fade: reducedMotion ? 1 : 0, hand, handL, armL, armR, spread: 0, head: bone(/^(head|mixamorigHead)$/i), chest: bone(/^(chest|mixamorigSpine2)$/i), loop: null, loopName: null, busy: false,
       bias: rnd(-10, 10), offset: rnd(-0.5, 0.5), slow: Math.random() < 0.3, phase: (i * 3 + Math.floor(rnd(0, 2))) % 16, /* each a little off the beat, from their own place in the move */ home: new THREE.Vector3(px, 0, pz), face, yaw: 0, yawTarget: 0, seed: rnd(0, 100),
-      style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || anims.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {} };
+      style: star ? star.style : pick(STYLES), dances: DANCES.filter((d) => actions[d] && (d !== 'dance' || anims.some((c) => c.name === d && c.duration > 3))), dance: null, /* the old hand-made 'dance' is a stiff side-to-side shuffle: only the mocap one is kept */ phrase: -1, hold: null, nextThink: rnd(2, 8), look: null, props: {},
+      rig: rigBones(root), groove: 0, jump: 0, surge: 0, up: 0, raise: null, jumpUntil: -1, surgeUntil: -1, lag: rnd(-0.05, 0.09), energy: rnd(0.65, 1.2), rate: rnd(0.95, 1.05) };
     p.sex = star ? star.sex || 'm' : pick(['m', 'f']);
     p.dances = p.dances.filter((d) => d !== (p.sex === 'f' ? 'dance' : 'dance2')); // the wide hip-hop bounce is the lads', the hip-swinging house move the girls'
-    p.dance = p.dances.includes('dance4') ? 'dance4' : pick(p.dances);
+    p.dance = pick(p.dances.includes('dance4') ? ['dance4', ...p.dances] : p.dances);   // the two-step is the favourite, but not everyone starts on it
     const firstDance = p.actions[p.dance] || p.actions.idle;
     if (firstDance) {
       firstDance.setLoop(THREE.LoopRepeat, Infinity);
@@ -1106,7 +1212,7 @@ async function loadCrowd() {
 // The Club Cloud logo as a head: a glossy white C and a glowing cyan C wrapped round a dark glass dome, with a round
 // LED face inside. The face is a shader: its eyes and mouth follow the crowd meter (angry, bored, dancing, buzzing),
 // it blinks, bounces on the beat, and flashes heart eyes on a drop.
-function buildRobotHead(bone, p) {
+function buildRobotHead(bone, p, isDj = false) {
   const g = new THREE.Group();
   const ws = bone.getWorldScale(new THREE.Vector3()).x;
   g.scale.setScalar(1 / ws); g.position.set(0, 0.21 / ws, 0.01 / ws); // sits on the neck mount
@@ -1187,6 +1293,40 @@ function buildRobotHead(bone, p) {
   // a glowing collar where the head meets the neck
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.01, 12, 48), new THREE.MeshBasicMaterial({ color: 0x4cebff }));
   collar.rotation.x = Math.PI / 2; collar.position.y = -R * 0.98; g.add(collar);
+  if (isDj) {
+    // headphones: a cup over each ear, sitting on the ring that already runs over the head
+    const cupMat = new THREE.MeshPhysicalMaterial({ color: 0x0b0f16, roughness: 0.25, metalness: 0.6, clearcoat: 1 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x4cebff });
+    for (const sx of [-1, 1]) {
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.066, 0.052, 32), cupMat); cup.rotation.z = sx * Math.PI / 2; cup.position.set(sx * (R + 0.032), -0.005, 0); g.add(cup);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.006, 10, 40), glowMat); ring.rotation.y = Math.PI / 2; ring.position.set(sx * (R + 0.06), -0.005, 0); g.add(ring);
+    }
+    // the back of the head, which is what the booth camera sees: a ring of level bars that follows the music, round a core that hits on the kick
+    const back = new THREE.ShaderMaterial({
+      uniforms: { uTime: mat.uniforms.uTime, uKick: mat.uniforms.uKick, uCol: mat.uniforms.uCol, uSpec: mat.uniforms.uSpec },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `
+        varying vec2 vUv; uniform float uTime, uKick; uniform vec3 uCol; uniform sampler2D uSpec;
+        void main(){
+          vec2 p = vUv * 2.0 - 1.0; float r = length(p);
+          if (r > 1.0) discard;
+          float a = atan(p.x, p.y) / 6.2832 + 0.5;                    // 0 at the bottom, round the head
+          float k = abs(a * 2.0 - 1.0);                                 // mirrored left and right: bass at the top
+          float v = texture2D(uSpec, vec2((1.0 - k) * 0.55, 0.5)).r;
+          float bar = step(abs(fract(a * 36.0) - 0.5), 0.33) * step(0.44, r) * step(r, 0.5 + v * 0.42);
+          float ring = smoothstep(0.035, 0.0, abs(r - 0.37)) * (0.35 + 0.65 * uKick);
+          float core = smoothstep(0.26 + 0.06 * uKick, 0.0, r) * (0.18 + 0.9 * uKick);
+          float sweep = smoothstep(0.06, 0.0, abs(fract(a - uTime * 0.12) - 0.5) - 0.44) * step(0.9, r) * 0.6;
+          vec3 col = uCol * (bar * 1.25 + ring + core + sweep);
+          vec2 cell = fract(vUv * 96.0) - 0.5; float pix = smoothstep(0.6, 0.2, length(cell));
+          col *= 0.3 + 0.9 * pix;
+          col += vec3(0.008, 0.015, 0.025) * pix;
+          gl_FragColor = vec4(col, 1.0);
+          #include <colorspace_fragment>
+        }`,
+    });
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(R * 0.86, 64), back); disc.position.z = -R * 0.83; disc.rotation.y = Math.PI; g.add(disc);
+  }
   bone.add(g);
   // the body: glossier, so it catches the moving lights, and its glow lines pulse with the beat
   const bodyMats = [];
@@ -2002,6 +2142,49 @@ function updateCo2(dt, t) {
   for (const k of ['position', 'size', 'alpha']) co2.pts.geometry.attributes[k].needsUpdate = true;
 }
 
+// ------------------------------------------------------------------ confetti
+// Two cannons either side of the booth fire paper over the floor on a big drop. It flutters down through the lights and settles.
+const confetti = { mesh: null, bits: null, until: -1, last: -99, drop: -99 };
+const _cf = new THREE.Object3D();
+function buildConfetti() {
+  const n = LITE ? 110 : 280;
+  const m = confetti.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.06, 0.035), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true }), n);
+  m.frustumCulled = false; m.visible = false;
+  const c = new THREE.Color();
+  for (let i = 0; i < n; i++) m.setColorAt(i, c.setHex(PALETTE[i % PALETTE.length]).lerp(WHITE, i % 5 === 0 ? 0.75 : 0.1));
+  confetti.bits = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, a: 0, b: 0, sa: 0, sb: 0, ph: rnd(0, 6.28) }));
+  scene.add(m);
+}
+function fireConfetti(t) {
+  confetti.bits.forEach((q, i) => {
+    const sgn = i % 2 ? 1 : -1;
+    q.x = sgn * 1.9; q.y = 1.4; q.z = -0.9;
+    q.vx = -sgn * rnd(-0.6, 3.4); q.vy = rnd(3.5, 7.2); q.vz = -rnd(0.8, 9.5);
+    q.a = rnd(0, 6.28); q.b = rnd(0, 6.28); q.sa = rnd(-8, 8); q.sb = rnd(-6, 6);
+  });
+  confetti.until = t + 10; confetti.mesh.visible = true;
+}
+function updateConfetti(dt, t) {
+  const m = confetti.mesh; if (!m) return;
+  if (brain.lastDrop !== confetti.drop) {
+    confetti.drop = brain.lastDrop;
+    if (t - brain.lastDrop < 1.5 && light.on && light.style !== 'chill' && light.fx.co2 !== false && t - confetti.last > 40) { confetti.last = t; fireConfetti(t); }
+  }
+  if (!m.visible) return;
+  if (t > confetti.until) { m.visible = false; return; }
+  m.material.opacity = Math.min(1, (confetti.until - t) / 1.5);
+  const drag = Math.exp(-dt * 1.8);
+  confetti.bits.forEach((q, i) => {
+    if (q.y > 0.02) {
+      q.vx = q.vx * drag + Math.sin(t * 2.3 + q.ph) * 0.9 * dt; q.vz *= drag; q.vy = q.vy * drag - 2.2 * dt;
+      q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt; q.a += q.sa * dt; q.b += q.sb * dt;
+      if (q.y <= 0.02) { q.y = 0.02; q.a = Math.PI / 2; q.b = 0; }      // lies flat on the floor
+    }
+    _cf.position.set(q.x, q.y, q.z); _cf.rotation.set(q.a, q.b, 0); _cf.updateMatrix(); m.setMatrixAt(i, _cf.matrix);
+  });
+  m.instanceMatrix.needsUpdate = true;
+}
+
 // ------------------------------------------------------------------ sounds
 // Crowd and effects are synthesised (no sample files): a murmur bed that rises with the hype, cheers and whistles,
 // boos, and the hiss of the CO2. They play on their own audio context so the crowd's ears never hear them.
@@ -2255,13 +2438,16 @@ function frame() {
   if (!running) return;
   requestAnimationFrame(frame);
   adaptPx();
-  const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
+  frameBody(Math.min(0.05, clock.getDelta()), clock.elapsedTime);
+}
+function frameBody(dt, t) {
   think(dt, t);
   applyRemote(t);
   pushRoomState(t);
   updatePeople(dt);
   updateFlying(dt);
   updateTexts(dt);
+  updateConfetti(dt, t);
   lights(t, dt);
   sfx.bed(brain.playing, brain.hype);
   if (camView === 'pan' && mode === 'club') updatePanCam(curBeat);
@@ -2309,7 +2495,8 @@ async function loadDj() {
   {   // give it the Club Cloud head: glass dome, the logo's two C's and the LED face
     let head = null; root.traverse((o) => { if (o.isBone && /^(head|mixamorigHead)$/i.test(o.name)) head = o; });
     root.updateMatrixWorld(true);
-    if (head) { dj.pseudo = { root, head }; dj.pseudo.robot = buildRobotHead(head, dj.pseudo); }
+    if (head) { dj.pseudo = { root, head }; dj.pseudo.robot = buildRobotHead(head, dj.pseudo, true); }
+    dj.rig = rigBones(root); dj.hands = { L: djHand(-1), R: djHand(1) };
   }
   mixer.addEventListener('finished', (e) => {
     const back = brain.playing ? 'play' : 'idle';
@@ -2317,6 +2504,62 @@ async function loadDj() {
     dj.now = back; dj.busy = false;
   });
   aimCamera();
+}
+// Where the robot's hands go on the controller (metres in the room; x is mirrored for the right hand). It faces the crowd, so its left is the room's -x.
+const DJ_SPOTS = { jog: [0.3, -0.47], pitch: [0.43, -0.4], eq: [0.07, -0.52], fader: [0.07, -0.42], cross: [0.03, -0.36] };
+const djHand = (sgn) => ({ sgn, spot: 'jog', pos: new THREE.Vector3(sgn * 0.3, BOOTH.tableY + 0.075, -0.47), next: 0, air: false, cue: false });
+const _d1 = new THREE.Vector3(), _d2 = new THREE.Vector3(), _d3 = new THREE.Vector3();
+// The robot actually works the booth. Its hands stay on the controller while its body grooves: nudging a jog wheel, riding a fader, turning an EQ,
+// a hand to the headphone to cue the next tune, a fist in the air when the room is up, and one arm slowly rising through a build.
+// Its head nods on the kick, looks down at the decks and comes up to read the crowd.
+function djBody(dt, t) {
+  const g = dj.rig; if (!g || !g.armL || !g.armR) return;
+  const ez = (cur, to, rate) => cur + (to - cur) * Math.min(1, dt * rate);
+  dj.work = ez(dj.work || 0, dj.busy ? 0 : 1, dj.busy ? 7 : 3);
+  const w = dj.work * dj.work * (3 - 2 * dj.work);
+  const playing = brain.playing, b = lastBeats != null ? lastBeats : t * 2.07;
+  const hit = playing ? Math.pow(1 - fr(b), 2.2) : 0, late = playing ? Math.pow(1 - fr(b - 0.14), 2.2) : 0, sway = playing ? Math.sin(b * Math.PI * 0.5) : 0;
+  const build = playing && brain.lowSince > 2.5 && light.style !== 'chill';
+  if (t > (dj.lookNext || 0)) { dj.lookNext = t + rnd(5, 11); dj.lookUntil = Math.random() < 0.45 ? t + rnd(1.8, 3.5) : 0; dj.lookYaw = rnd(-0.5, 0.5); }
+  dj.up = ez(dj.up || 0, t < dj.lookUntil || build ? 1 : 0, 3.5);
+  dj.cue = ez(dj.cue || 0, dj.hands.L.cue ? 1 : 0, 5);
+  // body first, so the shoulders are where they will be when the hands are placed
+  dj.root.position.y = BOOTH.riser - 0.02 * hit * w;
+  if (g.spine) g.spine.rotateX((0.1 - 0.06 * dj.up + 0.03 * hit) * w);
+  if (g.chest) { g.chest.rotateX(0.05 * hit * w); g.chest.rotateZ(sway * 0.03 * w); }
+  if (g.neck) g.neck.rotateX(0.05 * late * w);
+  if (g.head) {   // the head is pointed, not just tipped, so the dance underneath can't leave it looking off to one side
+    faceBone(g.head, _d1.set(dj.lookYaw * dj.up + sway * 0.06, -0.55 + 0.47 * dj.up, -1), 0.85 * w);
+    g.head.rotateX(0.11 * late * w); g.head.rotateZ(-0.24 * dj.cue * w);
+  }
+  const arms = [[dj.hands.L, g.armL, g.foreL, g.handL, g.midL], [dj.hands.R, g.armR, g.foreR, g.handR, g.midR]];
+  for (const [h, arm, fore, hand, mid] of arms) {
+    if (!arm || !fore || !hand) continue;
+    if (t > h.next) {
+      const r = Math.random();
+      h.air = false; h.cue = false; h.next = t + (playing ? rnd(1.5, 6) : rnd(5, 12));
+      if (playing && h.sgn < 0 && r < 0.14) { h.cue = true; h.next = t + rnd(2.5, 5); }                                   // left hand to the headphone
+      else if (playing && h.sgn > 0 && r < (brain.hype > 66 ? 0.2 : 0.07)) { h.air = true; h.next = t + rnd(2, 4); }      // right fist in the air
+      else h.spot = pick(Object.keys(DJ_SPOTS));
+    }
+    const s = DJ_SPOTS[h.spot], high = h.air || (build && h.sgn > 0);
+    if (h.cue && g.head) { g.head.getWorldPosition(_d1); _d1.x += h.sgn * 0.2; _d1.y += 0.05; _d1.z -= 0.03; }
+    else if (high) _d1.set(h.sgn * 0.42, 2.1 + 0.1 * hit, -0.26 - (build ? 0 : 0.16 * hit));
+    else {
+      _d1.set(h.sgn * s[0], BOOTH.tableY + 0.075, s[1]);
+      if (!playing) { /* hands rest where they are */ }
+      else if (h.spot === 'jog') { _d1.x += Math.cos(b * Math.PI) * 0.035; _d1.z += Math.sin(b * Math.PI) * 0.035; }       // riding the platter
+      else if (h.spot === 'eq') _d1.x += Math.sin(t * 7 + h.sgn) * 0.006;                                                  // turning a knob
+      else _d1.z += Math.sin(t * 1.3 + h.sgn) * 0.03;                                                                      // riding a fader
+    }
+    const far = h.pos.distanceTo(_d1);
+    h.pos.lerp(_d1, 1 - Math.exp(-dt * 8));
+    _d2.copy(h.pos); _d2.y += Math.min(0.07, far * 0.35);                                                                  // lifts off the deck to move across it
+    const up = _d2.y > 1.6;
+    if (up) _d3.set(h.sgn * 0.9, -0.1, 0.25); else _d3.set(h.sgn * 0.7, -0.75, 0.55);                                       // elbows out, down and back
+    reach(arm, fore, hand, _d2, _d3, w);
+    if (mid && !up) aimBone(hand, mid, _d3.set(-h.sgn * 0.15, -0.3, -1), w * 0.85);                                        // palm flat over the controls
+  }
 }
 function djPlay(name, fade = 0.35) {
   const next = dj.actions[name]; if (!next) return;
@@ -2344,7 +2587,10 @@ function updateDj(dt, t) {
     const a = dj.actions.play, dur = a.getClip().duration, bars = dur > 3 ? 16 : 2;
     a.time = (((((lastBeats % bars) + bars) % bars) / bars) * dur); a.timeScale = 0;
   } else if (dj.pseudo && dj.actions.play) dj.actions.play.timeScale = 1;
+  rigRestore(dj.rig);
   dj.mixer.update(dt);
+  rigSave(dj.rig);
+  djBody(dt, t);
   if (dj.pseudo) updateRobot(dj.pseudo, t, lastKick);
   if (camView === 'booth') djRenderer.render(djScene, camera);
 }
@@ -2364,6 +2610,7 @@ async function startClub() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   clock = new THREE.Clock();
   buildScene();
+  buildConfetti();
   // bloom: the brightest things (lasers, neon C's, the screen, blinders, lenses) bleed light like they do through real haze
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -2414,4 +2661,4 @@ const preloadClub = () => { if (!started && mode === 'off') start().catch((e) =>
 const whenIdle = () => (window.requestIdleCallback ? window.requestIdleCallback(preloadClub, { timeout: 6000 }) : setTimeout(preloadClub, 3000));
 if (document.readyState === 'complete') setTimeout(whenIdle, 1500); else addEventListener('load', () => setTimeout(whenIdle, 1500));
 window.addEventListener('resize', () => { if (renderer && mode !== 'off') resize(); });
-window.__club = { inputLevel: () => brain.level || 0, get inputOn() { return inputMode && !!ext.mic; }, snapshot, live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { if (light.fx.co2 === false || clock.elapsedTime - (auto.co2Tip ?? -99) < 6) return; auto.co2Tip = clock.elapsedTime; light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt };
+window.__club = { inputLevel: () => brain.level || 0, get inputOn() { return inputMode && !!ext.mic; }, snapshot, live, remote, useInput, useStream, stopInput, applySync, endSync, syncPacket, setVeil, get scene() { return scene; }, get clock() { return clock; }, co2: () => { if (light.fx.co2 === false || clock.elapsedTime - (auto.co2Tip ?? -99) < 6) return; auto.co2Tip = clock.elapsedTime; light.sfx.co2 = clock.elapsedTime + SFX_LENGTH.co2; sfx.co2(); }, get camera() { return camera; }, get ready() { return !!dj; }, BACKDROP: { y: 2.32, z: 1.75, r: 2.08 }, look, screen, auto, sfx, chat: (i) => chat(people[i], clock.elapsedTime), hold: (i, c, s) => holdFor(people[i], c, s), tick: (dt, t) => { think(dt, t); updatePeople(dt); updateFlying(dt); updateTexts(dt); }, brain, people, light, setLight, connectRoom, react: (i, c) => react(people[i], c, ['TEST'], true), throwAt, raise: (i, k, s) => raise(people[i], k, s), confetti: () => fireConfetti(clock.elapsedTime), get dj() { return dj; }, step: (n = 60, dt = 1 / 60) => { for (let i = 0; i < n; i++) { clock.elapsedTime += dt; frameBody(dt, clock.elapsedTime); } } };   // step: run frames by hand (for testing in a hidden tab)
