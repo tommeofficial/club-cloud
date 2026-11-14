@@ -80,7 +80,7 @@ for sex, n, hairs, tops, bots in (('f', 14, HAIR_F, TOPS_F, BOTS_F), ('m', 6, HA
         skinlike = (hue >= 0) & (hue < 52) & (sat > 0.10) & (sat < 0.85) & (val > 0.24)
         # hair: the head islands that are not the face, plus draped strands on the shoulders and chest (saturated gold/brown, different from the skin)
         head_hair = M[1] & ~M[2]
-        drape = M[7] & (val > 0.42) & (hue > 20) & (hue < 54) & (sat > 0.36) & (dskin > 0.10)
+        drape = M[7] & (val > 0.36) & (hue > 16) & (hue < 56) & (sat > 0.34) & (dskin > 0.08)
         hair = head_hair | drape
         img = recolour(img, hair, hairs[i % len(hairs)], spread=1.2, floor=0.25)
         # clothes: body islands and shoes that are dark or not warm-coloured (dresses, tees, trousers, boots), never skin or hair

@@ -24,6 +24,7 @@ arms = sum(W[k] for k in W if ('Arm' in k or 'Hand' in k)) > 0.5
 upper = ~head & ~arms & (P[:, 2] > zmin - 0.40)       # 7: shoulders, chest and upper back, where long hair drapes
 lab[upper] = 7; lab[head] = 1; lab[face] = 2; lab[hand] = 3; lab[foot] = 4
 legs = sum(W.get(k, 0) for k in ('LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg')) > 0.5
+legs = legs | (W.get('Hips', 0) > 0.5)
 lab[legs & ~foot] = 8   # trousers or skirt
 neck = (W['Neck'] > 0.5) & ~head & (P[:, 2] > zmin - 0.10); lab[neck] = 6
 uv = me.uv_layers.active.data
